@@ -1,6 +1,18 @@
 import 'dotenv/config';
 import axios from 'axios';
 import fs from 'node:fs';
+import net from 'node:net';
+
+// ── Single-instance lock to prevent duplicate bot processes running on this machine ──
+const SINGLETON_PORT = 49811;
+const singletonServer = net.createServer();
+singletonServer.once('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[Process] Another instance of Alabama Bot is already running on this machine (port ${SINGLETON_PORT} in use). Exiting.`);
+    process.exit(0);
+  }
+});
+singletonServer.listen(SINGLETON_PORT, '127.0.0.1');
 import {
   ActionRowBuilder,
   ActivityType,
@@ -40,6 +52,7 @@ import {
   handleMeetingButton,
   initMeetingService,
   listMeetings as meetingList,
+  meetingRsvp,
   postponeMeeting as meetingPostpone,
   scheduleMeeting as meetingSchedule
 } from './meetings.js';
@@ -72,6 +85,29 @@ import {
   startAiConvo,
   touchAiConvo
 } from './ai_converse.js';
+
+// ── Ticket AI (intelligent, self-learning support) ──
+// Self-contained module; reads/writes src/ticket_knowledge.json and reuses the
+// existing provider chain from ai.js. Never imports this file (one-directional).
+import {
+  addEntry as kbAddEntry,
+  answerTicket,
+  approveEntry as kbApproveEntry,
+  captureStaffAnswer,
+  deleteEntry as kbDeleteEntry,
+  editEntry as kbEditEntry,
+  findBestAnswer as kbFindBest,
+  getEntry as kbGetEntry,
+  isCategoryEnabled,
+  listApproved as kbListApproved,
+  listCandidates as kbListCandidates,
+  listPending as kbListPending,
+  loadKB,
+  markPendingAwaiting,
+  rejectEntry as kbRejectEntry,
+  searchKnowledge as kbSearchKnowledge,
+  setCategoryEnabled as kbSetCategoryEnabled
+} from './ticket_ai.js';
 import http from 'node:http';
 import path from 'node:path';
 import { fork } from 'node:child_process';
@@ -404,10 +440,11 @@ const mediaCommand = new SlashCommandBuilder()
   );
 
 const LOA_CHANNEL_ID = '1232495214162214922';
-// Voice-channel chat that carries the Approve / Deny buttons for new requests.
-const LOA_ACTION_CHANNEL_ID = '1536215478584868874';
-// Only these management roles (or Administrators) may Approve / Deny an LOA.
-const LOA_APPROVER_ROLE_IDS = ['1341931745351700534', '1341932322970276022'];
+// Channel that carries the Approve / Deny buttons for new requests.
+const LOA_ACTION_CHANNEL_ID = '1232495214162214922';
+// Only this role (or Administrators) may Approve / Deny an LOA.
+const LOA_APPROVER_ROLE_IDS = ['1341932333741244476'];
+const LOA_APPROVER_ROLE_LABEL = LOA_APPROVER_ROLE_IDS.map((id) => `<@&${id}>`).join(' and ');
 // Roles that stay on the member while their LOA is active (@everyone + Staff Team).
 const LOA_KEEP_ROLE_IDS = ['1232495211490443285', '1341965114101731418'];
 // Only these staff/rank roles are suspended during an LOA. Everything else
@@ -541,7 +578,7 @@ const antiNukeCommand = new SlashCommandBuilder()
   .setName('antinuke')
   .setDescription('Server security and anti-nuke management.')
   .addSubcommand((sub) =>
-    sub.setName('status').setDescription('View anti-nuke defense status, thresholds, and incident history.')
+    sub.setName('status').setDescription('Check the anti-nuke state, backups, and alert routing.')
   )
   .addSubcommand((sub) =>
     sub.setName('snapshot').setDescription('Take an instant backup snapshot of all channels and roles.')
@@ -702,6 +739,62 @@ const retriggerCommand = new SlashCommandBuilder()
 const commandsCommand = new SlashCommandBuilder()
   .setName('commands')
   .setDescription('Display the complete, beautifully organized guide of all bot commands.');
+
+// Staff control surface for the ticket-AI knowledge base (approve/edit/reject/…).
+const kbCommand = new SlashCommandBuilder()
+  .setName('kb')
+  .setDescription('Manage the ticket-AI knowledge base (staff only).')
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+  .addSubcommand((sub) =>
+    sub.setName('stats').setDescription('Overview of the knowledge base, pending questions, and AI status.')
+  )
+  .addSubcommand((sub) =>
+    sub.setName('search').setDescription('Search approved knowledge entries.')
+      .addStringOption((opt) => opt.setName('query').setDescription('What to search for').setRequired(true))
+  )
+  .addSubcommand((sub) => sub.setName('pending').setDescription('List unanswered questions awaiting staff.'))
+  .addSubcommand((sub) => sub.setName('review').setDescription('List candidate answers awaiting approval.'))
+  .addSubcommand((sub) =>
+    sub.setName('show').setDescription('Show one entry and where it came from.')
+      .addStringOption((opt) => opt.setName('id').setDescription('Entry id (e.g. kb_join_dept or ln_…)').setRequired(true))
+  )
+  .addSubcommand((sub) =>
+    sub.setName('approve').setDescription('Approve a candidate answer so it is served for free.')
+      .addStringOption((opt) => opt.setName('id').setDescription('Candidate id').setRequired(true))
+  )
+  .addSubcommand((sub) =>
+    sub.setName('reject').setDescription('Reject a candidate answer so it is never served.')
+      .addStringOption((opt) => opt.setName('id').setDescription('Candidate id').setRequired(true))
+  )
+  .addSubcommand((sub) =>
+    sub.setName('edit').setDescription('Edit an existing entry (fixes an approved answer).')
+      .addStringOption((opt) => opt.setName('id').setDescription('Entry id').setRequired(true))
+      .addStringOption((opt) => opt.setName('answer').setDescription('New answer text').setRequired(false))
+      .addStringOption((opt) => opt.setName('question').setDescription('New question text').setRequired(false))
+  )
+  .addSubcommand((sub) =>
+    sub.setName('delete').setDescription('Permanently remove an entry.')
+      .addStringOption((opt) => opt.setName('id').setDescription('Entry id').setRequired(true))
+  )
+  .addSubcommand((sub) =>
+    sub.setName('add').setDescription('Add a new approved knowledge entry directly.')
+      .addStringOption((opt) => opt.setName('question').setDescription('The question').setRequired(true))
+      .addStringOption((opt) => opt.setName('answer').setDescription('The approved answer').setRequired(true))
+      .addStringOption((opt) => opt.setName('category').setDescription('Ticket category').setRequired(false))
+  )
+  .addSubcommand((sub) =>
+    sub.setName('category').setDescription('Enable or disable AI auto-response for a category.')
+      .addStringOption((opt) => opt.setName('category').setDescription('Category key').setRequired(true)
+        .addChoices(
+          { name: 'General Support', value: 'general' },
+          { name: 'Internal Affairs', value: 'ia' },
+          { name: 'High Rank Support', value: 'highrank' },
+          { name: 'Department Reports', value: 'deptreport' },
+          { name: 'Partnership', value: 'partnership' },
+          { name: 'Staff Partnership', value: 'staff_partnership' }
+        ))
+      .addBooleanOption((opt) => opt.setName('enabled').setDescription('AI on or off').setRequired(true))
+  );
 
 const addCommand = new SlashCommandBuilder()
   .setName('add')
@@ -1419,7 +1512,7 @@ const client = new Client({
 const SUGGESTIONS_FILE = fileURLToPath(new URL('../suggestions.json', import.meta.url));
 const activeSuggestions = new Map();
 const SUGGESTION_CHANNEL_ID = '1343769737439608853';
-const SHR_LOGS_CHANNEL_ID = '1549597951611899954';
+const SHR_LOGS_CHANNEL_ID = '1277365829247307857';
 
 function saveSuggestions() {
   try {
@@ -1726,6 +1819,7 @@ function isStaffMember(member) {
   if (member.permissions?.has(PermissionFlagsBits.ManageGuild)) return true;
   if (member.permissions?.has(PermissionFlagsBits.ManageRoles)) return true;
   if (member.permissions?.has(PermissionFlagsBits.ModerateMembers)) return true;
+  if (member.roles?.cache?.has('1341965114101731418')) return true;
   if (member.roles?.cache?.some((r) => /(staff|moderator|mod|admin|supervisor|lead|management|high rank|hr|owner|co-owner)/i.test(r.name))) return true;
   return false;
 }
@@ -2849,10 +2943,10 @@ async function handleAntiNukeTrigger({ guild, executor, actionType, targetName, 
   const alertCard = new ContainerBuilder();
   alertCard.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `# 🚨 Anti-Nuke Emergency Security Alert\n` +
+      `# Anti-Nuke Alert\n` +
       (isMajor
-        ? `🔴  **CRITICAL MASS ATTACK DETECTED**\n*Automated containment has already been triggered — respond immediately.*`
-        : `🟠  **SUSPICIOUS ACTIVITY DETECTED**\n*The action rate threshold was exceeded — review this incident now.*`)
+        ? `**MASS NUKE IN PROGRESS**\n*Their roles are already off and they are timed out. Get on it now.*`
+        : `**SUSPICIOUS ACTIVITY**\n*Someone went over the action limit. Take a look at this now.*`)
     )
   );
   alertCard.addSeparatorComponents(thinLine());
@@ -2882,18 +2976,18 @@ async function handleAntiNukeTrigger({ guild, executor, actionType, targetName, 
       `> **Incident:** ${actionDescription}\n` +
       `> **Target Affected:** ${targetName || 'Unknown'}\n` +
       `> **Containment:** ${rolesStripped
-        ? '⚠️ **All administrative roles stripped & the member was quarantined automatically.**'
-        : '⚠️ Action rate logged and monitored — no containment applied yet.'}`
+        ? 'All their roles were taken off and they are timed out for 28 days.'
+        : 'Nothing was touched yet — it has just been logged.'}`
     )
   );
   alertCard.addSeparatorComponents(thinLine());
 
   alertCard.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `### Recommended actions\n` +
-      `> • **Restore User's Roles** — undo the containment if this was a false positive.\n` +
-      `> • **Ban Rogue Member** — remove the threat from the server right away.\n` +
-      `> • **Auto-Restore** — bring back any channels or server roles that were deleted.`
+      `### What you can do\n` +
+      `> • **Restore User's Roles** — put their roles back if this was a mistake.\n` +
+      `> • **Ban Rogue Member** — ban them from the server.\n` +
+      `> • **Auto-Restore** — recreate any channels or roles they deleted.`
     )
   );
 
@@ -2922,7 +3016,7 @@ async function handleAntiNukeTrigger({ guild, executor, actionType, targetName, 
   alertCard.addActionRowComponents(row1, row2);
   alertCard.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `> **Incident ID:** ${incidentId}\n-# Alabama State Roleplay • Automated Anti-Nuke Security Engine`
+      `> **Incident ID:** ${incidentId}\n-# Alabama State Roleplay • Anti-Nuke`
     )
   );
 
@@ -3387,6 +3481,49 @@ async function handleSayCommand(interaction) {
   }
 }
 
+/** One shared Anti-Nuke status card so /antinuke status and -antinuke status match. */
+function buildAntiNukeStatusCard() {
+  const t = ANTINUKE_CONFIG.thresholds;
+  const card = new ContainerBuilder();
+  card.addTextDisplayComponents(new TextDisplayBuilder().setContent('## Anti-Nuke Defense'));
+  card.addSeparatorComponents(thinLine());
+  card.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `Status\n` +
+      `> Watching — the defence is on and listening.\n` +
+      `> Logs go to <#${ANTINUKE_CONFIG.logChannelId}>.\n\n` +
+      `Backups\n` +
+      `> ${channelBackupCache.size} channels saved\n` +
+      `> ${roleBackupCache.size} roles saved\n` +
+      `> ${recentlyDeletedChannels.size} deleted channels held\n` +
+      `> ${recentlyDeletedRoles.size} deleted roles held\n` +
+      `> ${strippedMemberRoles.size} members currently timed out\n` +
+      `> ${recentIncidents.size} incidents since the bot started`
+    )
+  );
+  card.addSeparatorComponents(thinLine());
+  card.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `Warning level\n` +
+      `> Goes off at ${t.channelDeleteMinor} channel deletions, ${t.roleDeleteMinor} role deletions, ` +
+      `${t.banMinor} bans or ${t.kickMinor} kicks within a minute.\n` +
+      `> DMs and pings ${ANTINUKE_CONFIG.alertTargets.lowest.map((id) => `<@&${id}>`).join(' and ')}.\n\n` +
+      `Lockdown level\n` +
+      `> Goes off at ${t.channelDeleteMajor}+ channel deletions, ${t.roleDeleteMajor}+ role deletions, ` +
+      `or ${t.banMajor}+ bans within a minute.\n` +
+      `> Their roles come off, they get timed out for 28 days, and ` +
+      `${ANTINUKE_CONFIG.alertTargets.full.map((id) => `<@&${id}>`).join(', ')} and the owner get pinged.`
+    )
+  );
+  card.addSeparatorComponents(thinLine());
+  card.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `-# \`/antinuke snapshot\` refreshes the backups · \`/antinuke restore\` puts deleted channels and roles back`
+    )
+  );
+  return card;
+}
+
 async function handleAntiNukeCommand(interaction) {
   const sub = interaction.options.getSubcommand();
   const member = interaction.member || (await interaction.guild?.members.fetch(interaction.user.id).catch(() => null));
@@ -3397,24 +3534,10 @@ async function handleAntiNukeCommand(interaction) {
   }
 
   if (sub === 'status') {
-    const card = new ContainerBuilder();
-    card.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 🛡️ Anti-Nuke Defense Status'));
-    card.addSeparatorComponents(thinLine());
-    card.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `> **System Status:** 🟢 **Active & Armed**\n` +
-        `> **Security Log Channel:** <#${ANTINUKE_CONFIG.logChannelId}>\n` +
-        `> **Channel Backup Cache:** ${channelBackupCache.size} channels indexed\n` +
-        `> **Role Backup Cache:** ${roleBackupCache.size} roles indexed\n` +
-        `> **Deleted Channels in Cache:** ${recentlyDeletedChannels.size}\n` +
-        `> **Deleted Roles in Cache:** ${recentlyDeletedRoles.size}\n` +
-        `> **Quarantined Actors:** ${strippedMemberRoles.size}\n\n` +
-        `**Alert Routing:**\n` +
-        `• **Minor Activity (2 deletions):** Alerts Deputy Director & Assistant Director\n` +
-        `• **Critical Mass Nuke (4+ deletions / mass bans):** Instant role strip, 28-day quarantine, and alerts all leadership tiers.`
-      )
-    );
-    await interaction.reply({ components: [card.toJSON()], flags: MessageFlags.IsComponentsV2 });
+    await interaction.reply({
+      components: [buildAntiNukeStatusCard().toJSON()],
+      flags: MessageFlags.IsComponentsV2
+    });
     return;
   }
 
@@ -6144,7 +6267,23 @@ function loadTickets() {
   try {
     if (!fs.existsSync(TICKETS_FILE)) return;
     const raw = JSON.parse(fs.readFileSync(TICKETS_FILE, 'utf8'));
-    for (const [chanId, t] of Object.entries(raw)) activeTickets.set(chanId, t);
+    for (const [chanId, t] of Object.entries(raw)) {
+      // Backfill AI state for tickets created before the assistant existed so
+      // existing open tickets start responding immediately. Only AI-enabled,
+      // human-unclaimed categories become active; we never override a ticket
+      // that already has an explicit aiActive flag (respects stop/takeover).
+      if (typeof t.aiActive !== 'boolean') {
+        const aiEligible =
+          isCategoryEnabled(t.categoryKey) &&
+          t.categoryKey !== 'partnership' &&
+          t.categoryKey !== 'staff_partnership' &&
+          !t.claimedBy;
+        t.aiActive = aiEligible;
+        t.aiStopped = false;
+      }
+      activeTickets.set(chanId, t);
+    }
+    saveTickets();
     console.log(`Restored ${activeTickets.size} active ticket(s) from ${TICKETS_FILE}.`);
   } catch (err) {
     console.error(`Could not read ${TICKETS_FILE}:`, err.message);
@@ -6261,8 +6400,11 @@ function buildTicketPanelContainer(bannerOverride) {
 }
 
 function buildTicketControlContainer(ticket, bannerOverride) {
-  const isAiClaimed = ticket.categoryKey === 'partnership' && (ticket.claimedBy === client.user.id || !ticket.claimedBy);
   const isClaimed = !!ticket.claimedBy;
+  // The assistant is the active handler only while it is flagged active AND no
+  // human has explicitly claimed the ticket. Partnership/staff_partnership never
+  // set aiActive, so they always fall through to the normal unclaimed/claimed UI.
+  const isAiClaimed = !isClaimed && ticket.aiActive === true;
   const container = new ContainerBuilder();
   const bannerUrl = (bannerOverride !== undefined)
     ? bannerOverride
@@ -6298,10 +6440,24 @@ function buildTicketControlContainer(ticket, bannerOverride) {
     )
   );
 
-  if (ticket.reason) {
+  if (ticket.categoryKey === 'general') {
     container.addSeparatorComponents(thinLine());
     container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(`> **Reason for Opening:** ${ticket.reason}`)
+      new TextDisplayBuilder().setContent(
+        `### Welcome to Alabama State Roleplay General Support!\n` +
+        `> • **Details:** Please provide any additional screenshots, player names, or relevant details below.\n\n` +
+        `### 📋 Your Inquiry:\n` +
+        `> **${ticket.reason || 'General Community Assistance'}**\n\n` +
+        `*You can close this ticket at any time by clicking **Close Ticket** on the control card below.*`
+      )
+    );
+  } else if (ticket.reason) {
+    container.addSeparatorComponents(thinLine());
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `### 📋 Your Inquiry:\n` +
+        `> **${ticket.reason}**`
+      )
     );
   }
 
@@ -6329,9 +6485,11 @@ function buildTicketControlContainer(ticket, bannerOverride) {
   buttons.push(
     new ButtonBuilder().setCustomId('ticket_close').setLabel('Close Ticket').setStyle(ButtonStyle.Secondary)
   );
-  buttons.push(
-    new ButtonBuilder().setCustomId('ticket_report').setLabel('Report').setStyle(ButtonStyle.Danger)
-  );
+  if (ticket.categoryKey === 'highrank' || ticket.categoryKey === 'ia' || ticket.categoryKey === 'deptreport') {
+    buttons.push(
+      new ButtonBuilder().setCustomId('ticket_report').setLabel('Report').setStyle(ButtonStyle.Danger)
+    );
+  }
 
   if (ticket.categoryKey === 'partnership') {
     buttons.push(
@@ -8912,32 +9070,7 @@ function loaFieldBlock({ roblox, rank, start, end, reason, user }) {
   );
 }
 
-/** The permanent log posted in the LOA channel (no buttons — a clean record). */
-function buildLoaLogCard(opts) {
-  const card = new ContainerBuilder();
-  const banner = opts.bannerUrl || loaBanner().url;
-  if (banner) {
-    card.addMediaGalleryComponents(
-      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(banner))
-    );
-  }
-  card.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      `## Leave of Absence Request\n*Logged for management review — ${opts.user?.tag || 'unknown'} on <t:${Math.floor(Date.now() / 1000)}:F>.*`
-    )
-  );
-  card.addSeparatorComponents(thinLine());
-  card.addTextDisplayComponents(new TextDisplayBuilder().setContent(loaFieldBlock(opts)));
-  card.addSeparatorComponents(thinLine());
-  card.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      `> **Status:** Awaiting decision\n-# Alabama State Roleplay • Leave of Absence System`
-    )
-  );
-  return card;
-}
-
-/** The action card posted in the management chat — Approve / Deny only. */
+/** The single LOA card — the record plus the Approve / Deny buttons. */
 function buildLoaActionCard(opts) {
   const card = new ContainerBuilder();
   const banner = opts.bannerUrl || loaBanner().url;
@@ -8948,8 +9081,8 @@ function buildLoaActionCard(opts) {
   }
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `## Leave of Absence — Decision Required\n` +
-      `<@${opts.user?.id || 'unknown'}> requested leave. Nothing has changed yet.`
+      `## Leave of Absence — Decision Needed\n` +
+      `<@${opts.user?.id || 'unknown'}> asked for leave. Nothing has been changed yet.`
     )
   );
   card.addSeparatorComponents(thinLine());
@@ -8957,8 +9090,8 @@ function buildLoaActionCard(opts) {
   card.addSeparatorComponents(thinLine());
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `> **Approve** — suspends their staff roles for the leave (the leave ends automatically on the end date).\n` +
-      `> **Deny** — leaves them fully active, no changes are made.`
+      `> **Approve** — takes their staff roles away until the leave is over.\n` +
+      `> **Deny** — nothing happens, they stay fully active.`
     )
   );
   card.addSeparatorComponents(thinLine());
@@ -8970,7 +9103,7 @@ function buildLoaActionCard(opts) {
   );
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `-# Only ${LOA_APPROVER_ROLE_IDS.map((id) => `<@&${id}>`).join(' and ')} (or an Administrator) can action this.`
+      `-# Only ${LOA_APPROVER_ROLE_LABEL} can action this.`
     )
   );
   return card;
@@ -8987,21 +9120,21 @@ function buildLoaConcludedCard() {
   }
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `## Your Leave of Absence Has Ended\n*Thank you for your patience — you are back on the roster.*`
+      `## Your Leave of Absence Has Ended\n*You are back on the roster.*`
     )
   );
   card.addSeparatorComponents(thinLine());
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `> **Roles Restored** — every role you held before your leave has been given back automatically.\n` +
-      `> **Nickname** — your normal nickname is back in place.\n` +
-      `> **Activity** — normal moderation duties and session attendance resume immediately.\n` +
-      `> **Extensions** — submit a fresh request any time with /loa.`
+      `> **Roles** — everything you had before the leave is back on your account.\n` +
+      `> **Nickname** — your normal nickname is back.\n` +
+      `> **Duties** — back on normal shifts and sessions.\n` +
+      `> **Need more time?** — just send /loa again.`
     )
   );
   card.addSeparatorComponents(thinLine());
   card.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('> Welcome back to active service.\n-# Alabama State Roleplay • Leave of Absence System')
+    new TextDisplayBuilder().setContent('> Welcome back.\n-# Alabama State Roleplay • LOA')
   );
   return card;
 }
@@ -9123,8 +9256,8 @@ async function autoConcludeLoa(client, record, { reason = 'end date reached' } =
   if (guild) {
     const done = await concludeLoaForMember(guild, record);
     restoredNote = done.ok
-      ? `\n> **Roles Restored:** ${done.restoredRoles} role(s) returned automatically.`
-      : `\n> Could not restore automatically — ${done.reason}`;
+      ? `\n> **Roles Restored:** ${done.restoredRoles} role(s) were put back.`
+      : `\n> Could not restore them — ${done.reason}`;
   }
 
   // The member gets a clean, well-designed DM.
@@ -9147,7 +9280,7 @@ async function autoConcludeLoa(client, record, { reason = 'end date reached' } =
       );
       logCard.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `## Leave of Absence Ended\n<@${record.userId}> is back on active duty as of <t:${Math.floor(Date.now() / 1000)}:F>.`
+          `## Leave of Absence Ended\n<@${record.userId}> is back on duty as of <t:${Math.floor(Date.now() / 1000)}:F>.`
         )
       );
       logCard.addSeparatorComponents(thinLine());
@@ -9156,7 +9289,7 @@ async function autoConcludeLoa(client, record, { reason = 'end date reached' } =
           `> **Reason:** ${reason}\n` +
           `> **Window:** ${record.start || 'Not provided'} → ${record.end || 'Not provided'}\n` +
           `> **Member notified:** Yes (DM)${restoredNote}\n` +
-          `-# Alabama State Roleplay • Leave of Absence System`
+          `-# Alabama State Roleplay • LOA`
         )
       );
       await ch.send({
@@ -9217,70 +9350,48 @@ function resumeLoaTimers(client) {
 }
 
 /**
- * Publishes a new LOA request:
- *   • a permanent log card in the LOA channel (no buttons)
- *   • an action card with Approve / Deny in the management chat
- * Returns { ok, log, action, error }.
+ * Publishes a new LOA request as ONE card in the LOA channel.
+ * That card is both the record and the decision panel (it carries Approve / Deny),
+ * and it gets deleted + replaced once someone decides.
+ * Falls back to the invoking channel only if the LOA channel can't be reached.
+ * Returns { ok, action, error }.
  */
 async function postLoaCard(client, interactionOrMessage, cardOptions) {
   const banner = loaBanner();
   const files = banner.path ? [new AttachmentBuilder(banner.path, { name: banner.name })] : [];
+  const payload = {
+    allowedMentions: { users: [cardOptions.user.id], parse: [] },
+    components: [buildLoaActionCard({ ...cardOptions, bannerUrl: banner.url }).toJSON()],
+    files,
+    flags: MessageFlags.IsComponentsV2
+  };
 
-  // 1) Log card — LOA channel, falling back to wherever the command was used.
-  const logTargets = [];
+  let action = null;
+  let lastError = null;
+
   try {
     const loaChannel = await client.channels.fetch(LOA_CHANNEL_ID);
-    if (loaChannel) logTargets.push(loaChannel);
+    if (loaChannel?.send) action = await loaChannel.send(payload);
   } catch (err) {
-    console.warn(`LOA channel ${LOA_CHANNEL_ID} could not be fetched: ${err.message}`);
-  }
-  const fallbackChannel = interactionOrMessage.channel || null;
-  if (fallbackChannel && fallbackChannel.id !== LOA_CHANNEL_ID) logTargets.push(fallbackChannel);
-
-  let log = null;
-  let lastError = null;
-  for (const target of logTargets) {
-    try {
-      log = await target.send({
-        allowedMentions: { users: [cardOptions.user.id], parse: [] },
-        components: [buildLoaLogCard({ ...cardOptions, bannerUrl: banner.url }).toJSON()],
-        files,
-        flags: MessageFlags.IsComponentsV2
-      });
-      break;
-    } catch (err) {
-      lastError = err;
-      console.warn(`Could not post LOA log in #${target.id}: ${err.message}`);
-    }
+    lastError = err;
+    console.warn(`Could not post the LOA card in #${LOA_CHANNEL_ID}: ${err.message}`);
   }
 
-  // 2) Action card — the management voice-channel chat (Approve / Deny).
-  let action = null;
-  const actionChannel = await client.channels.fetch(LOA_ACTION_CHANNEL_ID).catch((err) => {
-    console.warn(`LOA action channel ${LOA_ACTION_CHANNEL_ID} unavailable: ${err.message}`);
-    return null;
-  });
-  if (actionChannel?.send) {
-    try {
-      action = await actionChannel.send({
-        allowedMentions: { users: [cardOptions.user.id], parse: [] },
-        components: [buildLoaActionCard({ ...cardOptions, bannerUrl: banner.url }).toJSON()],
-        files,
-        flags: MessageFlags.IsComponentsV2
-      });
-    } catch (err) {
+  if (!action && interactionOrMessage.channel?.send) {
+    action = await interactionOrMessage.channel.send(payload).catch((err) => {
       lastError = err;
-      console.warn(`Could not post LOA action card: ${err.message}`);
-    }
+      console.warn(`Could not post the LOA card in #${interactionOrMessage.channel.id}: ${err.message}`);
+      return null;
+    });
   }
 
   return {
-    ok: Boolean(log || action),
-    log,
+    ok: Boolean(action),
+    log: action,
     action,
-    channelId: (log || action)?.channelId || null,
-    message: log || action,
-    error: (log || action) ? null : (lastError || new Error('No LOA channel is available.'))
+    channelId: action?.channelId || null,
+    message: action,
+    error: action ? null : (lastError || new Error('No LOA channel is available.'))
   };
 }
 
@@ -9300,6 +9411,25 @@ function appendLoaDecision(cardJsonArray, statusLine) {
     console.warn(`Could not update LOA card: ${err.message}`);
     return null;
   }
+}
+
+/**
+ * Removes the pending request card and drops a fresh one in its place showing the
+ * decision. Used so a decided LOA is a brand-new card, never an edited leftover.
+ */
+async function replaceLoaCard(client, message, containerJson, files = []) {
+  try { await message.delete().catch(() => null); } catch {}
+  const ch = await client.channels.fetch(message.channelId).catch(() => null);
+  if (!ch?.send) return null;
+  return ch.send({
+    components: [containerJson],
+    files,
+    allowedMentions: { parse: [] },
+    flags: MessageFlags.IsComponentsV2
+  }).catch((err) => {
+    console.warn(`Could not post the decided LOA card: ${err.message}`);
+    return null;
+  });
 }
 
 /** Registers a brand-new LOA request (log card + action card) and returns the record. */
@@ -9360,7 +9490,7 @@ async function handleLoaCommand(interaction) {
 
   const result = await postLoaCard(interaction.client, interaction, {
     roblox, rank, start, end, reason, user: interaction.user,
-    ping: `<@${interaction.user.id}> submitted a Leave of Absence request — management review required.`
+    ping: `<@${interaction.user.id}> just submitted a Leave of Absence request — needs a decision.`
   });
 
   if (!result.ok) {
@@ -9375,7 +9505,7 @@ async function handleLoaCommand(interaction) {
 
   await interaction.editReply({
     content: `Your Leave of Absence request has been logged in <#${LOA_CHANNEL_ID}> and sent to management for a decision.\n` +
-      `> Nothing changes until it is approved. You will be notified either way, and when your leave ends everything is restored automatically.`
+      `> Nothing changes until it is approved. You will get a DM either way, and when your leave ends everything is put back.`
   });
 }
 
@@ -10328,7 +10458,8 @@ function getSlashPayload() {
     retirementCommand.toJSON(),
     exploitCommand.toJSON(),
     loaCommand.toJSON(),
-    mediaCommand.toJSON()
+    mediaCommand.toJSON(),
+    kbCommand.toJSON()
   ];
 }
 
@@ -10340,7 +10471,10 @@ let leaderLockMsgId = null;
 
 async function maintainLeaderLock(discordClient) {
   try {
-    const logChannel = await discordClient.channels.fetch(SHR_LOGS_CHANNEL_ID).catch(() => null);
+    let logChannel = await discordClient.channels.fetch(SHR_LOGS_CHANNEL_ID).catch(() => null);
+    if (!logChannel || !logChannel.isTextBased()) {
+      logChannel = await discordClient.channels.fetch('1236052058059309108').catch(() => null);
+    }
     if (!logChannel || !logChannel.isTextBased()) return;
 
     let lockMsg = null;
@@ -10593,9 +10727,42 @@ client.once(Events.ClientReady, async (readyClient) => {
   startErlcEnforcerLoop(readyClient);
   maintainLeaderLock(readyClient);
   setInterval(() => maintainLeaderLock(readyClient), 8000);
+// Auto-purge any duplicate red tickets created by outdated cloud instances
+cleanupDuplicateRedTickets(readyClient);
+setInterval(() => cleanupDuplicateRedTickets(readyClient), 15000);
 // Keep the "Watching ..." status fresh without spamming the ER:LC API.
 void updateBotPresence(readyClient);
 setInterval(() => void updateBotPresence(readyClient), 5 * 60_000);
+
+// Auto-close inactive AI-managed tickets after 15 minutes of inactivity
+setInterval(async () => {
+  if (!isLeader) return;
+  const now = Date.now();
+  const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
+  for (const [chId, ticket] of activeTickets.entries()) {
+    if (!ticket.aiActive || ticket.aiStopped || ticket.claimedBy) continue;
+    if (ticket.categoryKey === 'partnership' || ticket.categoryKey === 'staff_partnership') continue;
+    const lastActivity = ticket.lastActivityAt || (ticket.createdAt ? ticket.createdAt * 1000 : 0);
+    if (!lastActivity) continue;
+    if (now - lastActivity > INACTIVITY_LIMIT_MS) {
+      const channel = readyClient.channels?.cache?.get(chId);
+      if (!channel) {
+        activeTickets.delete(chId);
+        saveTickets();
+        continue;
+      }
+      try {
+        await channel.send({
+          content: '⏰ **Ticket Inactivity Notice**\n\nThis ticket has been inactive for over 15 minutes. Closing this ticket automatically...',
+          allowedMentions: { parse: [] }
+        });
+        await closeTicketChannel(readyClient, channel, ticket, 'System (Inactivity)', readyClient.user.id, 5000);
+      } catch (err) {
+        console.warn(`[ticket-inactivity] Failed to auto-close inactive ticket ${chId}: ${err.message}`);
+      }
+    }
+  }
+}, 60 * 1000);
 });
 
 // ═══════════════════════ Welcome Message ═══════════════════════
@@ -10640,6 +10807,17 @@ client.on(Events.GuildMemberAdd, async (member) => {
 client.on(Events.ChannelDelete, async (channel) => {
   try {
     if (!channel.guild) return;
+
+    // Never trigger Anti-Nuke alerts for ticket channels being closed/deleted
+    const isTicket = activeTickets.has(channel.id) ||
+      /^[🟢🔴🔵]・/.test(channel.name || '') ||
+      (TICKET_CONFIG?.categories && Object.values(TICKET_CONFIG.categories).some(c => c.categoryId && c.categoryId === channel.parentId));
+    if (isTicket) {
+      activeTickets.delete(channel.id);
+      saveTickets();
+      return;
+    }
+
     recentlyDeletedChannels.set(channel.id, {
       id: channel.id,
       name: channel.name,
@@ -10868,6 +11046,30 @@ client.on(Events.GuildMemberRemove, async (member) => {
   }
 });
 
+async function cleanupDuplicateRedTickets(clientInstance) {
+  try {
+    for (const guild of clientInstance.guilds.cache.values()) {
+      if (!guild?.channels?.cache) continue;
+      const channels = [...guild.channels.cache.values()];
+      for (const ch of channels) {
+        if (!ch || !ch.name?.startsWith('🔴・')) continue;
+        const uname = ch.name.replace(/^🔴・/, '').toLowerCase();
+        const green = channels.find(c =>
+          c && c.id !== ch.id && (c.name === `🟢・${uname}` || c.name?.toLowerCase().endsWith(`・${uname}`))
+        );
+        if (green) {
+          console.log(`[ticket-cleanup] Purging outdated duplicate red ticket #${ch.name} (${ch.id}) because green #${green.name} exists.`);
+          activeTickets.delete(ch.id);
+          saveTickets();
+          await ch.delete('Purging outdated duplicate red ticket').catch(() => null);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[ticket-cleanup] Error:', err.message);
+  }
+}
+
 client.on(Events.ChannelCreate, async (channel) => {
   try {
     if (!channel.guild) return;
@@ -10883,6 +11085,14 @@ client.on(Events.ChannelCreate, async (channel) => {
         deny: po.deny.toArray()
       })) || []
     });
+
+    // ── Instant auto-kill of outdated duplicate red tickets ──
+    const chName = channel.name || '';
+    if (chName.startsWith('🔴・') || chName.startsWith('🟢・')) {
+      setTimeout(() => {
+        cleanupDuplicateRedTickets(channel.client);
+      }, 1000);
+    }
   } catch { }
 });
 
@@ -11191,14 +11401,28 @@ function getActiveTicket(channel) {
       matchedCatKey !== null
     );
 
-    if (isTicketNamed || channel.topic?.includes('ticket') || channel.parentId) {
+    // ONLY channels that actually look like tickets are (re)created. The old
+    // `|| channel.parentId` clause matched EVERY channel inside a category, so
+    // `-ai close this ticket` typed in e.g. #general fabricated a fake ticket
+    // ("closing..." while nothing closed — or worse, scheduled a delete of the
+    // wrong channel).
+    if (isTicketNamed || channel.topic?.includes('ticket')) {
       const catKey = matchedCatKey || (name.includes('partner') ? 'partnership' : 'general');
       const cat = TICKET_CONFIG.categories[catKey] || TICKET_CONFIG.categories.general;
       const cleanUsername = name.replace(/^[🔴🟢🔵]・/, '').replace(/^ticket-/, '') || 'member';
+      let detectedAuthorId = channel.topic?.match(/\d{17,20}/)?.[0] || null;
+      if (!detectedAuthorId && channel.permissionOverwrites?.cache) {
+        for (const [poId, po] of channel.permissionOverwrites.cache) {
+          if (po.type === 1 && poId !== client.user?.id) {
+            detectedAuthorId = poId;
+            break;
+          }
+        }
+      }
       ticket = {
         channelId: channel.id,
         guildId: channel.guild.id,
-        authorId: channel.topic?.match(/\d{17,20}/)?.[0] || 'Unknown',
+        authorId: detectedAuthorId || 'Unknown',
         authorTag: cleanUsername,
         authorUsername: cleanUsername,
         categoryKey: catKey,
@@ -11206,7 +11430,10 @@ function getActiveTicket(channel) {
         reason: 'Restored ticket session',
         createdAt: Math.floor((channel.createdTimestamp || Date.now()) / 1000),
         claimedBy: null,
-        controlMessageId: null
+        controlMessageId: null,
+        // Recovered AI-category tickets become AI-active so the assistant resumes.
+        aiActive: isCategoryEnabled(catKey) && catKey !== 'partnership' && catKey !== 'staff_partnership',
+        aiStopped: false
       };
       activeTickets.set(channel.id, ticket);
       saveTickets();
@@ -11361,7 +11588,656 @@ function buildReportReleasedCard(report, claimerId) {
   return card;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Ticket AI helpers — auto-respond on open and capture staff replies as
+//  candidate knowledge. Non-blocking: a slow AI provider must never stall the
+//  ticket from opening, so every call is fire-and-forget with its own try/catch.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Whether a message author is a staff member allowed to teach the AI. */
+function ticketAiStaffAuthor(member) {
+  return isStaffMember(member) || member?.permissions?.has(PermissionFlagsBits.ManageGuild);
+}
+
+/**
+ * Detects a user asking the assistant to stop talking. Kept intentionally
+ * conservative so a normal question that merely contains "stop" (e.g. "how do I
+ * stop a car") is not treated as a stop command.
+ */
+function isAiStopRequest(text) {
+  if (!text) return false;
+  const t = String(text)
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!t || t.length > 60) return false;
+  return /\b(stop|stopplease|shut ?up|be quiet|quiet|stop talking|stop responding|stop replying|go away|leave me alone|enough|hush|silence)\b/.test(t);
+}
+
+/**
+ * Reflects the ticket's AI state on the channel: renames it green while the
+ * assistant is active (or a human has claimed it) and red otherwise, and
+ * re-renders the pinned control card. Best-effort — every step is guarded so a
+ * missing permission or deleted message can never break the ticket.
+ *
+ * @param {import('discord.js').TextChannel} channel
+ * @param {object} ticket
+ */
+async function refreshTicketAiState(channel, ticket) {
+  if (!channel || !ticket) return;
+  const prefix = ticket.aiActive || ticket.claimedBy ? '🟢' : '🔴';
+  try {
+    if (channel.setName && channel.name && !channel.name.startsWith(prefix)) {
+      await channel.setName(`${prefix}・${ticket.authorUsername}`).catch(() => null);
+    }
+  } catch {
+    /* rename is cosmetic — ignore */
+  }
+  if (ticket.controlMessageId) {
+    try {
+      const ctrl = await channel.messages.fetch(ticket.controlMessageId);
+      await ctrl.edit({
+        components: [buildTicketControlContainer(ticket).toJSON()],
+        flags: MessageFlags.IsComponentsV2
+      });
+    } catch {
+      /* control card missing — ignore */
+    }
+  }
+}
+
+/**
+ * Escalation roles for tickets when a user asks for human/staff support:
+ * - General Support: 1549579743613948004
+ * - High Rank Support: 1341932333741244476
+ * - Internal Affairs: 1341932342343897269
+ * - Department Support: 1346603583432425502
+ */
+const TICKET_ESCALATION_ROLES = {
+  general: '1549579743613948004',
+  highrank: '1341932333741244476',
+  ia: '1341932342343897269',
+  deptreport: '1346603583432425502'
+};
+
+/**
+ * Generates interactive quick-action buttons when a user mentions that a button
+ * didn't work, is bugged, or is asking where/how to open a partnership or report.
+ * Provides a working button right inside the ticket channel so the user never gets stuck.
+ *
+ * @param {string} text
+ * @returns {Array<import('discord.js').ActionRowBuilder>}
+ */
+function buildQuickActionButtons(text, ticket = null) {
+  const t = (text || '').toLowerCase();
+  const buttons = [];
+  const isPartnerMention = t.includes('partner') || (t.includes('button') && (t.includes('work') || t.includes('open') || t.includes('bug') || t.includes('click')));
+  if (isPartnerMention && (!ticket || !ticket.partnershipButtonShown)) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId('ticket_open_partnership')
+        .setLabel('Open Partnership Ticket')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🤝')
+    );
+    if (ticket) {
+      ticket.partnershipButtonShown = true;
+      saveTickets();
+    }
+  }
+  if ((t.includes('internal affairs') || t.includes('report staff') || t.includes('report someone') || t.includes('ia ticket')) && (!ticket || !ticket.iaButtonShown)) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId('ticket_open_ia')
+        .setLabel('Open Internal Affairs Ticket')
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji('🛡️')
+    );
+    if (ticket) {
+      ticket.iaButtonShown = true;
+      saveTickets();
+    }
+  }
+  if ((t.includes('department support') || t.includes('department report') || t.includes('dept ticket')) && (!ticket || !ticket.deptButtonShown)) {
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId('ticket_open_deptreport')
+        .setLabel('Open Department Support')
+        .setStyle(ButtonStyle.Secondary)
+        .setEmoji('🚔')
+    );
+    if (ticket) {
+      ticket.deptButtonShown = true;
+      saveTickets();
+    }
+  }
+  return buttons.length ? [new ActionRowBuilder().addComponents(...buttons.slice(0, 5))] : [];
+}
+
+/**
+ * Posts the AI's opening response for a freshly created ticket. Reads the
+ * ticket reason first. Partnership/staff_partnership are skipped (AI disabled
+ * there by owner request). Never throws — failures are logged only.
+ *
+ * @param {import('discord.js').TextChannel} channel
+ * @param {object} ticketData the ticket record (needs categoryKey, reason, channelId)
+ */
+function sendTicketAiOpening(channel, ticketData) {
+  if (!channel || !ticketData) return;
+  const category = ticketData.categoryKey;
+  if (!isCategoryEnabled(category)) return; // partnership etc. → human only
+  if (category === 'partnership' || category === 'staff_partnership') return;
+  const reason = ticketData.reason;
+
+  try { channel.sendTyping().catch(() => {}); } catch {}
+
+  Promise.resolve()
+    .then(() => answerTicket({
+      question: reason,
+      category,
+      history: [],
+      ticketId: ticketData.channelId,
+      channelId: ticketData.channelId,
+      userId: ticketData.authorId
+    }))
+    .then((res) => {
+      if (!res || !res.text) return; // disabled/no-answer → nothing to post
+      const cleanText = res.text.replace(/🤖/g, '').trim();
+      const components = buildQuickActionButtons(`${reason} ${cleanText}`, ticketData);
+      return channel.send({
+        content: `**Alabama Support Assistant**\n\n${cleanText}`,
+        ...(components.length ? { components } : {}),
+        allowedMentions: { parse: [] }
+      }).catch((e) =>
+        console.warn(`[ticket-ai] Could not post opening reply: ${e.message}`)
+      );
+    })
+    .catch((err) => console.warn(`[ticket-ai] Opening response failed: ${err.message}`));
+}
+
+/**
+ * Handles a normal (non-command) message inside a ticket:
+ *  - Staff controls: "stop" / "@bot stop" pauses AI (turns channel red).
+ *    "continue" / "@bot continue" resumes AI (turns channel green).
+ *  - If the author is staff and the category is AI-enabled, capture their reply
+ *    as a candidate answer for review (only when a matching unanswered question
+ *    exists), and pause AI so humans retain full conversation control.
+ *  - If the author is the ticket author:
+ *    - "talk to human" / "i don't wanna chat with ai" stops AI, turns red, and pings the escalation role.
+ *    - "i am done" / "close ticket" acknowledges and auto-closes after 5 seconds.
+ *    - Otherwise, generates and sends the AI assistant response (no robot emoji).
+ *
+ * Never throws; all failures are logged.
+ *
+ * @param {import('discord.js').Message} message
+ * @param {object} ticket the active ticket record
+ */
+async function handleTicketAiMessage(message, ticket) {
+  const category = ticket.categoryKey;
+  if (!category || !isCategoryEnabled(category)) return; // partnership etc.
+  if (category === 'partnership' || category === 'staff_partnership') return;
+
+  const content = (message.content || '').trim();
+  const botId = client.user?.id;
+  const botPinged = !!botId && (message.mentions?.users?.has(botId) || content.includes(`<@${botId}>`));
+
+  // Update activity timestamp on any interaction for 15-minute inactivity tracking
+  ticket.lastActivityAt = Date.now();
+  saveTickets();
+
+  const member = message.member ||
+    (ticket.guildId ? message.guild?.members?.cache?.get(message.author.id) : null);
+  const authorIsStaff = ticketAiStaffAuthor(member);
+  const isAuthor = message.author.id === ticket.authorId;
+
+  // ---- Staff reply / controls ----
+  if (authorIsStaff) {
+    const cleanStaffCmd = content.toLowerCase().replace(/<@!?\d+>/g, '').trim();
+
+    // Staff unclaims the ticket
+    if (cleanStaffCmd === 'unclaim' || cleanStaffCmd === 'unclaim ticket' || cleanStaffCmd === 'unclaim it') {
+      ticket.claimedBy = null;
+      ticket.aiActive = false;
+      ticket.aiStopped = true;
+      saveTickets();
+      try {
+        await message.channel.setName(`🔴・${ticket.authorUsername}`).catch(() => null);
+      } catch {}
+      if (ticket.controlMessageId) {
+        try {
+          const ctrl = await message.channel.messages.fetch(ticket.controlMessageId);
+          await ctrl.edit({
+            components: [buildTicketControlContainer(ticket).toJSON()],
+            flags: MessageFlags.IsComponentsV2
+          });
+        } catch {}
+      }
+      const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+      await message.reply({
+        content: `> 🔓 **Unclaimed** by <@${message.author.id}>. Ticket is open for any staff member to claim.\n\n<@&${roleId}>`,
+        allowedMentions: { roles: [roleId], repliedUser: false }
+      }).catch(() => {});
+      return;
+    }
+
+    // Staff claims the ticket
+    if (cleanStaffCmd === 'claim' || cleanStaffCmd === 'claim ticket' || cleanStaffCmd === 'claim it') {
+      ticket.claimedBy = message.author.id;
+      ticket.aiActive = false;
+      ticket.aiStopped = true;
+      saveTickets();
+      try {
+        await message.channel.setName(`🟢・${ticket.authorUsername}`).catch(() => null);
+      } catch {}
+      if (ticket.controlMessageId) {
+        try {
+          const ctrl = await message.channel.messages.fetch(ticket.controlMessageId);
+          await ctrl.edit({
+            components: [buildTicketControlContainer(ticket).toJSON()],
+            flags: MessageFlags.IsComponentsV2
+          });
+        } catch {}
+      }
+      await message.reply({
+        content: `> 🔒 **Claimed** by <@${message.author.id}>. They will now be assisting with this inquiry.`,
+        allowedMentions: { repliedUser: false }
+      }).catch(() => {});
+      return;
+    }
+
+    if (cleanStaffCmd === 'stop' || cleanStaffCmd === 'pause' || cleanStaffCmd === 'ai stop' || cleanStaffCmd === 'freeze') {
+      ticket.aiActive = false;
+      ticket.aiStopped = true;
+      saveTickets();
+      refreshTicketAiState(message.channel, ticket).catch(() => {});
+      message.reply({
+        content: '⏸️ Ticket AI has been paused by staff. Channel status updated to 🔴.',
+        allowedMentions: { repliedUser: false }
+      }).catch(() => {});
+      return;
+    }
+
+    if (cleanStaffCmd === 'continue' || cleanStaffCmd === 'resume' || cleanStaffCmd === 'ai continue' || cleanStaffCmd === 'start') {
+      ticket.aiActive = true;
+      ticket.aiStopped = false;
+      ticket.claimedBy = null;
+      saveTickets();
+      refreshTicketAiState(message.channel, ticket).catch(() => {});
+      message.reply({
+        content: '▶️ Ticket AI has been resumed by staff. Channel status updated to 🟢.',
+        allowedMentions: { repliedUser: false }
+      }).catch(() => {});
+      return;
+    }
+
+    const staffCloseRegex = /\b(i am done|i'm done|im done|close (?:my |this |the )?ticket|close it|close ticket)\b/i;
+    if (staffCloseRegex.test(content)) {
+      message.reply({
+        content: "🔒 **Transcribing and closing ticket in 5 seconds...**",
+        allowedMentions: { repliedUser: false }
+      }).catch(() => {});
+      setTimeout(() => {
+        closeTicketChannel(client, message.channel, ticket, message.author.tag || 'Staff Member', message.author.id, 5000).catch((e) =>
+          console.warn(`[ticket-ai] Staff close failed: ${e.message}`)
+        );
+      }, 5000);
+      return;
+    }
+
+    // If this staff member is NOT the ticket author, they are intervening to assist the user.
+    // Auto-capture their answer for knowledge base and step back so humans handle the conversation.
+    if (!isAuthor) {
+      if (content.length > 10) {
+        const q = (ticket.reason && ticket.reason !== 'Not specified' && ticket.reason !== 'No reason provided')
+          ? ticket.reason
+          : `Staff guidance in ${ticket.categoryName}`;
+        try {
+          captureStaffAnswer({
+            question: q,
+            answer: message.content,
+            category: ticket.categoryKey || category,
+            ticketId: ticket.channelId,
+            staffId: message.author.id,
+            approved: true
+          });
+        } catch (err) {
+          console.warn(`[ticket-ai] Could not capture staff answer: ${err.message}`);
+        }
+      }
+
+      // The moment a human staff member replies, the assistant steps back until resumed
+      if (ticket.aiActive) {
+        ticket.aiActive = false;
+        saveTickets();
+        refreshTicketAiState(message.channel, ticket).catch(() => {});
+      }
+      return; // staff messages never trigger an AI reply
+    }
+  }
+
+  // ---- Ticket author's messages ----
+  if (message.author.id !== ticket.authorId) return; // ignore third-party messages
+
+  // 1. A ping wakes the assistant back up after a stop / staff takeover / escalation
+  if (botPinged && !isAiStopRequest(content)) {
+    ticket.aiActive = true;
+    ticket.aiStopped = false;
+    saveTickets();
+    refreshTicketAiState(message.channel, ticket).catch(() => {});
+  }
+
+  // 2. User requests human/staff support or expresses opt-out
+  const humanRequestRegex = /\b(no ai|don'?t want ai|dont want ai|human|real person|talk to (?:a )?(?:human|staff|person)|speak (?:to|with) (?:a )?(?:human|staff|person)|i don'?t wanna chat with ai|i dont wanna chat with ai|stop talking to ai)\b/i;
+  if (humanRequestRegex.test(content)) {
+    ticket.aiActive = false;
+    ticket.aiStopped = true;
+    saveTickets();
+    refreshTicketAiState(message.channel, ticket).catch(() => {});
+    const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+    message.reply({
+      content: `I understand you would prefer to speak directly with our team. I have stepped aside and notified staff.\n\n<@&${roleId}>`,
+      allowedMentions: { roles: [roleId], repliedUser: false }
+    }).catch(() => {});
+    return;
+  }
+
+  // 3. User says they are done or requests ticket closure
+  const closeRequestRegex = /\b(i am done|i'm done|im done|close (?:my |this |the )?ticket|close it|close ticket|all done|done here|please close|can you close)\b/i;
+  if (closeRequestRegex.test(content)) {
+    message.reply({
+      content: "🔒 **Transcribing and closing ticket in 5 seconds...**",
+      allowedMentions: { repliedUser: false }
+    }).catch(() => {});
+    setTimeout(() => {
+      closeTicketChannel(client, message.channel, ticket, 'AI Support Assistant', client.user.id, 5000).catch((e) =>
+        console.warn(`[ticket-ai] Auto-close failed: ${e.message}`)
+      );
+    }, 5000);
+    return;
+  }
+
+  // 4. User asks the assistant to stop
+  if (!botPinged && isAiStopRequest(content)) {
+    ticket.aiActive = false;
+    ticket.aiStopped = true;
+    saveTickets();
+    refreshTicketAiState(message.channel, ticket).catch(() => {});
+    message.reply({
+      content: "Understood — I'll step aside. A staff member can still assist, and you can ping me anytime if you'd like me to assist again.",
+      allowedMentions: { repliedUser: false }
+    }).catch(() => {});
+    return;
+  }
+
+  // 5. Gate: AI only replies while active, not paused, and no human has claimed it
+  const humanClaimed = ticket.claimedBy && ticket.claimedBy !== botId;
+  if (!ticket.aiActive || ticket.aiStopped || humanClaimed) return;
+  if (!content) return; // image-only / empty
+
+  try { message.channel.sendTyping().catch(() => {}); } catch {}
+
+  const history = [];
+  try {
+    const fetched = await message.channel.messages.fetch({ limit: 15 }).catch(() => null);
+    if (fetched) {
+      const sorted = [...fetched.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+      for (const m of sorted) {
+        if (m.id === message.id) continue;
+        if (m.author.id === botId) {
+          let text = m.cleanContent || m.content || '';
+          if (text.startsWith('**Alabama Support Assistant**')) {
+            text = text.replace(/^\*\*Alabama Support Assistant\*\*\s*/i, '').trim();
+          }
+          if (text) {
+            history.push({ role: 'assistant', content: text });
+          }
+        } else if (m.author.id === ticket.authorId) {
+          const text = m.cleanContent || m.content || '';
+          if (text) {
+            history.push({ role: 'user', content: text });
+          }
+        }
+      }
+    }
+  } catch (histErr) {
+    console.warn(`[ticket-ai] Could not fetch channel history: ${histErr.message}`);
+  }
+
+  // Prepend the initial ticket inquiry as opening context if available
+  if (ticket.reason && ticket.reason !== 'Not specified' && ticket.reason !== 'No reason provided') {
+    if (!history.some((h) => h.content === ticket.reason)) {
+      history.unshift({ role: 'user', content: `Opening ticket reason: ${ticket.reason}` });
+    }
+  }
+
+  Promise.resolve()
+    .then(() => answerTicket({
+      question: content,
+      category,
+      history,
+      ticketId: ticket.channelId,
+      channelId: ticket.channelId,
+      userId: message.author.id
+    }))
+    .then((res) => {
+      if (!res || !res.text) return;
+      const cleanText = res.text.replace(/🤖/g, '').trim();
+      const components = buildQuickActionButtons(`${content} ${cleanText}`, ticket);
+      return message.reply({
+        content: `**Alabama Support Assistant**\n\n${cleanText}`,
+        ...(components.length ? { components } : {}),
+        allowedMentions: { repliedUser: false }
+      }).catch((e) =>
+        console.warn(`[ticket-ai] Could not post follow-up reply: ${e.message}`)
+      );
+    })
+    .catch((err) => console.warn(`[ticket-ai] Follow-up response failed: ${err.message}`));
+}
+
+/**
+ * `/kb` staff control surface for the ticket-AI knowledge base.
+ * Access is gated by the command's ManageGuild default permission and
+ * re-checked here for defence-in-depth. Never throws — every branch replies.
+ */
+async function handleKbCommand(interaction) {
+  const member = interaction.member || (await interaction.guild?.members.fetch(interaction.user.id).catch(() => null));
+  if (!isStaffMember(member) && !member?.permissions?.has(PermissionFlagsBits.ManageGuild)) {
+    await interaction.reply({ content: '❌ You must have staff permissions to manage the knowledge base.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+  const sub = interaction.options.getSubcommand();
+
+  if (sub === 'stats') {
+    const db = loadKB();
+    const faqs = (db.faqs || []).length;
+    const learned = (db.learned || []).filter((l) => l.approved).length;
+    const candidates = kbListCandidates(100).length;
+    const pending = kbListPending(100).length;
+    const cats = db.settings?.enabledCategories || {};
+    const catLines = Object.entries(cats)
+      .map(([k, v]) => `> ${v === false ? '🔴' : '🟢'} **${k}**`)
+      .join('\n');
+    await interaction.reply({
+      content:
+        `## 🧠 Ticket AI — Knowledge Base\n` +
+        `> **Approved FAQs:** ${faqs}\n` +
+        `> **Learned (approved):** ${learned}\n` +
+        `> **Candidates awaiting approval:** ${candidates}\n` +
+        `> **Pending questions:** ${pending}\n` +
+        `> **AI provider:** ${aiConfigured() ? 'connected' : 'offline (no keys)'}\n\n` +
+        `**Auto-response by category:**\n${catLines}`,
+      flags: MessageFlags.Ephemeral
+    });
+    return;
+  }
+
+  try {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  } catch { /* already acknowledged */ }
+
+  if (sub === 'search') {
+    const q = interaction.options.getString('query', true);
+    const hits = kbSearchKnowledge(q, 10);
+    if (!hits.length) {
+      await interaction.editReply({ content: `No knowledge entries matched **${q}**.` });
+      return;
+    }
+    const body = hits
+      .map((h) => `**\`${h.record.id}\`** (${(h.confidence * 100).toFixed(0)}%) — ${h.record.question}\n> ${String(h.record.answer).slice(0, 120)}${String(h.record.answer).length > 120 ? '…' : ''}`)
+      .join('\n');
+    await interaction.editReply({ content: `## 🔎 Search results for “${q}”\n${body}` });
+    return;
+  }
+
+  if (sub === 'pending') {
+    const list = kbListPending(25);
+    if (!list.length) {
+      await interaction.editReply({ content: '✅ No unanswered questions waiting for staff.' });
+      return;
+    }
+    const body = list.map((p) => `**\`${p.id}\`** [${p.status}] ×${p.timesAsked || 1} — ${p.question}`).join('\n');
+    await interaction.editReply({ content: `## ⏳ Unanswered questions\n${body}` });
+    return;
+  }
+
+  if (sub === 'review') {
+    const list = kbListCandidates(25);
+    if (!list.length) {
+      await interaction.editReply({ content: '✅ No candidate answers awaiting approval.' });
+      return;
+    }
+    const body = list
+      .map((l) => `**\`${l.id}\`** — ${l.question}\n> ${String(l.answer).slice(0, 140)}${String(l.answer).length > 140 ? '…' : ''}\n-# source: ${l.source || 'staff'} · ticket ${l.ticketId || 'n/a'}`)
+      .join('\n');
+    await interaction.editReply({
+      content: `## 📝 Candidates awaiting approval\n${body}\n\nApprove with \`/kb approve id:<id>\`, reject with \`/kb reject id:<id>\`.`
+    });
+    return;
+  }
+
+  if (sub === 'show') {
+    const id = interaction.options.getString('id', true);
+    const rec = kbGetEntry(id);
+    if (!rec) {
+      await interaction.editReply({ content: `❌ No entry with id \`${id}\`.` });
+      return;
+    }
+    await interaction.editReply({
+      content:
+        `## \`${rec.id}\`\n` +
+        `> **Question:** ${rec.question}\n` +
+        `> **Category:** ${rec.category || 'general'}\n` +
+        `> **Approved:** ${rec.approved ? 'yes' : 'no'}\n` +
+        `> **Source:** ${rec.source || 'n/a'}\n` +
+        `> **Ticket:** ${rec.ticketId || 'n/a'} · **Staff:** ${rec.staffId ? `<@${rec.staffId}>` : 'n/a'}\n` +
+        `> **Created:** <t:${rec.createdAt || 0}:R> · **Updated:** <t:${rec.updatedAt || 0}:R>\n\n` +
+        `**Answer:**\n${rec.answer}`
+    });
+    return;
+  }
+  if (sub === 'approve') {
+    const id = interaction.options.getString('id', true);
+    const rec = kbApproveEntry(id);
+    if (!rec) {
+      await interaction.editReply({ content: `❌ No candidate entry with id \`${id}\`.` });
+      return;
+    }
+    await interaction.editReply({
+      content:
+        `✅ Approved **\`${rec.id}\`** — it will now be served automatically for matching questions.\n` +
+        `> ${String(rec.answer).slice(0, 140)}${String(rec.answer).length > 140 ? '…' : ''}`
+    });
+    return;
+  }
+
+  if (sub === 'reject') {
+    const id = interaction.options.getString('id', true);
+    const rec = kbRejectEntry(id);
+    if (!rec) {
+      await interaction.editReply({ content: `❌ No candidate entry with id \`${id}\`.` });
+      return;
+    }
+    await interaction.editReply({ content: `🚫 Rejected **\`${rec.id}\`** — it will never be served.` });
+    return;
+  }
+
+  if (sub === 'edit') {
+    const id = interaction.options.getString('id', true);
+    const question = interaction.options.getString('question');
+    const answer = interaction.options.getString('answer');
+    if (question == null && answer == null) {
+      await interaction.editReply({ content: '❌ Provide a new `answer` and/or `question` to edit.' });
+      return;
+    }
+    const rec = kbEditEntry(id, { question, answer });
+    if (!rec) {
+      await interaction.editReply({ content: `❌ No entry with id \`${id}\`.` });
+      return;
+    }
+    await interaction.editReply({
+      content:
+        `✏️ Updated **\`${rec.id}\`**.\n` +
+        `> **Q:** ${rec.question}\n` +
+        `> **A:** ${String(rec.answer).slice(0, 140)}${String(rec.answer).length > 140 ? '…' : ''}`
+    });
+    return;
+  }
+
+  if (sub === 'delete') {
+    const id = interaction.options.getString('id', true);
+    const removed = kbDeleteEntry(id);
+    await interaction.editReply({
+      content: removed
+        ? `🗑️ Deleted **\`${id}\`** from the knowledge base.`
+        : `❌ No entry with id \`${id}\`.`
+    });
+    return;
+  }
+
+  if (sub === 'add') {
+    const question = interaction.options.getString('question', true).trim();
+    const answer = interaction.options.getString('answer', true).trim();
+    const category = interaction.options.getString('category') || 'general';
+    const rec = kbAddEntry({ question, answer, category });
+    await interaction.editReply({
+      content:
+        `➕ Added approved entry **\`${rec.id}\`** (${rec.category}).\n` +
+        `> **Q:** ${rec.question}\n` +
+        `> **A:** ${String(rec.answer).slice(0, 140)}${String(rec.answer).length > 140 ? '…' : ''}`
+    });
+    return;
+  }
+
+  if (sub === 'category') {
+    const category = interaction.options.getString('category', true);
+    const enabled = interaction.options.getBoolean('enabled', true);
+    kbSetCategoryEnabled(category, enabled);
+    await interaction.editReply({
+      content: `${enabled ? '🟢 Enabled' : '🔴 Disabled'} AI auto-response for **${category}**.`
+    });
+    return;
+  }
+
+  // Fallback for any subcommand not handled above (defensive — never leave
+  // an already-deferred interaction hanging with no reply).
+  await interaction.editReply({ content: '❌ Unknown subcommand.' });
+}
+
+const activeTicketCreationUsers = new Set();
+
 async function createTicketForUser(client, interaction, catKey, reason) {
+  // Concurrency lock: synchronously block duplicate simultaneous attempts for the same user
+  if (activeTicketCreationUsers.has(interaction.user.id)) {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.reply({ content: '⏳ Please wait, your ticket is currently being created...', flags: MessageFlags.Ephemeral }).catch(() => {});
+    } else {
+      await interaction.editReply({ content: '⏳ Please wait, your ticket is currently being created...' }).catch(() => {});
+    }
+    return;
+  }
+  activeTicketCreationUsers.add(interaction.user.id);
+
   const cat = TICKET_CONFIG.categories[catKey];
   if (!cat) {
     if (interaction.deferred) {
@@ -11382,14 +12258,111 @@ async function createTicketForUser(client, interaction, catKey, reason) {
     return;
   }
 
-  if (!interaction.deferred && !interaction.replied) {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  }
+  const safeReply = async (opts) => {
+    try {
+      if (interaction.deferred || interaction.replied) {
+        return await interaction.editReply(opts);
+      } else {
+        return await interaction.reply({
+          ...(typeof opts === 'string' ? { content: opts } : opts),
+          flags: MessageFlags.Ephemeral
+        });
+      }
+    } catch {}
+  };
+
+  try {
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    }
+  } catch {}
 
   const sanitizedUsername =
     interaction.user.username.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 20) || interaction.user.id;
+
+  // Duplicate ticket protection: check activeTickets in memory AND verify on Discord
+  for (const [chId, t] of activeTickets.entries()) {
+    if (t.authorId === interaction.user.id && t.categoryKey === catKey) {
+      const existingCh = await interaction.guild?.channels?.fetch(chId).catch(() => null);
+      if (existingCh) {
+        await safeReply({ content: `❌ You already have an open ticket in this category: <#${chId}>` });
+        return;
+      } else {
+        activeTickets.delete(chId);
+        saveTickets();
+      }
+    }
+  }
+
+  // Duplicate ticket protection: fetch guild channels to detect any existing ticket channel (🟢/🔴/🔵)
+  try {
+    const fetchedChannels = await interaction.guild?.channels?.fetch().catch(() => null);
+    if (fetchedChannels) {
+      const existingGuildCh = fetchedChannels.find((c) => {
+        if (!c) return false;
+        const inCat = cat.categoryId ? c.parentId === cat.categoryId : true;
+        const isTicketPrefix = /^[🟢🔴🔵]・/.test(c.name);
+        if (!inCat || !isTicketPrefix) return false;
+        const matchesName =
+          c.name === `🟢・${sanitizedUsername}` ||
+          c.name === `🔴・${sanitizedUsername}` ||
+          c.name === `🔵・${sanitizedUsername}` ||
+          c.name.toLowerCase().endsWith(`・${sanitizedUsername}`);
+        const matchesPerm = c.permissionOverwrites?.cache?.has(interaction.user.id);
+        return matchesName || matchesPerm;
+      });
+
+      if (existingGuildCh) {
+        let existingTicket = activeTickets.get(existingGuildCh.id);
+        if (!existingTicket) {
+          existingTicket = {
+            channelId: existingGuildCh.id,
+            guildId: interaction.guild.id,
+            authorId: interaction.user.id,
+            authorTag: interaction.user.tag,
+            authorUsername: sanitizedUsername,
+            categoryKey: catKey,
+            categoryName: cat.name,
+            reason: reason || 'Existing ticket session',
+            createdAt: Math.floor((existingGuildCh.createdTimestamp || Date.now()) / 1000),
+            lastActivityAt: Date.now(),
+            claimedBy: null,
+            aiActive: isCategoryEnabled(catKey) && catKey !== 'partnership' && catKey !== 'staff_partnership',
+            aiStopped: false,
+            controlMessageId: null,
+            aiOpeningSent: false
+          };
+          activeTickets.set(existingGuildCh.id, existingTicket);
+          saveTickets();
+        }
+
+        // If ticket is AI-managed and AI hasn't responded to reason yet, trigger response now
+        if (isCategoryEnabled(catKey) && catKey !== 'partnership' && catKey !== 'staff_partnership') {
+          if (existingGuildCh.name.startsWith('🔴・')) {
+            existingGuildCh.setName(`🟢・${sanitizedUsername}`).catch(() => null);
+          }
+          if (!existingTicket.aiOpeningSent) {
+            existingTicket.aiOpeningSent = true;
+            if (reason && reason !== 'Existing ticket session' && reason !== 'No reason provided') {
+              existingTicket.reason = reason;
+            }
+            saveTickets();
+            sendTicketAiOpening(existingGuildCh, existingTicket);
+          }
+        }
+
+        await safeReply({ content: `❌ You already have an open ticket in this category: <#${existingGuildCh.id}>` });
+        return;
+      }
+    }
+  } catch (guildChErr) {
+    console.warn('[ticket] Error checking existing channels:', guildChErr.message);
+  }
   const isPartnership = catKey === 'partnership';
-  const channelName = isPartnership ? `🔵・${sanitizedUsername}` : `🔴・${sanitizedUsername}`;
+  // AI-managed categories (general/ia/highrank/deptreport) open green and are
+  // auto-handled by the assistant. Partnership/staff_partnership keep their own flow.
+  const aiManaged = isCategoryEnabled(catKey);
+  const channelName = isPartnership ? `🔵・${sanitizedUsername}` : (aiManaged ? `🟢・${sanitizedUsername}` : `🔴・${sanitizedUsername}`);
 
   try {
     const parentCategory = await interaction.guild.channels.fetch(cat.categoryId).catch(() => null);
@@ -11486,23 +12459,36 @@ async function createTicketForUser(client, interaction, catKey, reason) {
       categoryName: cat.name,
       reason: reason || 'Not specified',
       createdAt: Math.floor(Date.now() / 1000),
+      lastActivityAt: Date.now(),
       claimedBy: isPartnership ? client.user.id : null,
+      // AI-managed categories open active so the assistant claims the ticket,
+      // reads the reason, and answers. Partnership / staff_partnership stay human-only.
+      aiActive: aiManaged && !isPartnership,
+      aiStopped: false,
       controlMessageId: null
     };
 
-    // Top ping for department roles & user (partnership and staff_partnership NEVER ping staff roles)
+    // Top ping for department roles & user (partnership, staff_partnership, and general support NEVER ping staff roles)
     let deptPingRoleIds = Array.isArray(cat.pingRoleIds)
       ? [...cat.pingRoleIds]
       : (cat.pingRoleId ? [cat.pingRoleId] : []);
     if (!deptPingRoleIds.length) {
       if (catKey === 'ia') deptPingRoleIds = ['1341932342343897269'];
-      else if (catKey === 'general') deptPingRoleIds = ['1236052056201105418'];
       else if (catKey === 'highrank') deptPingRoleIds = ['1341932333741244476'];
+      else if (catKey === 'deptreport') deptPingRoleIds = ['1346603583432425502'];
+    }
+    if (catKey === 'general') {
+      deptPingRoleIds = []; // General Support NEVER pings staff on open — automated assistant answers first
     }
     deptPingRoleIds = [...new Set(deptPingRoleIds.filter(Boolean))];
 
+    const authorMember = interaction.member || interaction.guild?.members?.cache?.get(interaction.user.id);
+    const authorRoles = authorMember?.roles?.cache;
+    const authorHasPingRole = authorRoles && deptPingRoleIds.some((id) => authorRoles.has(id));
+
+    // If author already has the department ping role, do not mention author separately to prevent double pings
     const topPingContent = deptPingRoleIds.length
-      ? `${deptPingRoleIds.map((id) => `<@&${id}>`).join(' ')} <@${interaction.user.id}>`
+      ? `${deptPingRoleIds.map((id) => `<@&${id}>`).join(' ')}${authorHasPingRole ? '' : ` <@${interaction.user.id}>`}`
       : `<@${interaction.user.id}>`;
 
     const isStaffPartnership = catKey === 'staff_partnership';
@@ -11516,7 +12502,7 @@ async function createTicketForUser(client, interaction, catKey, reason) {
               ? 'Welcome to your **Department Support** ticket. Department Support staff will assist you shortly!'
               : 'Welcome to your assistance ticket. Staff will assist you shortly!'),
       allowedMentions: {
-        users: [interaction.user.id],
+        users: authorHasPingRole ? [] : [interaction.user.id],
         roles: deptPingRoleIds
       }
     });
@@ -11525,7 +12511,7 @@ async function createTicketForUser(client, interaction, catKey, reason) {
       ticketData.partnershipStep = 'select_type';
     }
 
-    // Pinned control card with fallback
+    // Pinned control card with fallback — allowedMentions parse:[] ensures no duplicate ping from Opened By
     const bannerExists = fs.existsSync(TICKET_BANNER_PATH);
     let controlMsg = null;
     try {
@@ -11533,13 +12519,15 @@ async function createTicketForUser(client, interaction, catKey, reason) {
       controlMsg = await ticketChannel.send({
         components: [buildTicketControlContainer(ticketData, bannerExists ? 'attachment://assistance_banner.png' : null).toJSON()],
         files: controlFiles,
-        flags: MessageFlags.IsComponentsV2
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] }
       });
     } catch (bannerErr) {
       console.warn('Failed to send control card with local file, sending without file:', bannerErr.message);
       controlMsg = await ticketChannel.send({
         components: [buildTicketControlContainer(ticketData, TICKET_CONFIG?.bannerUrl || null).toJSON()],
-        flags: MessageFlags.IsComponentsV2
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { parse: [] }
       });
     }
 
@@ -11552,27 +12540,6 @@ async function createTicketForUser(client, interaction, catKey, reason) {
       ticketData.controlMessageId = controlMsg.id;
     }
 
-    // If general support ticket, post dedicated general support welcome embed card
-    if (catKey === 'general') {
-      const generalHelpCard = new ContainerBuilder();
-      generalHelpCard.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent('## General Community Support & Assistance')
-      );
-      generalHelpCard.addSeparatorComponents(thinLine());
-      generalHelpCard.addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `Welcome to **Alabama State Roleplay General Support**!\n\n` +
-          `> • **Your Inquiry:** ${ticketData.reason || 'General Community Assistance'}\n` +
-          `> • **Staff Notification:** Our support team has been notified and will assist you shortly.\n` +
-          `> • **Details:** Please provide any additional screenshots, player names, or relevant details below.\n\n` +
-          `*You can close this ticket at any time by clicking **Close Ticket** on the control card above.*`
-        )
-      );
-      await ticketChannel.send({
-        components: [generalHelpCard.toJSON()],
-        flags: MessageFlags.IsComponentsV2
-      }).catch((e) => console.warn('Could not post general support embed:', e.message));
-    }
 
     // If partnership ticket, post the interactive Regular vs Paid vs Staff selector
     if (isPartnership) {
@@ -11598,14 +12565,25 @@ async function createTicketForUser(client, interaction, catKey, reason) {
     activeTickets.set(ticketChannel.id, ticketData);
     saveTickets();
 
-    await interaction.editReply({
+    // Auto-respond to the ticket inquiry reason with the AI (for AI categories: general, ia, highrank, deptreport)
+    if (aiManaged && !isPartnership) {
+      try {
+        sendTicketAiOpening(ticketChannel, ticketData);
+      } catch (aiErr) {
+        console.warn('[ticket-ai] Opening hook threw:', aiErr.message);
+      }
+    }
+
+    await safeReply({
       content: `✅ Your ticket has been opened: <#${ticketChannel.id}>`
     });
   } catch (err) {
     console.error('Failed to create ticket channel:', err);
-    await interaction.editReply({
+    await safeReply({
       content: `❌ Could not create ticket channel (${err.message}). Ensure I have **Manage Channels** permission.`
     });
+  } finally {
+    activeTicketCreationUsers.delete(interaction.user.id);
   }
 }
 
@@ -11638,6 +12616,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     // ─────────────── ticket creation modal submit ───────────────
     if (interaction.isModalSubmit() && interaction.customId.startsWith('ticket_modal_')) {
+      try {
+        if (!interaction.deferred && !interaction.replied) {
+          await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        }
+      } catch {}
       const catKey = interaction.customId.replace('ticket_modal_', '');
       const reason = interaction.fields.getTextInputValue('ticket_reason')?.trim() || 'No reason provided';
       await createTicketForUser(client, interaction, catKey, reason);
@@ -12904,6 +13887,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } else if (interaction.commandName === 'panel') {
         await handlePanelHubCommand(interaction);
         return;
+      } else if (interaction.commandName === 'kb') {
+        await handleKbCommand(interaction);
+        return;
       } else if (interaction.commandName === 'shop') {
         const shopMember = interaction.member || (await interaction.guild?.members.fetch(interaction.user.id).catch(() => null));
         if (!isStaffMember(shopMember) && !shopMember?.permissions?.has(PermissionFlagsBits.ManageGuild)) {
@@ -13305,7 +14291,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
               )
           )
         );
-      await interaction.showModal(modal);
+      await interaction.showModal(modal).catch((err) => {
+        console.warn(`[ticket] showModal failed: ${err.message}`);
+      });
       return;
     }
 
@@ -13344,7 +14332,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
               )
           )
         );
-      await interaction.showModal(modal);
+      await interaction.showModal(modal).catch((err) => {
+        console.warn(`[ticket] showModal failed: ${err.message}`);
+      });
       return;
     }
 
@@ -13529,7 +14519,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!isLoaApprover(loaMember)) {
         await interaction.reply({
           content: `Only **LOA management** can action a Leave of Absence request.\n` +
-            `> Required role: <@&${LOA_APPROVER_ROLE_IDS[0]}> or <@&${LOA_APPROVER_ROLE_IDS[1]}>.`,
+            `> Required role: ${LOA_APPROVER_ROLE_LABEL}.`,
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -13552,6 +14542,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
         record.key = record.key || key;
         activeLoas.set(key, record);
       }
+      // Already decided — the card was replaced, so a second click is stale.
+      if (record.status === 'approved' || record.status === 'denied' || record.status === 'concluded') {
+        await interaction.editReply({
+          content: `This request was already ${record.status === 'concluded' ? 'ended' : record.status} by <@${record.decidedBy || 'management'}>.`
+        });
+        return;
+      }
+      // Belt and braces: if the DM already went out for this record, it was decided.
+      if (record.decisionDmSent) {
+        await interaction.editReply({ content: `This request was already handled by <@${record.decidedBy || 'management'}>.` });
+        return;
+      }
       if (!record?.userId) {
         await interaction.editReply({ content: 'Could not work out who this request belongs to — ask the member to submit it again with `/loa`.' });
         return;
@@ -13563,21 +14565,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const guild = interaction.guild;
       const stamp = `<t:${Math.floor(Date.now() / 1000)}:D>`;
-
-      // Keeps the permanent LOA-channel log in sync with the decision.
-      const syncLogCard = async (statusLine) => {
-        if (!record.logMessageId || !record.logChannelId) return;
-        try {
-          const ch = await interaction.client.channels.fetch(record.logChannelId);
-          const msg = await ch.messages.fetch(record.logMessageId).catch(() => null);
-          if (!msg) return;
-          const json = (msg.components || []).map((c) => (typeof c.toJSON === 'function' ? c.toJSON() : c));
-          const updated = appendLoaDecision(json, statusLine);
-          if (updated) await msg.edit({ components: [updated], flags: MessageFlags.IsComponentsV2 });
-        } catch (err) {
-          console.warn(`Could not sync the LOA log card: ${err.message}`);
-        }
-      };
 
       const banner = loaBanner();
       const bannerFiles = banner.path ? [new AttachmentBuilder(banner.path, { name: banner.name })] : [];
@@ -13593,7 +14580,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         dm.addTextDisplayComponents(new TextDisplayBuilder().setContent(body));
         dm.addSeparatorComponents(thinLine());
         dm.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent('-# Alabama State Roleplay • Leave of Absence System')
+          new TextDisplayBuilder().setContent('-# Alabama State Roleplay • LOA')
         );
         return dm;
       };
@@ -13601,27 +14588,28 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (action === 'deny') {
         const statusLine =
           `## Leave of Absence Denied\n> Denied by <@${interaction.user.id}> on ${stamp}.\n` +
-          `> No roles or nickname changes were made — the member stays fully active.`;
-        await editLoaCard(client, interaction.message, appendLoaDecision(cardJson, statusLine));
-        await syncLogCard(statusLine);
+          `> Nothing was changed — they keep all their roles and their nickname.`;
+        const newCard = await replaceLoaCard(client, interaction.message, appendLoaDecision(cardJson, statusLine), bannerFiles);
+        if (newCard) record.actionMessageId = newCard.id;
 
         record.status = 'denied';
         record.decidedBy = interaction.user.id;
         record.decidedAt = Date.now();
+        record.decisionDmSent = true;
         saveLoas();
 
         await dmUser(client, record.userId, {
           components: [dmFrame(
             '## Your Leave of Absence Request Was Denied',
-            `> Your request was reviewed and not approved by <@${interaction.user.id}>.\n` +
+            `> Your request was not approved by <@${interaction.user.id}>.\n` +
             `> Nothing was changed — you keep every role and your nickname.\n` +
-            `> If you believe this was a mistake, please speak with management directly.`
+            `> If you think this was a mistake, speak to management.`
           ).toJSON()],
           files: bannerFiles,
           flags: MessageFlags.IsComponentsV2
         }).catch(() => null);
 
-        await interaction.editReply({ content: 'Request denied — the member was notified in DMs and nothing was changed.' });
+        await interaction.editReply({ content: 'Denied — the member was DM\'d and nothing was changed.' });
         return;
       }
 
@@ -13636,17 +14624,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const statusLine =
         `## Leave of Absence Approved\n> Approved by <@${interaction.user.id}> on ${stamp}.\n` +
-        `> **Roles suspended:** ${(applied.removedRoleIds || []).length}\n` +
-        `> **Ends automatically:** ${record.endsAt ? `<t:${Math.floor(record.endsAt / 1000)}:F>` : (record.end || 'on the end date')}` +
-        (problems.length ? `\n> **Bot cannot do this — fix it:** ${problems.join(' · ')}` : '');
-      await editLoaCard(client, interaction.message, appendLoaDecision(cardJson, statusLine));
-      await syncLogCard(statusLine);
+        `> **Roles taken off:** ${(applied.removedRoleIds || []).length}\n` +
+        `> **Back on:** ${record.endsAt ? `<t:${Math.floor(record.endsAt / 1000)}:F>` : (record.end || 'their end date')}` +
+        (problems.length ? `\n> **Bot could not do this:** ${problems.join(' · ')}` : '');
+      const newCard = await replaceLoaCard(client, interaction.message, appendLoaDecision(cardJson, statusLine), bannerFiles);
+      if (newCard) record.actionMessageId = newCard.id;
 
       record.removedRoleIds = applied.removedRoleIds || [];
       record.originalNickname = applied.originalNickname ?? null;
       record.status = 'approved';
       record.approvedBy = interaction.user.id;
       record.approvedAt = Date.now();
+      record.decisionDmSent = true;
       saveLoas();
       scheduleLoaConclude(client, record);
 
@@ -13655,8 +14644,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           '## Your Leave of Absence Has Been Approved',
           `> Approved by <@${interaction.user.id}>.\n` +
           `> **Your leave:** ${record.start} → ${record.end}\n` +
-          `> Your staff roles are suspended for the duration of your leave.\n` +
-          `> Everything is restored automatically when your leave ends — you will receive a DM to confirm it.`
+          `> Your staff roles are off until the leave is over.\n` +
+          `> Everything goes back on when it ends and you will get a DM to confirm.`
         ).toJSON()],
         files: bannerFiles,
         flags: MessageFlags.IsComponentsV2
@@ -13664,8 +14653,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       await interaction.editReply({
         content: problems.length
-          ? `Approved, but the bot could not finish everything:\n> ${problems.join('\n> ')}\n> The member has been notified in DMs.`
-          : `Approved — roles suspended and the leave ends automatically on **${record.end || 'the end date'}**. The member has been notified in DMs.`
+          ? `Approved, but the bot could not do everything:\n> ${problems.join('\n> ')}\n> The member was DM'd.`
+          : `Approved — staff roles are off and they come back on **${record.end || 'their end date'}**. The member was DM'd.`
       });
       return;
     }
@@ -16014,200 +17003,203 @@ function buildCommandsGuidePage(pageIndex = 0) {
   if (page === 0) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Panel Hub & Content\n` +
+        `## Command Directory - Panel Hub & Content\n` +
         `*Page 1 of ${totalPages} • Every panel and postable card lives here.*\n\n` +
         `</panel:1549298204271448168> </shop:1549298204271448168> </media:1549298204271448168> </information:1549298204271448168>\n\n` +
-        `> • **Panel Hub:** Post **Session**, **Tickets**, **Verification**, **Applications**, **Information** (game rules) and **Shop** panels — one command for every panel.\n` +
-        `> • **Shop:** Post the membership shop panel (Donation / Membership+ / Paid Partnership).\n` +
-        `> • **Media:** Post a media drop with a banner, credit and an optional ping (Media Team only).\n` +
-        `> • **Information:** Server overview, community rules, FAQ and the full **Game Rules (R-1 → R-55)**.\n\n` +
-        `*The old /session panel, /ticket panel, /verify panel, /information panel and /staff application panel commands were removed — use /panel instead.*`
+        `> • Panel Hub - post the Session, Tickets, Verification, Applications, Information (game rules) and Shop panels. One command covers every panel.\n` +
+        `> • Shop - post the membership shop panel (Donation / Membership+ / Paid Partnership).\n` +
+        `> • Media - post a media drop with a banner, credit and an optional ping (Media Team only).\n` +
+        `> • Information - server overview, community rules, FAQ and the full Game Rules (R-1 to R-55).\n\n` +
+        `*The old /session panel, /ticket panel, /verify panel, /information panel and /staff application panel commands were removed. Use /panel instead.*`
       )
     );
   } else if (page === 1) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Session Operations\n` +
+        `## Command Directory - Session Operations\n` +
         `*Page 2 of ${totalPages} • Voting, hosting, and shutting down sessions.*\n\n` +
         `</session vote:1549298204271448167> </session shutdown:1549298204271448167> </panel:1549298204271448168>\n\n` +
-        `> • **Session Vote:** Goal-based vote with a timer — members vote straight from the card.\n` +
-        `> • **Session Shutdown:** Ends the session, posts the closed card and DMs everyone who voted.\n` +
-        `> • **Panel Hub:** Post or refresh the live session panel with **/panel type:Session**.\n\n` +
-        `> When a vote hits its goal the **host is DM'd** a decision card (Start / Postpone).\n` +
-        `> Starting a session posts **only the session panel** — no text spam in the channel.`
+        `> • Session Vote - goal-based vote with a timer. Members vote straight from the card.\n` +
+        `> • Session Shutdown - ends the session, posts the closed card and DMs everyone who voted.\n` +
+        `> • Panel Hub - post or refresh the live session panel with /panel type:Session.\n\n` +
+        `> When a vote hits its goal the host is DM'd a decision card (Start / Postpone).\n` +
+        `> Starting a session posts only the session panel, with no extra text in the channel.`
       )
     );
   } else if (page === 2) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Staff & Management\n` +
+        `## Command Directory - Staff & Management\n` +
         `*Page 3 of ${totalPages} • Staff administration, ranks, and applications.*\n\n` +
         `</staff promotion:1549298204271448169> </staff derank:1549298204271448169> </staff feedback:1549298204271448169> </staff infraction:1549298204271448169> </retirement:1549298204271448169> </panel:1549298204271448168>\n\n` +
-        `> • **Staff Promotion:** Issue promotion announcement & update user roles\n` +
-        `> • **Staff Derank:** Demote staff member & strip designated roles\n` +
-        `> • **Staff Infraction:** Official staff infraction notice\n` +
-        `> • **Staff Feedback:** Submit a 1–5 star rating & review for a staff member\n` +
-        `> • **Retirement:** Post the official staff retirement announcement\n` +
-        `> • **Panel Hub:** Post the **Applications** panel with **/panel type:Applications**\n\n` +
-        `> Applications are **In-Game Staff only** — the application opens in the applicant's DMs.`
+        `> • Staff Promotion - issue a promotion announcement and update the user's roles\n` +
+        `> • Staff Derank - demote a staff member and strip their designated roles\n` +
+        `> • Staff Infraction - official staff infraction notice\n` +
+        `> • Staff Feedback - submit a 1 to 5 star rating and review for a staff member\n` +
+        `> • Retirement - post the official staff retirement announcement\n` +
+        `> • Panel Hub - post the Applications panel with /panel type:Applications\n\n` +
+        `> Applications are In-Game Staff only. The application opens in the applicant's DMs.`
       )
     );
   } else if (page === 3) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Moderation & Server Security\n` +
+        `## Command Directory - Moderation & Server Security\n` +
         `*Page 4 of ${totalPages} • Discord moderation, safety enforcement, and anti-nuke.*\n\n` +
         `</ban:1549298204271448173> </kick:1549298204724691004> </timeout:1549298204724691005> </unban:1549298204724691012> </purge:1549298204724691006>\n` +
         `</antinuke status:1549298204724691007> </antinuke snapshot:1549298204724691007> </antinuke restore:1549298204724691007>\n\n` +
-        `> • **Moderation Actions:** Ban, kick, timeout, unban, and bulk-delete recent messages\n` +
-        `> • **Anti-Nuke Defense:** Defense status, snapshot backups, and restore channels/roles`
+        `> • Ban, Kick, Timeout, Unban and Purge - day-to-day moderation. Purge bulk-deletes recent messages.\n` +
+        `> • /antinuke status - shows what the defence is watching, the saved backups, and who gets pinged.\n` +
+        `> • /antinuke snapshot - takes a fresh backup of every channel and role.\n` +
+        `> • /antinuke restore - puts deleted channels and roles back from the backup.`
       )
     );
   } else if (page === 4) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — ER:LC In-Game Moderation & Enforcer\n` +
+        `## Command Directory - ER:LC In-Game Moderation\n` +
         `*Page 5 of ${totalPages} • Private server policing, command execution, and safe zones.*\n\n` +
         `</erlc scan:1549298204724691009> </erlc status:1549298204724691009> </erlc pm:1549298204724691009> </erlc message:1549298204724691009> </erlc hint:1549298204724691009>\n` +
         `</erlc jail:1549298204724691009> </erlc unjail:1549298204724691009> </erlc kick:1549298204724691009> </erlc ban:1549298204724691009>\n` +
         `</safezone strike:1549298204724691013> </safezone status:1549298204724691013> </safezone clear:1549298204724691013> </exploit report:1549298204724691009>\n\n` +
-        `> • **In-Game Commands:** Scan avatar outfits, send PMs, broadcasts (:m), and top hints (:h)\n` +
-        `> • **Player Punishments:** In-game jail, unjail, kick, and ban from private server\n` +
-        `> • **Safe Zone Enforcer:** Track shooting infractions, auto-escalations, and strike resets\n` +
-        `> • **Exploit Reports:** File an exploiter report with evidence`
+        `> • /erlc scan, /erlc status, /erlc pm, /erlc message, /erlc hint - check players, send private messages, broadcast with :m and drop hints with :h.\n` +
+        `> • /erlc jail, /erlc unjail, /erlc kick, /erlc ban - punish players in the private server.\n` +
+        `> • /safezone strike, /safezone status, /safezone clear - log players who shoot in the safe zone. Each strike escalates the penalty.\n` +
+        `> • /exploit report - file a report on an exploiter with evidence attached.`
       )
     );
   } else if (page === 5) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Tickets & Community\n` +
+        `## Command Directory - Tickets & Community\n` +
         `*Page 6 of ${totalPages} • Assistance desk, member management, and prefix controls.*\n\n` +
         `</panel:1549298204271448168> </add:1549610085385240646> </unadd:1549610085385240647> </proof partnership:1549298204271448172> </suggest:1549298204271448171>\n\n` +
-        `> • **Panel Hub:** Post the **Tickets** panel with **/panel type:Tickets**\n` +
-        `> • **Ticket Members:** Add / remove people from a ticket with **/add** and **/unadd**\n` +
-        `> • **Partnership Proof:** Upload proof with **/proof partnership**\n` +
-        `> • **Suggestions:** Submit an interactive community suggestion\n\n` +
-        `> Every ticket has a **Claim**, **Close** and red **Report** button.\n` +
-        `> Reports are **sealed** until a staff member claims the ticket — the full details\n` +
+        `> • Panel Hub - post the Tickets panel with /panel type:Tickets\n` +
+        `> • /add and /unadd - add or remove people from an open ticket\n` +
+        `> • /proof partnership - upload proof for a paid partnership\n` +
+        `> • /suggest - submit an interactive community suggestion\n\n` +
+        `> Every ticket has a Claim, a Close and a red Report button.\n` +
+        `> Reports stay sealed until a staff member claims the ticket. The full details\n` +
         `> are then released privately to whoever claimed it.\n\n` +
-        `### Prefix Controls (-)\n` +
-        `> • **-busy** / **-open** / **-close all** Desk status (🟢 Online, 🟡 Busy, 🔴 Closed)\n` +
-        `> • **-open <dept>** / **-close <dept>** Lock or unlock one department\n` +
-        `> • **-add @user** / **-unadd @user** Manage ticket channel members\n` +
-        `> • **-partnership <text>** Submit a partnership application inside a ticket\n` +
-        `> • **-confirm** Verify a paid partnership payment\n` +
-        `> • **-ai <request>** AI Command Engine — say it in plain English (full guide on page 9)\n` +
-        `> • **-status** Show the current ticket desk availability`
+        `### Prefix Controls\n` +
+        `> • -busy / -open / -close all - set the desk to Online, Busy or Closed\n` +
+        `> • -open <dept> / -close <dept> - lock or unlock one department\n` +
+        `> • -add @user / -unadd @user - manage ticket channel members\n` +
+        `> • -partnership <text> - submit a partnership application inside a ticket\n` +
+        `> • -confirm - verify a paid partnership payment\n` +
+        `> • -ai <request> - the AI command engine, say it in plain English (full guide on page 9)\n` +
+        `> • -status - show the current ticket desk availability`
       )
     );
   } else if (page === 6) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Leave of Absence\n` +
-        `*Page 7 of ${totalPages} • Submit, review, and restore staff leave.*\n\n` +
+        `## Command Directory - Leave of Absence\n` +
+        `*Page 7 of ${totalPages} • Staff leave requests and approvals.*\n\n` +
         `</loa:1549298204271448168>\n\n` +
-        `> • **/loa:** Submit a Leave of Absence request (Roblox name, rank, dates, reason)\n` +
-        `> • **-loa** Submit the same request as a prefix message\n` +
-        `> • **-loaend @user** Management safety net — end a leave early\n\n` +
-        `> **How it works**\n` +
-        `> • The request is logged in the LOA channel and sent to management for a decision.\n` +
-        `> • Only **LOA Management** can Approve or Deny it.\n` +
-        `> • **Approve** suspends the member's staff roles and tags their nickname 𝑳𝑶𝑨┃\n` +
-        `> • The leave **ends automatically** on its end date: every role is restored,\n` +
-        `> the nickname is cleared, and the member gets a DM confirming it.`
+        `> • /loa - submit a leave request (Roblox name, rank, start date, end date, reason)\n` +
+        `> • -loa - the same thing as a prefix message, with the fields split by a pipe\n` +
+        `> • -loaend @user - end someone's leave early\n\n` +
+        `How it works\n` +
+        `> • The request posts in <#${LOA_ACTION_CHANNEL_ID}> with an Approve and a Deny button.\n` +
+        `> • Only ${LOA_APPROVER_ROLE_LABEL} can press them, and it can only be pressed once.\n` +
+        `> • Approve takes their staff roles off and puts the LOA tag on their nickname.\n` +
+        `> • The button card is then deleted and replaced with an approved or denied card.\n` +
+        `> • The leave ends itself on the end date: roles go back on, the nickname clears,\n` +
+        `> and the member gets a DM saying so.`
       )
     );
   } else if (page === 7) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Emergency Controls & Appeals\n` +
-        `*Page 8 of ${totalPages} • Emergency recovery, appeals, and system diagnostics.*\n\n` +
-        `</appeal:1549597649848766495> </retrigger:1549298204271448166> </commands:1549298204271448164>\n\n` +
-        `> • **Appeal:** Open official private server ban appeal\n` +
-        `> • **Retrigger:** Emergency reboot & re-sync (re-registers commands, restarts timers, unblocks buttons)\n` +
-        `> • **Commands Directory:** Open this interactive multi-page command directory`
+        `## Command Directory — Emergency Controls & Appealsn` +
+        `*Page 8 of ${totalPages} • Emergency recovery, appeals, and system diagnostics.*nn` +
+        `</appeal:1549597649848766495> </retrigger:1549298204271448166> </commands:1549298204271448164>nn` +
+        `> • Appeal: Open official private server ban appealn` +
+        `> • Retrigger: Emergency reboot & re-sync (re-registers commands, restarts timers, unblocks buttons)n` +
+        `> • Commands Directory: Open this interactive multi-page command directory`
       )
     );
   } else {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — AI Command Engine\n` +
-        `*Page 9 of ${totalPages} — say what you want in plain English.*\n\n` +
-        `### How it works\n` +
-        `> There is no /ai slash command — type -ai <request> in any channel.\n` +
-        `> The bot reads plain English, runs the action and replies in seconds.\n\n` +
-        `### Available to you\n` +
-        `**Sessions and panels**\n` +
-        `> -ai start a session vote with 5 users for 2 hours\n` +
-        `> -ai close the session\n` +
-        `> -ai post the session panel\n\n` +
-        `**Ticket desk**\n` +
-        `> -ai make the ticket desk busy\n` +
-        `> -ai open internal affairs\n` +
-        `> -ai close all tickets\n` +
-        `> -ai what is the desk status\n\n` +
-        `**Tickets**\n` +
-        `> -ai close this ticket\n` +
-        `> -ai close the general ticket\n` +
-        `> -ai ticket info\n` +
-        `> -ai add @user to this ticket\n\n` +
-        `**Applications**\n` +
-        `> -ai close staff applications\n` +
-        `> -ai open applications\n\n` +
-        `**Channel tools**\n` +
-        `> -ai slowmode 30\n` +
-        `> -ai pin the last message\n\n` +
-        `**Community**\n` +
-        `> -ai make a suggestion that we add more staff\n` +
-        `> -ai show the top suggestion\n` +
-        `> -ai poll Friday or Saturday: session; no session\n\n` +
-        `**Staff records**\n` +
-        `> -ai list infractions\n` +
-        `> -ai list @user infractions\n` +
-        `> -ai revoke @user infraction\n` +
-        `> -ai revoke @user promotion\n\n` +
-        `**Meetings**\n` +
-        `> -ai schedule a meeting in 2 hours to discuss staffing\n` +
-        `> -ai schedule a staff meeting tomorrow at 7pm\n` +
-        `> -ai postpone the meeting by 1 hour\n` +
-        `> -ai cancel the meeting\n` +
-        `> -ai list meetings\n` +
-        `> Attendees get a DM RSVP card (Can attend / Cannot attend / Maybe),\n` +
-        `> reminders go out 7 days before and the morning of, and postponing\n` +
-        `> edits the existing card instead of pinging anyone twice.\n\n` +
-        `**Messages**\n` +
-        `> -ai dm @user you are invited to the meeting\n` +
-        `> -ai send a message in game we are full\n` +
-        `> -ai in game ban RobloxName for exploiting\n\n` +
-        `**Info**\n` +
-        `> -ai how many players are online\n` +
-        `> -ai whois @user\n` +
-        `> -ai avatar @user\n` +
-        `> -ai discord server info\n` +
-        `> -ai bot stats\n\n` +
-        `### Owner\n` +
-        `**Moderation**\n` +
-        `> -ai ban @user for 7 days for spamming\n` +
-        `> -ai unban @user\n` +
-        `> -ai kick @user for raiding\n` +
-        `> -ai timeout @user for 2 hours\n` +
-        `> -ai purge 25\n\n` +
-        `**Server**\n` +
-        `> -ai say Session starts in 5 minutes\n` +
-        `> -ai lock this channel\n` +
-        `> -ai hide this channel\n` +
-        `> -ai set nickname of @user to Helper\n` +
-        `> -ai give @user the Moderator role\n\n` +
-        `**In-game**\n` +
-        `> -ai jail RobloxName\n` +
-        `> -ai unjail RobloxName\n` +
-        `> -ai announce we are full\n` +
-        `> -ai pm RobloxName to join staff\n\n` +
-        `**System**\n` +
-        `> -ai retrigger the bot\n\n` +
-        `### Notes\n` +
-        `> Type -ai help at any time — it is DM'd to you so only you can read it.\n` +
-        `> Provider and token status is never shown unless you ask: -ai providers.\n` +
+        `## Command Directory — AI Command Enginen` +
+        `*Page 9 of ${totalPages} — say what you want in plain English.*nn` +
+        `### How it worksn` +
+        `> There is no /ai slash command — type -ai <request> in any channel.n` +
+        `> The bot reads plain English, runs the action and replies in seconds.nn` +
+        `### Available to youn` +
+        `Sessions and panelsn` +
+        `> -ai start a session vote with 5 users for 2 hoursn` +
+        `> -ai close the sessionn` +
+        `> -ai post the session panelnn` +
+        `Ticket deskn` +
+        `> -ai make the ticket desk busyn` +
+        `> -ai open internal affairsn` +
+        `> -ai close all ticketsn` +
+        `> -ai what is the desk statusnn` +
+        `Ticketsn` +
+        `> -ai close this ticketn` +
+        `> -ai close the general ticketn` +
+        `> -ai ticket infon` +
+        `> -ai add @user to this ticketnn` +
+        `Applicationsn` +
+        `> -ai close staff applicationsn` +
+        `> -ai open applicationsnn` +
+        `Channel toolsn` +
+        `> -ai slowmode 30n` +
+        `> -ai pin the last messagenn` +
+        `Communityn` +
+        `> -ai make a suggestion that we add more staffn` +
+        `> -ai show the top suggestionn` +
+        `> -ai poll Friday or Saturday: session; no sessionnn` +
+        `Staff recordsn` +
+        `> -ai list infractionsn` +
+        `> -ai list @user infractionsn` +
+        `> -ai revoke @user infractionn` +
+        `> -ai revoke @user promotionnn` +
+        `Meetingsn` +
+        `> -ai schedule a meeting in 2 hours to discuss staffingn` +
+        `> -ai schedule a staff meeting tomorrow at 7pmn` +
+        `> -ai postpone the meeting by 1 hourn` +
+        `> -ai cancel the meetingn` +
+        `> -ai list meetingsn` +
+        `> Attendees get a DM RSVP card (Can attend / Cannot attend / Maybe),n` +
+        `> reminders go out 7 days before and the morning of, and postponingn` +
+        `> edits the existing card instead of pinging anyone twice.nn` +
+        `Messagesn` +
+        `> -ai dm @user you are invited to the meetingn` +
+        `> -ai send a message in game we are fulln` +
+        `> -ai in game ban RobloxName for exploitingnn` +
+        `Infon` +
+        `> -ai how many players are onlinen` +
+        `> -ai whois @usern` +
+        `> -ai avatar @usern` +
+        `> -ai discord server infon` +
+        `> -ai bot statsnn` +
+        `### Ownern` +
+        `Moderationn` +
+        `> -ai ban @user for 7 days for spammingn` +
+        `> -ai unban @usern` +
+        `> -ai kick @user for raidingn` +
+        `> -ai timeout @user for 2 hoursn` +
+        `> -ai purge 25nn` +
+        `Servern` +
+        `> -ai say Session starts in 5 minutesn` +
+        `> -ai lock this channeln` +
+        `> -ai hide this channeln` +
+        `> -ai set nickname of @user to Helpern` +
+        `> -ai give @user the Moderator rolenn` +
+        `In-gamen` +
+        `> -ai jail RobloxNamen` +
+        `> -ai unjail RobloxNamen` +
+        `> -ai announce we are fulln` +
+        `> -ai pm RobloxName to join staffnn` +
+        `Systemn` +
+        `> -ai retrigger the botnn` +
+        `### Notesn` +
+        `> Type -ai help at any time — it is DM'd to you so only you can read it.n` +
+        `> Provider and token status is never shown unless you ask: -ai providers.n` +
         `> Nothing is guessed — unclear requests are refused instead of acted on.\n` +
         `> Suggestions are posted with your exact words, never rewritten.\n` +
         `> In-game actions (jail, kick, ban, announce, hint, pm) are open to staff.\n` +
@@ -17999,8 +18991,27 @@ client.on(Events.MessageCreate, async (message) => {
   try {
     if (!message.guild) return;
 
-    const ticket = activeTickets.get(message.channelId);
+    const ticket = getActiveTicket(message.channel);
     const isPartnershipTicket = ticket && ticket.categoryKey === 'partnership';
+
+    if (ticket && (ticket.authorId === 'Unknown' || !ticket.authorId) && !message.author.bot) {
+      ticket.authorId = message.author.id;
+      ticket.authorTag = message.author.tag;
+      ticket.authorUsername = message.author.username;
+      saveTickets();
+    }
+
+    // ── Ticket AI: plain (non-command) messages inside an active ticket ──
+    // Captures staff replies as candidate knowledge and lets the assistant answer
+    // the ticket author's follow-ups while a human hasn't claimed the ticket yet.
+    // Command messages (starting with '-') fall through to the handlers below.
+    if (ticket && !message.content?.trim().startsWith('-')) {
+      try {
+        handleTicketAiMessage(message, ticket);
+      } catch (aiErr) {
+        console.warn('[ticket-ai] Message hook threw:', aiErr.message);
+      }
+    }
 
     // ── 1. -partnership command ──
     if (message.content?.startsWith('-')) {
@@ -18128,7 +19139,7 @@ client.on(Events.MessageCreate, async (message) => {
         const reason = parts.slice(4).join(' | ') || payload || 'No reason provided';
         const result = await postLoaCard(message.client, message, {
           roblox, rank, start, end, reason, user: message.author,
-          ping: `<@${message.author.id}> submitted a Leave of Absence request via -loa — management review required.`
+          ping: `<@${message.author.id}> just submitted a Leave of Absence request via -loa — needs a decision.`
         });
         if (result.ok) {
           registerLoaRequest(result, { roblox, rank, start, end, reason, user: message.author }, message.guildId);
@@ -18136,7 +19147,7 @@ client.on(Events.MessageCreate, async (message) => {
         await autoDeleteReply(
           message,
           result.ok
-            ? `Your Leave of Absence request has been logged in <#${LOA_CHANNEL_ID}> and sent to management for a decision.\n> Nothing changes until it is approved.`
+            ? `Your Leave of Absence request has been logged in <#${LOA_CHANNEL_ID}> and sent to management.\n> Nothing changes until it is approved.`
             : `Could not post the LOA request — ${result.error?.message || 'unknown error'}.`,
           30000
         );
@@ -18147,7 +19158,7 @@ client.on(Events.MessageCreate, async (message) => {
       if (lower === 'loaend' || lower.startsWith('loaend ')) {
         const staff = message.member || (await message.guild.members.fetch(message.author.id).catch(() => null));
         if (!isLoaApprover(staff)) {
-          await autoDeleteReply(message, `Only **LOA management** can end a Leave of Absence early.`, 20000);
+          await autoDeleteReply(message, `Only **LOA management** can end a leave early.`, 20000);
           return;
         }
         const targetMatch = message.content.match(/<?@!?(\d{15,20})>?/);
@@ -18157,11 +19168,11 @@ client.on(Events.MessageCreate, async (message) => {
           : [...activeLoas.values()].filter((r) => r.status === 'approved')
             .sort((a, b) => (b.approvedAt || 0) - (a.approvedAt || 0))[0];
         if (!record) {
-          await autoDeleteReply(message, `No active (approved) Leave of Absence found${targetId ? ' for that member' : ''}.`, 20000);
+          await autoDeleteReply(message, `No leave is active right now${targetId ? ' for that member' : ''}.`, 20000);
           return;
         }
         await autoConcludeLoa(message.client, record, { reason: 'ended early by management' });
-        await autoDeleteReply(message, `Leave of Absence ended for <@${record.userId}> — roles restored and they were notified in DMs.`, 20000);
+        await autoDeleteReply(message, `Leave ended for <@${record.userId}> — roles are back and they were DM'd.`, 20000);
         return;
       }
 
@@ -18976,24 +19987,11 @@ client.on(Events.MessageCreate, async (message) => {
       const parts = message.content.slice(1).trim().split(/\s+/);
       const action = parts[1]?.toLowerCase() || 'status';
       if (action === 'status') {
-        const card = new ContainerBuilder();
-        card.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 🛡️ Anti-Nuke Defense Status'));
-        card.addSeparatorComponents(thinLine());
-        card.addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            `> **System Status:** 🟢 **Active & Armed**\n` +
-            `> **Security Log Channel:** <#${ANTINUKE_CONFIG.logChannelId}>\n` +
-            `> **Channel Backup Cache:** ${channelBackupCache.size} channels indexed\n` +
-            `> **Role Backup Cache:** ${roleBackupCache.size} roles indexed\n` +
-            `> **Deleted Channels in Cache:** ${recentlyDeletedChannels.size}\n` +
-            `> **Deleted Roles in Cache:** ${recentlyDeletedRoles.size}\n` +
-            `> **Quarantined Actors:** ${strippedMemberRoles.size}\n\n` +
-            `**Alert Routing:**\n` +
-            `• **Minor Activity (2 deletions):** Alerts Deputy Director & Assistant Director\n` +
-            `• **Critical Mass Nuke (4+ deletions / mass bans):** Instant role strip, 28-day quarantine, alerts Director, Deputy, Assistant, Executive.`
-          )
+        await autoDeleteReply(
+          message,
+          { components: [buildAntiNukeStatusCard().toJSON()], flags: MessageFlags.IsComponentsV2 },
+          30000
         );
-        await autoDeleteReply(message, { components: [card.toJSON()], flags: MessageFlags.IsComponentsV2 }, 30000);
         return;
       }
       if (action === 'snapshot') {

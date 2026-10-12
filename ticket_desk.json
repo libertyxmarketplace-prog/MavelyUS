@@ -4,6 +4,8 @@
     "general": true,
     "ia": true,
     "highrank": true,
-    "partnership": true
+    "deptreport": true,
+    "partnership": true,
+    "staff_partnership": true
   }
 }

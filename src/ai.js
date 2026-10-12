@@ -89,7 +89,7 @@ function modelList(raw, fallback) {
 export const AI_PROVIDERS = [
   {
     name: 'Ollama',
-    baseUrl: `${OLLAMA_BASE}/v1/chat/completions`,
+    baseUrl: (OLLAMA_BASE.endsWith('/v1') ? OLLAMA_BASE : `${OLLAMA_BASE}/v1`) + '/chat/completions',
     key: OLLAMA_KEY,
     keyPrefix: 'ollama_',
     models: modelList(process.env.OLLAMA_MODEL, [
@@ -123,7 +123,6 @@ export const AI_PROVIDERS = [
     keyPrefix: 'sk-or-v1-',
     models: modelList(process.env.OPENROUTER_MODEL, [
       'openai/gpt-4o-mini',
-      'google/gemini-2.0-flash-exp:free',
       'deepseek/deepseek-chat'
     ]),
     // OpenRouter attributes app traffic in its dashboard and enforces its own
@@ -260,25 +259,44 @@ export const ACTION_SCHEMA = [
       agenda: 'string or null',
       reminders: 'boolean — default true (7 days prior + the morning of)'
     },
-    desc: 'Plan a meeting: DM every attendee an RSVP card with Can attend / Cannot attend buttons, post an announcement, and schedule reminder DMs (7 days prior and the morning of).'
+    desc: 'Plan a meeting: post ONE shared Components V2 panel with RSVP buttons (Joining / Maybe / Busy / Not going) in this channel — no DMs — and edit that panel in place for reminders, postpones and cancellation.'
   },
   {
     action: 'meeting_postpone',
     risk: 'directive',
     args: { by: 'duration like "2 hours" or "3 days"', reason: 'string or null' },
-    desc: 'Postpone the next scheduled meeting by a duration. Shifts the time, edits every DM card in place (so nobody is pinged twice) and reschedules reminders.'
+    desc: 'Postpone the next scheduled meeting by a duration. Shifts the time, edits the shared panel in place (no new messages, no pings) and reschedules reminders.'
   },
   {
     action: 'meeting_cancel',
     risk: 'directive',
     args: { reason: 'string or null' },
-    desc: 'Cancel the next scheduled meeting and tell everyone who replied that it is off.'
+    desc: 'Cancel the next scheduled meeting and edit the shared panel to show it is off.'
   },
   {
     action: 'meeting_list',
     risk: 'directive',
     args: {},
     desc: 'List every scheduled meeting with its time, location and RSVP counts.'
+  },
+  {
+    action: 'meeting_rsvp',
+    risk: 'directive',
+    args: {},
+    desc: 'RSVP roll-call for the next scheduled meeting: who is joining, maybe, busy, not going, and who has not replied yet. Use for "who accepted the meeting", "who is busy", "who replied".'
+  },
+  // ── Usage / records on demand ──────────────────────────────────────────────
+  {
+    action: 'ai_usage',
+    risk: 'directive',
+    args: { limit: 'int 5-50 (default 15)' },
+    desc: 'List recent -ai commands: who ran which action and when. Plain names, never mentions. Replaces automatic Security-Logs spam.'
+  },
+  {
+    action: 'ticket_list',
+    risk: 'directive',
+    args: {},
+    desc: 'List every currently open ticket: channel, department, opener, claim and age.'
   },
   // ── Owner-only additions ────────────────────────────────────────────────────
   { action: 'nick', risk: 'owner', args: { user_id: 'snowflake', nickname: 'string (empty to clear)' }, desc: "Set or clear a member's server nickname." },
@@ -488,13 +506,11 @@ async function callProvider(provider, messages, { timeout, maxTokens }) {
       const detail = err?.response?.data?.error?.message || err?.message || 'unknown error';
       lastError = new Error(`${provider.name}/${model} -> ${status || 'ERR'}: ${detail}`);
 
-      // Account-scoped failures hit every model on this provider identically,
-      // so stop walking the list and open the breaker.
-      if ([401, 402, 403, 413, 429].includes(status)) {
+      // Account-scoped failures, 404s, or connection failures trip breaker to avoid stalling
+      if ([401, 402, 403, 404, 413, 429].includes(status) || !status || /ECONNREFUSED|ENOTFOUND/i.test(detail)) {
         tripBreaker(provider, classifyFailure(status, detail));
         break;
       }
-      // A 404 just means that model slug is retired — try the next model.
     }
   }
   throw lastError ?? new Error(`${provider.name} is unreachable.`);
@@ -881,6 +897,14 @@ export function parseLocally(request) {
   if (/\b(list|show|what|upcoming|view)\b/.test(t) && /\bmeetings?\b/.test(t)) {
     return { action: 'meeting_list', args: {}, reply: 'Listing scheduled meetings.' };
   }
+  // RSVP roll-call — BEFORE the desk "busy" rule below, otherwise "who is busy"
+  // would flip the desk to Busy instead of answering the question.
+  if (
+    /\b(rsvp|responded|replied|accepted|declined|going|joining|attending|busy)\b/.test(t) &&
+    /\b(who|whose|which|everyone|anyone)\b/.test(t)
+  ) {
+    return { action: 'meeting_rsvp', args: {}, reply: 'Roll-calling the next meeting.' };
+  }
   if (/\b(schedule|plan|set ?up|organi[sz]e|arrange|book|hold|run)\b/.test(t) && /\bmeeting|briefing|muster\b/.test(t)) {
     const attendees = [...raw.matchAll(/<@!?(\d{17,20})>/g)].map((m) => m[1]);
     if (!attendees.length && /\bstaff\b/.test(t)) attendees.push('staff');
@@ -952,6 +976,23 @@ export function parseLocally(request) {
       .replace(/^[\s:,\-]+|[\s:,\-]+$/g, '')
       .trim();
     if (text) return { action: 'dm_user', args: { user_id: ticketUser, text }, reply: `DMing <@${ticketUser}>.` };
+  }
+
+  // ── Usage / open tickets (before the help rule — "list open tickets" starts
+  // with "list" and would otherwise be swallowed by it) ──────────────────────
+  if (
+    /\b(list|show|what|which|how many|open|active|current)\b/.test(t) &&
+    /\btickets?\b/.test(t) &&
+    !/\b(close|resolve|shut|archive|wrap up|end|desk|panel|department)\b/.test(t)
+  ) {
+    return { action: 'ticket_list', args: {}, reply: 'Listing open tickets.' };
+  }
+  if (
+    /\b(ai|command|commands|intent|action)s?\b/.test(t) &&
+    /\b(usage|used|history|log|ran|run)\b/.test(t) &&
+    !/\b(write|write to|save|security[- ]?log)\b/.test(t)
+  ) {
+    return { action: 'ai_usage', args: {}, reply: 'Pulling the recent -ai command log.' };
   }
 
   // ── Help / directory ────────────────────────────────────────────────────────
@@ -1674,9 +1715,7 @@ export async function executeIntent(intent, ctx) {
         const blocked = intent.restrictedAction ? String(intent.restrictedAction).replace(/_/g, ' ') : 'that action';
         return {
           ok: false,
-          message:
-            `❌ ${blocked} is owner-only. Ask the bot owner to run it.\n` +
-            `> Type -ai help to see everything available to you.`
+          message: `❌ ${blocked} is owner-only. Ask the bot owner to run it.`
         };
       }
 
@@ -1685,9 +1724,7 @@ export async function executeIntent(intent, ctx) {
       case 'unsupported': {
         return {
           ok: false,
-          message:
-            `❌ I could not work out what to run for that.\n` +
-            `> Type -ai help to see everything available to you.`
+          message: '❌ I could not work out what to run for that.'
         };
       }
 
@@ -1794,20 +1831,70 @@ export async function executeIntent(intent, ctx) {
 
       // ── Ticket lifecycle ────────────────────────────────────────────────────
       case 'ticket_close': {
-        const ticket = ctx.getActiveTicket?.(message.channel);
+        let channel = message.channel;
+        let ticket = ctx.getActiveTicket?.(channel);
+        let closedWhat = 'this channel';
+
+        if (!ticket) {
+          // Asked OUTSIDE a ticket ("close the general support ticket"): try the
+          // named department's actually-open ticket first...
+          const dept = normaliseDepartment(
+            departmentFromText(tidy(String(message.content || '')))
+          );
+          const found = dept ? ctx.findOpenTicketByDept?.(dept) : null;
+          if (found) {
+            const fetched = await ctx.client.channels.fetch(found.channelId).catch(() => null);
+            if (fetched?.isTextBased?.()) {
+              channel = fetched;
+              ticket = found.ticket;
+              closedWhat = `<#${found.channelId}>`;
+            }
+          }
+          // ...otherwise lock that department's panel line so no NEW ticket can
+          // be opened — the old behaviour claimed "closing" and did nothing.
+          if (!ticket && dept) {
+            if (dept === 'applications') {
+              ctx.appGateState.ingame = false;
+              ctx.saveAppGateState();
+              await ctx.refreshAllAppPanels(ctx.client);
+            } else {
+              ctx.ticketDeskState.categories[dept] = false;
+              ctx.saveTicketDeskState();
+              await ctx.refreshAllTicketPanels(ctx.client);
+            }
+            return {
+              ok: true,
+              message: `🔒 No open **${dept.replace(/_/g, ' ')}** ticket to archive — so I locked that line on the ticket panel instead. New **${dept.replace(/_/g, ' ')}** tickets are blocked now (say \`open ${dept.replace(/_/g, ' ')}\` to reverse).`
+            };
+          }
+        }
+
         if (!ticket) {
           return {
             ok: false,
             message:
-              '❌ There is no open ticket in this channel.\n' +
-              '> To lock a department of the ticket panel instead, say e.g. `close the general department`.'
+              '❌ There is no open ticket to close and no department was named.\n' +
+              '> Run this inside the ticket channel, or name it: `close the general support ticket`.'
           };
         }
-        await ctx.closeTicket(message.channel, ticket, message.author.tag, message.author.id);
+        await ctx.closeTicket(channel, ticket, message.author.tag, message.author.id);
         return {
           ok: true,
-          message: `🔒 **Closing ticket:** ${ticket.categoryName || 'Ticket'} — the transcript is being archived and this channel deletes itself in a few seconds.`
+          message: `🔒 **Closing ticket:** ${ticket.categoryName || 'Ticket'} (${closedWhat}) — the transcript is being archived and that channel deletes itself in a few seconds.`
         };
+      }
+
+      case 'ticket_list': {
+        const rows = ctx.listOpenTickets?.() ?? [];
+        if (!rows.length) return { ok: true, message: '📭 No open tickets right now.' };
+        const lines = rows.map((t, i) => {
+          const age = Number.isFinite(t.createdAt) ? `<t:${Math.floor(t.createdAt)}:R>` : 'unknown';
+          return (
+            `${i + 1}. **${t.categoryName || t.categoryKey || 'Ticket'}** — <#${t.channelId}>\n` +
+            `> Opened by ${t.authorTag || `<@${t.authorId}>`} · ${age} · ${t.claimedBy ? `claimed by <@${t.claimedBy}>` : '*unclaimed*'}`
+          );
+        });
+        return { ok: true, message: `## 🎫 Open Tickets (${rows.length})\n${lines.join('\n\n')}` };
       }
 
       case 'ticket_info': {
@@ -2071,6 +2158,15 @@ export async function executeIntent(intent, ctx) {
 
       case 'meeting_list': {
         return await ctx.listMeetings({ guild: message.guild });
+      }
+
+      case 'meeting_rsvp': {
+        return await ctx.meetingRsvp({ guild: message.guild });
+      }
+
+      case 'ai_usage': {
+        const limit = clampNumber(args.limit, 5, 50, 15);
+        return await ctx.aiUsageLog({ limit });
       }
 
       // ── Owner extras ────────────────────────────────────────────────────────

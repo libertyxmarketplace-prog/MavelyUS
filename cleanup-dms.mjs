@@ -85,7 +85,8 @@ for (const t of queue) {
   try {
     let channelId = dmChannelFor.get(t.userId);
     if (!channelId) {
-      const channel = await rest.post(Routes.userChannels(t.userId));
+      // Routes.userChannels() takes no args — the recipient goes in the body.
+      const channel = await rest.post(Routes.userChannels(), { body: { recipient_id: t.userId } });
       channelId = channel.id;
       dmChannelFor.set(t.userId, channelId);
     }

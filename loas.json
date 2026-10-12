@@ -1,1 +1,23 @@
-{}
+{
+  "1558690249301954621": {
+    "key": "1558690249301954621",
+    "userId": "523693281541095424",
+    "userTag": "kims3166",
+    "guildId": "1232495211490443284",
+    "logChannelId": "1232495214162214922",
+    "logMessageId": "1558690249301954621",
+    "actionMessageId": "1558690422354874398",
+    "roblox": "susugoated1",
+    "rank": "<@&1540398173158379632>",
+    "start": "2026-10-10",
+    "end": "2026-11-10",
+    "reason": "test",
+    "endsAt": 1794268800000,
+    "status": "approved",
+    "createdAt": 1791691118318,
+    "removedRoleIds": [],
+    "originalNickname": "Susugoated1",
+    "approvedBy": "523693281541095424",
+    "approvedAt": 1791691159684
+  }
+}

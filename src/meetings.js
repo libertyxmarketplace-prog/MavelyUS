@@ -149,8 +149,17 @@ export function parseWhen(input) {
 }
 // ── Cards ────────────────────────────────────────────────────────────────────
 
-/** Still used to label replies from older cards that had RSVP buttons. */
-const RSVP_LABEL = { yes: 'Can attend', no: 'Cannot attend' };
+/** RSVP statuses staff can pick from the invitation card. */
+const RSVP_STATUSES = ['yes', 'maybe', 'busy', 'no'];
+const RSVP_LABEL = { yes: 'Joining', maybe: 'Maybe', busy: "Can't make it", no: 'Not going' };
+const RSVP_EMOJI = { yes: '✅', maybe: '❔', busy: '🚫', no: '❌' };
+// Custom ids: meet_rsvp_<status>_<meetingId>
+const RSVP_BUTTONS = [
+  { status: 'yes', label: 'Joining', style: ButtonStyle.Success, emoji: '✅' },
+  { status: 'maybe', label: 'Maybe', style: ButtonStyle.Primary, emoji: '❔' },
+  { status: 'busy', label: "Can't make it", style: ButtonStyle.Secondary, emoji: '🚫' },
+  { status: 'no', label: 'Not going', style: ButtonStyle.Danger, emoji: '❌' }
+];
 
 /** Thin divider used between card sections. */
 const divider = () =>
@@ -175,7 +184,7 @@ function joinRow(url) {
  * @param {object} meeting
  * @param {'invite'|'reminder'|'postponed'|'cancelled'|'start'} variant
  */
-function buildCard(meeting, variant = 'invite') {
+function buildCard(meeting, variant = 'invite', viewerId = null) {
   const card = new ContainerBuilder();
   try {
     card.setAccentColor(variant === 'cancelled' ? 0x80848e : variant === 'postponed' ? 0xfee75c : 0x5865f2);
@@ -207,11 +216,36 @@ function buildCard(meeting, variant = 'invite') {
   if (variant === 'cancelled' && meeting.cancelReason) fields.push(`**Reason**  ${meeting.cancelReason}`);
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent(fields.join('\n')));
 
-  // The one button: where it starts. Added only when the host gave a location.
-  const url = meeting.locationUrl || (isLink(meeting.location) ? String(meeting.location).trim() : null);
-  if (variant !== 'cancelled' && url) {
+  // Your reply — only this viewer sees their own choice; everyone else sees the
+  // neutral tally below. Removed entirely on cancelled cards.
+  if (viewerId && variant !== 'cancelled') {
+    const mine = meeting.rsvp?.[viewerId];
+    const mineLine = mine?.status
+      ? `${RSVP_EMOJI[mine.status]} **Your reply:** ${RSVP_LABEL[mine.status]}`
+      : '❔ **Your reply:** Not responded yet — pick an option below.';
     card.addSeparatorComponents(divider());
-    card.addActionRowComponents(joinRow(url));
+    card.addTextDisplayComponents(new TextDisplayBuilder().setContent(mineLine));
+  }
+
+  // RSVP controls. Available on every live card so anyone who opens it can
+  // respond (in the announcement channel or their own DM).
+  if (variant !== 'cancelled') {
+    // Optional quick-open link when the host gave a real URL (voice/invite).
+    const url = meeting.locationUrl || (isLink(meeting.location) ? String(meeting.location).trim() : null);
+    if (url) {
+      card.addSeparatorComponents(divider());
+      card.addActionRowComponents(joinRow(url));
+    }
+
+    card.addSeparatorComponents(divider());
+    card.addActionRowComponents(rsvpRow(meeting.id));
+
+    // Live tally so the host/anyone can see the headcount and names at a glance.
+    const tally = rsvpTally(meeting);
+    if (tally) {
+      card.addSeparatorComponents(divider());
+      card.addTextDisplayComponents(new TextDisplayBuilder().setContent(tally));
+    }
   }
 
   card.addSeparatorComponents(divider());
@@ -221,10 +255,40 @@ function buildCard(meeting, variant = 'invite') {
   return card;
 }
 
+/** One row of RSVP buttons for a meeting. */
+function rsvpRow(meetingId) {
+  return new ActionRowBuilder().addComponents(
+    RSVP_BUTTONS.map((b) =>
+      new ButtonBuilder()
+        .setCustomId(`meet_rsvp_${b.status}_${meetingId}`)
+        .setLabel(b.label)
+        .setEmoji(b.emoji)
+        .setStyle(b.style)
+    )
+  );
+}
+
+/** Human-readable roll-call grouped by status; blank when nobody has replied. */
+function rsvpTally(meeting) {
+  const rsvp = meeting.rsvp || {};
+  const buckets = {};
+  for (const [uid, entry] of Object.entries(rsvp)) {
+    const st = entry?.status;
+    if (!st || !RSVP_LABEL[st]) continue;
+    (buckets[st] = buckets[st] || []).push(uid);
+  }
+  const order = RSVP_STATUSES.filter((st) => buckets[st]?.length);
+  if (!order.length) return '';
+  const lines = order.map(
+    (st) => `${RSVP_EMOJI[st]} **${RSVP_LABEL[st]} — ${buckets[st].length}**  ${buckets[st].map((u) => `<@${u}>`).join(' ')}`
+  );
+  return `### Responses\n${lines.join('\n')}`;
+}
+
 /** Builds the Components V2 payload for a meeting card (exported for tests). */
-export function cardPayload(meeting, variant) {
+export function cardPayload(meeting, variant, viewerId = null) {
   return {
-    components: [buildCard(meeting, variant).toJSON()],
+    components: [buildCard(meeting, variant, viewerId).toJSON()],
     flags: MessageFlags.IsComponentsV2
   };
 }
@@ -358,20 +422,13 @@ async function fireReminder(id, kind) {
     meeting.status = 'started';
     meeting.sentStart = true;
     saveMeetings();
-    // Everyone gets a "starting now" card. Edit any start DM the user already
-    // has (e.g. after a restart or a double-fire) so a double-fire rewrites one
-    // message instead of pinging the same person twice.
+    // Everyone sees ONE panel flip to "Meeting Starting Now" — edited in place,
+    // no new messages, no pings. Legacy DM cards (old builds) are edited too.
     const startCard = cardPayload(meeting, 'start');
     await editAnnouncement(meeting, startCard).catch(() => null);
     for (const uid of meeting.attendees || []) {
-      const entry = meeting.rsvp?.[uid] || { status: null, dmMessageId: null };
-      if (!entry.dmMessageId) {
-        const msg = await sendDm(uid, startCard).catch(() => null);
-        if (msg) {
-          entry.dmMessageId = msg.id;
-          meeting.rsvp[uid] = entry;
-        }
-      } else {
+      const entry = meeting.rsvp?.[uid];
+      if (entry?.dmMessageId) {
         await editDm(uid, entry.dmMessageId, startCard).catch(() => null);
       }
     }
@@ -380,12 +437,12 @@ async function fireReminder(id, kind) {
   }
 
   const variant = 'reminder';
+  // Shared panel: reminders edit the ONE announcement card in place. Nobody is
+  // pinged (Discord never notifies on edits), which is exactly the intent.
+  await editAnnouncement(meeting, cardPayload(meeting, variant)).catch(() => null);
   for (const uid of meeting.attendees || []) {
     const mine = meeting.rsvp?.[uid];
-    // Always edit in place so the person is not pinged twice. If the stored DM
-    // is gone or closed, do NOT fall back to sending a fresh DM — that fallback
-    // is exactly what produced the duplicate "Meeting Starting Now" / "Meeting
-    // Invitation" texts elsewhere.
+    // Legacy DM cards from older builds still get edited in place if they exist.
     await editDm(uid, mine?.dmMessageId, cardPayload(meeting, variant, uid)).catch(() => null);
   }
   if (kind === 'week') meeting.sentWeek = true;
@@ -502,17 +559,19 @@ export async function scheduleMeeting({ guild, channel, title, start, location, 
     createdAt: Date.now()
   };
 
-  // DM only — the invitation never appears in any channel. Each message id is
-  // remembered so a postpone or cancel edits it in place instead of re-pinging.
-  let delivered = 0;
-  for (const uid of meeting.attendees) {
-    const msg = await sendDm(uid, cardPayload(meeting, 'invite', uid));
-    if (msg) {
-      delivered++;
-      meeting.rsvp[uid] = meeting.rsvp[uid] || { status: null, dmMessageId: null };
-      meeting.rsvp[uid].dmMessageId = msg.id;
+  // ONE shared V2 panel in the invoking channel — no DMs. Everyone RSVPs on
+  // this single card; its id is stored so postpone/cancel/reminders/start edit
+  // it in place (editAnnouncement) instead of pinging anyone twice.
+  let annMsg = null;
+  if (channel && typeof channel.send === 'function') {
+    try {
+      annMsg = await channel.send(cardPayload(meeting, 'invite'));
+    } catch (err) {
+      console.warn('[meetings] Could not post the invitation panel:', err.message);
     }
   }
+  meeting.channelId = annMsg ? channel.id : null;
+  meeting.messageId = annMsg?.id ?? null;
 
   meetings.set(id, meeting);
   saveMeetings();
@@ -522,9 +581,10 @@ export async function scheduleMeeting({ guild, channel, title, start, location, 
     ok: true,
     message:
       `✅ **${meeting.title}** scheduled for <t:${Math.floor(when / 1000)}:F> (<t:${Math.floor(when / 1000)}:R>).\n` +
-      `> **Invitation sent:** ${delivered}/${meeting.attendees.length} by DM` +
-      `${locationUrl ? `\n> **Join button:** ${locationLabel}` : `\n> **Where:** ${locationLabel || 'not set — add a voice channel or link'}`}\n` +
-      `> **Reminders:** ${meeting.reminders ? '7 days prior + the morning of' : 'off'}`
+      `> **Panel:** ${meeting.messageId ? `posted in <#${meeting.channelId}> — everyone RSVPs there` : 'could not post to that channel (missing Send Messages?)'}\n` +
+      `> **Invited:** ${meeting.attendees.length} staff (no DMs — one shared card)\n` +
+      `${locationUrl ? `> **Join button:** ${locationLabel}` : `> **Where:** ${locationLabel || 'not set — add a voice channel or link'}`}\n` +
+      `> **Reminders:** ${meeting.reminders ? 'panel edits itself 7 days prior + the morning of' : 'off'}`
   };
 }
 /** `-ai postpone the meeting by <duration>` */
@@ -548,7 +608,9 @@ export async function postponeMeeting({ guild, by, reason, user }) {
   const when = `<t:${Math.floor(meeting.startTs / 1000)}:F> (<t:${Math.floor(meeting.startTs / 1000)}:R>)`;
   await editAnnouncement(meeting, cardPayload(meeting, 'postponed')).catch(() => null);
 
-  // Edit each attendee's DM in place — nobody is pinged a second time.
+  // The shared panel flips to "postponed" in place — zero pings. Legacy DM
+  // cards are edited too when they exist.
+  const panelUpdated = await editAnnouncement(meeting, cardPayload(meeting, 'postponed')).catch(() => false);
   let edited = 0;
   for (const uid of meeting.attendees) {
     const entry = meeting.rsvp?.[uid];
@@ -560,7 +622,8 @@ export async function postponeMeeting({ guild, by, reason, user }) {
     ok: true,
     message:
       `🕒 **${meeting.title}** postponed to ${when}.\n` +
-      `> **Cards updated in place:** ${edited}/${meeting.attendees.length} (no double pings)\n` +
+      `> **Panel updated in place:** ${panelUpdated ? 'yes (no new messages, no pings)' : 'panel not found (may have been deleted)'}` +
+      (edited ? ` · ${edited} legacy DM card(s) also updated` : '') + '\n' +
       (reason ? `> **Reason:** ${reason}\n` : '')
   };
 }
@@ -578,14 +641,20 @@ export async function cancelMeeting({ guild, reason, user }) {
   clearTimers();
   armAll();
 
-  await editAnnouncement(meeting, cardPayload(meeting, 'cancelled')).catch(() => null);
+  const panelUpdated = await editAnnouncement(meeting, cardPayload(meeting, 'cancelled')).catch(() => false);
   let notified = 0;
   for (const uid of meeting.attendees) {
     const entry = meeting.rsvp?.[uid];
     if (await editDm(uid, entry?.dmMessageId, cardPayload(meeting, 'cancelled', uid))) notified++;
   }
 
-  return { ok: true, message: `🚫 **${meeting.title}** cancelled. ${notified} attendee(s) notified.` };
+  return {
+    ok: true,
+    message:
+      `🚫 **${meeting.title}** cancelled.` +
+      ` ${panelUpdated ? 'Panel updated in place.' : 'Panel not found (may have been deleted).'} ` +
+      `${notified} legacy DM card(s) updated.`
+  };
 }
 
 /** `-ai list meetings` */
@@ -600,11 +669,45 @@ export async function listMeetings({ guild }) {
     return (
       `${i + 1}. **${m.title}**${status} — <t:${Math.floor(m.startTs / 1000)}:F> (<t:${Math.floor(m.startTs / 1000)}:R>)\n` +
       `> Where: ${m.location || 'Not set'} · Host: <@${m.hostId}>\n` +
-      `> Invited: ${(m.attendees || []).length} · Invited by DM` +
+      `> Invited: ${(m.attendees || []).length} · Shared panel${m.channelId && m.messageId ? ` in <#${m.channelId}>` : ''}` +
       (m.postponedCount ? ` · Postponed ${m.postponedCount} time(s)` : '')
     );
   });
   return { ok: true, message: `## Scheduled Meetings\n${lines.join('\n\n')}` };
+}
+
+/**
+ * `-ai who accepted the meetings` / `who is busy` — an RSVP roll-call for the
+ * next scheduled meeting: who is joining, who is busy, who hasn't replied.
+ * @returns {Promise<{ok: boolean, message: string}>}
+ */
+export async function meetingRsvp({ guild }) {
+  const next = [...meetings.values()]
+    .filter((m) => m.status === 'scheduled' && (!m.guildId || m.guildId === guild?.id))
+    .sort((a, b) => a.startTs - b.startTs)[0];
+  if (!next) return { ok: false, message: '📭 There is no scheduled meeting to roll-call.' };
+
+  const rsvp = next.rsvp || {};
+  const buckets = { yes: [], maybe: [], busy: [], no: [], pending: [] };
+  for (const uid of next.attendees || []) {
+    const st = rsvp[uid]?.status;
+    if (st && buckets[st]) buckets[st].push(uid);
+    else buckets.pending.push(uid);
+  }
+
+  const names = (ids) => (ids.length ? ids.map((u) => `<@${u}>`).join(' ') : '*nobody*');
+  const secs = Math.floor(next.startTs / 1000);
+  const rows = [
+    `## 🗳️ RSVP Roll-Call — ${next.title}`,
+    `> **When:** <t:${secs}:F> · <t:${secs}:R>`,
+    ``,
+    `✅ **Joining (${buckets.yes.length}):** ${names(buckets.yes)}`,
+    `❔ **Maybe (${buckets.maybe.length}):** ${names(buckets.maybe)}`,
+    `🚫 **Busy / can't make it (${buckets.busy.length}):** ${names(buckets.busy)}`,
+    `❌ **Not going (${buckets.no.length}):** ${names(buckets.no)}`,
+    `⏳ **No reply yet (${buckets.pending.length}):** ${names(buckets.pending)}`
+  ];
+  return { ok: true, message: rows.join('\n') };
 }
 // ── Buttons ──────────────────────────────────────────────────────────────────
 
@@ -614,7 +717,12 @@ export async function listMeetings({ guild }) {
  * @returns {Promise<boolean>} true when the customId belonged to a meeting.
  */
 export async function handleMeetingButton(interaction) {
-  const match = /^meet_(yes|no|maybe)_(.+)$/.exec(interaction.customId || '');
+  // New RSVP row: meet_rsvp_<status>_<meetingId>. Status is a fixed word, so we
+  // match it explicitly rather than splitting on '_' (meeting ids contain '_').
+  const rsvpMatch = /^meet_rsvp_(yes|maybe|busy|no)_(.+)$/.exec(interaction.customId || '');
+  // Legacy buttons from older builds: meet_yes/no/maybe_<id>.
+  const legacyMatch = /^meet_(yes|no|maybe)_(.+)$/.exec(interaction.customId || '');
+  const match = rsvpMatch || legacyMatch;
   if (!match) return false;
   const status = match[1];
   const id = match[2];
@@ -655,13 +763,25 @@ export async function handleMeetingButton(interaction) {
   };
   saveMeetings();
 
-  // The card is rebuilt for this viewer so "Your reply" is correct.
-  const payload = cardPayload(meeting, meeting.status === 'started' ? 'start' : 'invite', interaction.user.id);
+  // Shared channel panel: rebuild WITHOUT a viewer id, so "Your reply" (which
+  // is per-person) never leaks the last clicker's choice to everyone — the
+  // live tally below is the shared truth. In DMs (legacy cards) keep the
+  // personalised "Your reply" line.
+  const inDm = !interaction.guildId;
+  const payload = cardPayload(
+    meeting,
+    meeting.status === 'started' ? 'start' : 'invite',
+    inDm ? interaction.user.id : null
+  );
+  // Prefer interaction.update(): it edits the card AND acknowledges the click
+  // (editing interaction.message directly leaves the interaction un-acked, so
+  // the confirmation followUp below would 40060). Fall back to message.edit
+  // for the rare case update() is unavailable.
   try {
-    if (interaction.message && typeof interaction.message.edit === 'function') {
-      await interaction.message.edit(payload);
-    } else if (typeof interaction.update === 'function') {
+    if (typeof interaction.update === 'function') {
       await interaction.update(payload);
+    } else if (interaction.message && typeof interaction.message.edit === 'function') {
+      await interaction.message.edit(payload);
     }
   } catch {
     // Fall through to a plain acknowledgement so the click still registers.

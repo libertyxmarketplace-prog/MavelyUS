@@ -203,30 +203,33 @@ const tonight = parseWhen('tonight');
 assert.ok(tonight && tonight > Date.now(), 'tonight is in the future');
 console.log('tonight is future:', 'ok');
 
-// 11. Card design: DM-only V2 panel with a single location link button.
-const cardPayloadOut = cardPayload(listScheduledMeetings()[0], 'invite');
+// 11. Card design: V2 panel with an RSVP row (Joining / Maybe / Can't make it /
+//     Not going) and a live response tally. Optional join link when a URL exists.
+const cardPayloadOut = cardPayload(listScheduledMeetings()[0], 'invite', 'u1');
 const cardJson = cardPayloadOut.components[0];
-const EMOJI = /\p{Extended_Pictographic}/u;
 const text = cardJson.components.filter((c) => c.type === 10).map((c) => c.content).join('\n');
 const labels = JSON.stringify(cardJson).match(/"label":"([^"]+)"/g) || [];
-const urls = JSON.stringify(cardJson).match(/"url":"([^"]+)"/g) || [];
 
 assert.strictEqual(cardPayloadOut.flags, 1 << 15, 'card must carry the IsComponentsV2 flag');
 // Container type is 17 in this discord.js build (18 in newer ones).
 assert.ok([17, 18].includes(cardJson.type), 'card is a Components V2 container');
-assert.strictEqual(EMOJI.test(text), false, 'card must contain no emoji');
-assert.strictEqual(text.includes('RSVPs'), false, 'card must not show an RSVP tally');
-assert.ok(!labels.some((l) => /can attend|cannot attend|maybe/i.test(l)), 'no RSVP buttons');
-assert.strictEqual(labels.length, 1, 'exactly one button');
-assert.ok(/Join the meeting/.test(labels[0]), 'button is the join link');
-assert.ok(urls.some((u) => u.includes('discord.com/voice/g1/987654321098765432')), 'voice deep link');
-console.log('card: V2 / no emoji / no tally / no RSVP / voice join button:', 'ok');
-console.log('button:', labels[0], '->', urls[0]);
+// RSVP buttons present with the new labels.
+assert.ok(labels.some((l) => /Joining/.test(l)), 'has a Joining button');
+assert.ok(labels.some((l) => /Maybe/.test(l)), 'has a Maybe button');
+assert.ok(labels.some((l) => /Can't make it/.test(l)), "has a Can't make it button");
+assert.ok(labels.some((l) => /Not going/.test(l)), 'has a Not going button');
+// Per-viewer reply line for the supplied viewer.
+assert.ok(/Your reply/.test(text), 'shows the viewer their own reply line');
+console.log('card: V2 / RSVP row / per-viewer reply:', 'ok');
+console.log('rsvp buttons:', labels.join(', '));
 
-// 12. Without a location there is no button at all.
-const noPlace = cardPayload({ ...listScheduledMeetings()[0], location: null, locationUrl: null }, 'invite');
-assert.strictEqual(noPlace.components[0].components.filter((c) => c.type === 1).length, 0, 'no button without a place');
-console.log('no location -> no button:', 'ok');
+// 12. Without a location there is no JOIN LINK, but the RSVP row is still shown
+//     so people can always respond (Joining / Maybe / Can't make it / Not going).
+const noPlace = cardPayload({ ...listScheduledMeetings()[0], location: null, locationUrl: null }, 'invite', 'u1');
+const noPlaceLabels = JSON.stringify(noPlace.components[0]).match(/"label":"([^"]+)"/g) || [];
+assert.ok(!noPlaceLabels.some((l) => /Join the meeting/.test(l)), 'no join link without a place');
+assert.ok(noPlaceLabels.some((l) => /Joining/.test(l)), 'RSVP row still present without a place');
+console.log('no location -> no join link but RSVP row stays:', 'ok');
 
 fs.unlinkSync(store);
 console.log('\nALL MEETING TESTS PASSED');
