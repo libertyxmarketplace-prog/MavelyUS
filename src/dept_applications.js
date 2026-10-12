@@ -27,6 +27,16 @@ export const DEPT_PANEL_CHANNEL_ID = '1360792977181769768';
 export const DEPT_REVIEW_CHANNEL_ID = '1559117237531447376';
 export const DEPT_RESULTS_CHANNEL_ID = '1360793057930252539';
 
+// ── Custom Emojis ──
+export const EMOJI_POLICE = { id: '1546362652748677170', name: 'tuscaloosapolice' };
+export const EMOJI_SHERIFF = { id: '1546362692229664778', name: 'tuscaloosasheriff' };
+export const EMOJI_ALEA = { id: '1546362722923581533', name: 'ALEA' };
+export const EMOJI_FIRE = { id: '1546362746595971124', name: 'tuscaloosafire' };
+export const EMOJI_DISPATCH = { id: '1546362793077506180', name: 'alabamadispatch' };
+
+export const EMOJI_ARROW_LEFT = { id: '1554995417681362964', name: 'left' };
+export const EMOJI_ARROW_RIGHT = { id: '1554995281668612196', name: 'right' };
+
 // ── Assets ──
 const ASSETS_DIR = path.resolve(__dirname, '../assets');
 const DEPT_BANNER_PATH = path.join(ASSETS_DIR, 'dept_app_banner.png');
@@ -36,11 +46,18 @@ const DEPT_FAILED_PATH = path.join(ASSETS_DIR, 'dept_app_failed.png');
 export const DEPT_BANNER_FALLBACK_URL =
   'https://media.discordapp.net/attachments/1360792977181769768/1556006070256664636/Applications.png?backend=b2&ex=6acdcbd4&is=6acc7a54&hm=0ec4e20b2b3501c8cbab62b0d827a9f52c0310aff45c8cf42aa8fadd5de76268&=&format=webp&quality=lossless&width=2048&height=684';
 
+// ── ANSI Anti-AI Warning Notice ──
+export const DEPT_AI_POLICY_NOTICE =
+  '```ansi\n' +
+  '\u001b[1;31m⛔ AI-GENERATED APPLICATIONS ARE NOT ACCEPTED\u001b[0m\n' +
+  '\u001b[1;33mAny section of your application written, edited, or expanded with AI results in an immediate and permanent blacklist — no warning, no appeal, no exceptions.\u001b[0m\n' +
+  '\u001b[2;37mEvery answer must be written by you, in your own words, describing your own experience, availability, and personality. We review for authenticity.\u001b[0m\n' +
+  '```';
+
 // ── Persistence ──
 const DEPT_APPS_FILE = path.resolve(__dirname, '../dept_applications.json');
-const activeDeptApps = new Map(); // id -> appData
-const activeDeptReviewSessions = new Map(); // reviewerId -> { appId, pageIndex }
-const startingDeptApps = new Set(); // userId -> boolean
+const activeDeptApps = new Map();
+const startingDeptApps = new Set();
 
 function thinLine() {
   return new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true);
@@ -79,180 +96,45 @@ export const DEPARTMENTS = {
     key: 'tpd',
     name: 'Tuscaloosa Police Department',
     shortName: 'TPD',
-    icon: '🚓',
-    roleName: 'Tuscaloosa Police',
+    emoji: EMOJI_POLICE,
     desc: 'City patrol, traffic enforcement, municipal response, and urban order.',
-    reqs: [
-      'Must meet community age requirement & remain active weekly',
-      'Must use required CAD & radio systems realistically',
-      'Demonstrate sound situational judgment, composure & de-escalation',
-      'Working microphone & recording/clipping software required',
-      'No AI-generated answers or copied templates allowed'
-    ],
-    step2: {
-      title: 'Step 2: Police Knowledge & Procedure',
-      q1: { id: 'respect_trust', label: 'More important: respected or trusted as an officer?', placeholder: 'Explain your reasoning thoughtfully' },
-      q2: { id: 'chain_command', label: 'Purpose of Chain of Command & conflict handling?', placeholder: 'Explain what COC achieves and how you handle disagreements' },
-      q3: { id: 'meta_power', label: 'Explain the difference: Metagaming vs Powergaming', placeholder: 'Provide clear ER:LC roleplay definitions for both' },
-      q4: { id: 'rdm_vdm_icooc', label: 'Define RDM & VDM, and why separate IC from OOC?', placeholder: 'Explain why IC frustration must never become OOC malice' },
-      q5: { id: 'insult_arrest', label: 'A civilian insults you in-character. Can you arrest?', placeholder: 'Explain why or why not, detailing legal justification' }
-    },
-    step3: {
-      title: 'Step 3: Realistic Police Scenarios',
-      q1: { id: 'scen_traffic_stop', label: 'Rude stop: Driver insults you & refuses orders', placeholder: 'Explain your exact procedure from start to finish' },
-      q2: { id: 'scen_friend_force', label: 'Friend officer uses excessive force & says not to tell', placeholder: 'What do you do and why?' },
-      q3: { id: 'scen_supervisor_err', label: 'Supervisor orders arrest with no explained violation', placeholder: 'How do you handle this professionally?' },
-      q4: { id: 'scen_pursuit_terminate', label: 'High-speed pursuit turns dangerous; supervisor terminates', placeholder: 'What do you do immediately?' },
-      q5: { id: 'scen_false_arrest', label: 'You realize you arrested the wrong person; nobody saw', placeholder: 'What do you do to correct the situation?' }
-    }
+    roleName: 'Tuscaloosa Police'
   },
   tcso: {
     key: 'tcso',
     name: 'Tuscaloosa County Sheriff\'s Office',
     shortName: 'TCSO',
-    icon: '🤠',
-    roleName: 'Sheriff\'s Deputy',
-    desc: 'County jurisdiction, rural patrols, warrants, and county jail operations.',
-    reqs: [
-      'Active county presence in unincorporated Tuscaloosa territory',
-      'High degree of independence & rural tactical judgment',
-      'Clear CAD/radio communication with delayed backup distances',
-      'Working microphone & clip recording software',
-      'Zero tolerance for AI or falsified application data'
-    ],
-    step2: {
-      title: 'Step 2: Sheriff Jurisdiction & Policy',
-      q1: { id: 'jurisdiction_diff', label: 'Difference: County Sheriff vs Municipal Police?', placeholder: 'Explain jurisdictional boundaries and operational differences' },
-      q2: { id: 'rural_deescalate', label: 'Why is calm de-escalation crucial in rural county?', placeholder: 'Consider distance from backup and isolated terrain' },
-      q3: { id: 'meta_power', label: 'Define Metagaming & Powergaming in sheriff RP', placeholder: 'Explain how both harm immersion in county scenes' },
-      q4: { id: 'warrant_probable', label: 'Difference between Consensual Stop & Probable Cause?', placeholder: 'Explain legal standards required before searching vehicles' },
-      q5: { id: 'interagency_sheriff', label: 'City police and Sheriff dispute scene authority', placeholder: 'How should jurisdictional coordination be resolved?' }
-    },
-    step3: {
-      title: 'Step 3: Realistic County Scenarios',
-      q1: { id: 'scen_rural_dispute', label: 'Hostile armed resident on county land demands you leave', placeholder: 'How do you ensure officer safety and de-escalate?' },
-      q2: { id: 'scen_solo_backup', label: 'Uncooperative suspect alone in county; backup 3 mins out', placeholder: 'How do you control the scene without unnecessary lethal force?' },
-      q3: { id: 'scen_unlawful_search', label: 'Partner searches a trunk without consent or warrant', placeholder: 'What actions do you take regarding the search?' },
-      q4: { id: 'scen_county_pursuit', label: 'Pursuit heads onto dangerous unpaved mountain roads', placeholder: 'How do you manage vehicle control, safety, and radio traffic?' },
-      q5: { id: 'scen_foot_flee', label: 'Unarmed traffic stop suspect runs into the woods on foot', placeholder: 'Explain your pursuit and containment strategy' }
-    }
+    emoji: EMOJI_SHERIFF,
+    desc: 'County jurisdiction, rural patrols, warrants, and court security.',
+    roleName: 'Sheriff\'s Deputy'
   },
   ast: {
     key: 'ast',
     name: 'Alabama State Troopers',
     shortName: 'AST',
-    icon: '🚔',
-    roleName: 'State Trooper',
-    desc: 'Highway safety, interstate patrols, crash reconstruction, and high-speed enforcement.',
-    reqs: [
-      'Exemplary driving skill & high-speed vehicle control standards',
-      'Strict adherence to state statutes, radio brevity & PIT policies',
-      'Inter-agency coordination across all county & city borders',
-      'Working microphone & clip recording software',
-      'Strict anti-AI policy; all answers must reflect genuine thought'
-    ],
-    step2: {
-      title: 'Step 2: State Trooper & Highway Standards',
-      q1: { id: 'trooper_mission', label: 'Primary mission of Alabama State Troopers on highways?', placeholder: 'Explain high-speed safety, enforcement, and public presence' },
-      q2: { id: 'pit_policy', label: 'When is a PIT maneuver safe and authorized?', placeholder: 'Describe speed, traffic density, surroundings, and approval requirements' },
-      q3: { id: 'felony_stop', label: 'What differentiates a Felony Traffic Stop on a highway?', placeholder: 'Explain positioning, drawn weapons, commands, and backup coordination' },
-      q4: { id: 'adrenaline_composure', label: 'How do you keep composure during 110+ MPH chases?', placeholder: 'Describe how you prevent tunnel vision and maintain radio communication' },
-      q5: { id: 'radio_brevity', label: 'Why is strict radio brevity essential for Troopers?', placeholder: 'Explain clear dispatch communication during rapid inter-agency pursuits' }
-    },
-    step3: {
-      title: 'Step 3: High-Speed & Highway Scenarios',
-      q1: { id: 'scen_wrong_way', label: 'Suspect goes wrong-way on interstate; heavy civilian traffic', placeholder: 'What actions do you take immediately to prevent fatalities?' },
-      q2: { id: 'scen_multiagency_lead', label: 'City police chase enters interstate; you join as Trooper', placeholder: 'How do you coordinate with city units and assume highway lead?' },
-      q3: { id: 'scen_major_pileup', label: 'First on scene of a 4-car highway rollover with fires', placeholder: 'Detail your immediate triage, traffic diversion, and command steps' },
-      q4: { id: 'scen_els_abuse', label: 'Off-duty Trooper uses emergency lights to bypass traffic', placeholder: 'How do you address this violation of state policy?' },
-      q5: { id: 'scen_commercial_evade', label: 'Commercial semi-truck refuses to pull over at weigh station', placeholder: 'How do you safely bring the heavy vehicle to a stop?' }
-    }
+    emoji: EMOJI_ALEA,
+    desc: 'State highway safety, interstate enforcement, and pursuit intervention.',
+    roleName: 'State Trooper'
   },
   tfr: {
     key: 'tfr',
     name: 'Tuscaloosa Fire Rescue',
     shortName: 'TFR',
-    icon: '🚒',
-    roleName: 'Firefighter',
-    desc: 'Fire suppression, vehicle extrication, hazmat response, and technical rescue.',
-    reqs: [
-      'Commitment to realism & dedicated fire suppression RP',
-      'Understanding of Incident Command System (ICS) & team coordination',
-      'Clear apparatus safety & scene positioning discipline',
-      'Working microphone & clip recording software',
-      'Original responses only — AI usage results in immediate denial'
-    ],
-    step2: {
-      title: 'Step 2: Fire Rescue Fundamentals',
-      q1: { id: 'fire_priorities', label: 'Order & importance of 3 incident priorities (LIP)?', placeholder: 'Explain Life Safety, Incident Stabilization, Property Conservation' },
-      q2: { id: 'incident_command', label: 'Role of Incident Commander & danger of freelancing?', placeholder: 'Why must every firefighter follow assigned sector tasks?' },
-      q3: { id: 'extrication_safety', label: 'Key hazards when extricating pinned victims in a crash?', placeholder: 'Mention battery disconnection, fuel leaks, stabilization' },
-      q4: { id: 'meta_fire_rp', label: 'How do you ensure fire scenes feel immersive for all?', placeholder: 'Explain realistic fire behavior and descriptive roleplay' },
-      q5: { id: 'police_coordination', label: 'Coordinating with police for traffic & perimeter control?', placeholder: 'Explain perimeter security and protecting fire apparatus' }
-    },
-    step3: {
-      title: 'Step 3: Fire & Rescue Scenarios',
-      q1: { id: 'scen_structure_fire', label: 'Residential fire with heavy smoke; bystander claims trapped kid', placeholder: 'How do you balance search & rescue with thermal safety?' },
-      q2: { id: 'scen_fuel_tanker', label: 'Fuel tanker rolled over spilling gas on hot roadway', placeholder: 'Detail your foam, evacuation, and hazard containment steps' },
-      q3: { id: 'scen_civilian_charge', label: 'Distraught family member tries running into burning home', placeholder: 'How do you physically stop and de-escalate without violence?' },
-      q4: { id: 'scen_scba_low', label: 'Interior attack: Your SCBA low-air bell sounds unexpectedly', placeholder: 'What is your immediate Mayday / egress protocol?' },
-      q5: { id: 'scen_order_evacuate', label: 'Lieutenant orders roof evacuation that you believe is stable', placeholder: 'Do you argue or immediately evacuate? Explain why.' }
-    }
+    emoji: EMOJI_FIRE,
+    desc: 'Fire suppression, vehicle extrication, and technical rescue operations.',
+    roleName: 'Firefighter'
   },
   ems: {
     key: 'ems',
     name: 'Northstar Medical (EMS)',
     shortName: 'Northstar EMS',
-    icon: '🚑',
-    roleName: 'Paramedic',
-    desc: 'Emergency medical services, pre-hospital trauma stabilization, and ambulance transport.',
-    reqs: [
-      'Dedication to immersive, detailed medical roleplay (no 1-word heals)',
-      'Understanding of triage, trauma assessment & patient care protocols',
-      'Composure under high-stress emergency medical scenes',
-      'Working microphone & clip recording software',
-      'All responses must be genuine; AI generation strictly prohibited'
-    ],
-    step2: {
-      title: 'Step 2: Medical & EMS Fundamentals',
-      q1: { id: 'abc_triage', label: 'Explain the ABCs of medical assessment and why order matters', placeholder: 'Airway, Breathing, Circulation and vital stability' },
-      q2: { id: 'mci_triage', label: 'Mass Casualty Triage categories (Green, Yellow, Red, Black)?', placeholder: 'Explain how you prioritize care during multi-casualty incidents' },
-      q3: { id: 'medical_neutrality', label: 'Why must EMS treat police and criminals with equal care?', placeholder: 'Explain medical ethics and oath to treat all patients' },
-      q4: { id: 'immersive_med_rp', label: 'How do you avoid 1-word "auto-heals" and create good RP?', placeholder: 'Describe how you talk through injuries and treatments with players' },
-      q5: { id: 'consent_refusal', label: 'How do you handle conscious patient refusing ambulance care?', placeholder: 'Explain informed refusal, capacity check, and documentation' }
-    },
-    step3: {
-      title: 'Step 3: Realistic Medical Scenarios',
-      q1: { id: 'scen_hot_zone', label: 'Shootout ongoing; wounded officer down 20ft away; scene NOT secure', placeholder: 'Do you enter or stage? Explain tactical EMS staging protocol' },
-      q2: { id: 'scen_cardiac_arrest', label: 'Driver in full cardiac arrest following major collision', placeholder: 'Detail your CPR, AED, airway management, and transport steps' },
-      q3: { id: 'scen_hostile_crowd', label: 'Hostile crowd surrounds ambulance while treating patient', placeholder: 'How do you maintain patient care and coordinate emergency extraction?' },
-      q4: { id: 'scen_medical_mistake', label: 'You realize you administered the wrong treatment in RP', placeholder: 'What do you do immediately for patient safety and transparency?' },
-      q5: { id: 'scen_suspect_custody', label: 'Injured suspect in police custody spits and curses at you', placeholder: 'How do you safely provide medical evaluation?' }
-    }
+    emoji: EMOJI_DISPATCH,
+    desc: 'Emergency medical services, paramedic trauma care, and dispatch operations.',
+    roleName: 'Paramedic / Dispatcher'
   }
 };
 
-// ── Step 1 Questions (Common Across Departments) ──
-export const STEP1_QUESTIONS = {
-  title: 'Step 1: General Info & Background',
-  q1: { id: 'roblox_user', label: 'Roblox Username', placeholder: 'Your exact Roblox username' },
-  q2: { id: 'age_tz', label: 'Current Age & Timezone', placeholder: 'e.g. 16, EST (Eastern Time)' },
-  q3: { id: 'hours_week', label: 'Hours/week you can dedicate?', placeholder: 'e.g. 10-15 hours per week' },
-  q4: { id: 'prev_exp', label: 'Previous Department & RP Experience', placeholder: 'Describe previous communities, departments, and highest ranks held' },
-  q5: { id: 'past_discipline', label: 'Past removals/demotions/blacklists?', placeholder: 'Explain truthfully what happened (honesty is evaluated)' }
-};
-
-// ── Step 4 Questions (Commitment & Integrity) ──
-export const STEP4_QUESTIONS = {
-  title: 'Step 4: Commitment & Integrity',
-  q1: { id: 'why_dept', label: 'Why do you want to join this department?', placeholder: 'Explain what you want to contribute (do not just say "I want to be a cop/medic")' },
-  q2: { id: 'weakness_improve', label: 'One weakness & how you are improving it?', placeholder: 'Be authentic — explain your personal growth approach' },
-  q3: { id: 'unsupervised_authority', label: 'What prevents abuse of authority?', placeholder: 'Explain what personal integrity and accountability mean to you' },
-  q4: { id: 'criticism_disrespect', label: 'Difference: criticism vs disrespect?', placeholder: 'Explain how you respond to feedback and disciplinary direction' },
-  q5: { id: 'integrity_pledge', label: 'Confirm: 100% original, no AI (I Agree)?', placeholder: 'Type "I Agree" to pledge truthful and original answers' }
-};
-
-// ── Panel Card Builder ──
+// ── Panel Card Builder (Clean, Sleek, NO generic emojis, NO buttons, Only Select Menu) ──
 export function buildDeptApplicationPanelCard(bannerUrlOverride) {
   const card = new ContainerBuilder();
   const bannerUrl = bannerUrlOverride || (fs.existsSync(DEPT_BANNER_PATH) ? 'attachment://dept_app_banner.png' : DEPT_BANNER_FALLBACK_URL);
@@ -263,7 +145,7 @@ export function buildDeptApplicationPanelCard(bannerUrlOverride) {
 
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      '# 🏛️ DEPARTMENT APPLICATIONS\n' +
+      '# DEPARTMENT APPLICATIONS\n' +
       '### Welcome to the Alabama State Roleplay Department Applications Hub!\n\n' +
       'This is where you will find the applications for all available departments within **Alabama State Roleplay**. If you are interested in joining a department, you must complete the appropriate application and meet the department\'s requirements before you can be accepted.'
     )
@@ -273,13 +155,12 @@ export function buildDeptApplicationPanelCard(bannerUrlOverride) {
 
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      '### 📋 BEFORE APPLYING\n' +
+      '### BEFORE APPLYING\n' +
       'Before submitting a department application, please make sure you understand the expectations and requirements of the department you are applying for:\n\n' +
       '• **Be Active:** You must remain active within Alabama State Roleplay and participate regularly within the community.\n' +
       '• **Meet Department Requirements:** Each department may have different requirements. Make sure you meet the requirements listed on the department application before submitting.\n' +
       '• **Be Professional:** You are expected to remain professional, respectful, and mature throughout the application process and while representing your department.\n' +
-      '• **Be Honest:** All applications must be completed truthfully. Providing false or misleading information may result in your application being denied.\n\n' +
-      '⚠️ **This includes any use of AI. AI-generated answers will result in immediate disqualification.**'
+      '• **Be Honest:** All applications must be completed truthfully. Providing false or misleading information may result in your application being denied.'
     )
   );
 
@@ -287,7 +168,7 @@ export function buildDeptApplicationPanelCard(bannerUrlOverride) {
 
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      '### ⚠️ IMPORTANT NOTICE\n' +
+      '### IMPORTANT NOTICE\n' +
       'Submitting an application does not guarantee acceptance.\n\n' +
       '• **Department Leadership** reserves the right to accept or deny applications based on the applicant\'s eligibility, application quality, activity, professionalism, and department needs.\n' +
       '• Do not repeatedly contact Department Leadership regarding the status of your application. Please allow adequate time for applications to be reviewed.'
@@ -297,126 +178,152 @@ export function buildDeptApplicationPanelCard(bannerUrlOverride) {
   card.addSeparatorComponents(thinLine());
 
   card.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      '### 🎖️ SELECT YOUR DEPARTMENT\n' +
-      'Choose the department you wish to join using the dropdown menu or buttons below. Your comprehensive application will be delivered directly to your **Direct Messages (DMs)**.'
-    )
+    new TextDisplayBuilder().setContent(DEPT_AI_POLICY_NOTICE)
   );
 
-  // Select Menu
+  card.addSeparatorComponents(thinLine());
+
+  card.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent('### SELECT A DEPARTMENT\nChoose the department you wish to apply for below. Your application will be sent directly to your Direct Messages.')
+  );
+
+  // Single Clean Select Menu with ONLY the requested custom emojis
   const selectOptions = Object.values(DEPARTMENTS).map((d) => ({
     label: d.name,
     value: `dept_apply_${d.key}`,
     description: d.desc.slice(0, 100),
-    emoji: d.icon
+    emoji: d.emoji
   }));
 
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId('dept_app_select')
-    .setPlaceholder('Choose a department to begin your application...')
+    .setPlaceholder('Choose a department to apply...')
     .addOptions(selectOptions);
 
-  const selectRow = new ActionRowBuilder().addComponents(selectMenu);
-  card.addActionRowComponents(selectRow);
-
-  // Quick Action Buttons Row
-  const buttonsRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('dept_quick_tpd').setLabel('TPD (Police)').setStyle(ButtonStyle.Primary).setEmoji('🚓'),
-    new ButtonBuilder().setCustomId('dept_quick_tcso').setLabel('TCSO (Sheriff)').setStyle(ButtonStyle.Secondary).setEmoji('🤠'),
-    new ButtonBuilder().setCustomId('dept_quick_ast').setLabel('AST (Troopers)').setStyle(ButtonStyle.Primary).setEmoji('🚔'),
-    new ButtonBuilder().setCustomId('dept_quick_tfr').setLabel('TFR (Fire)').setStyle(ButtonStyle.Danger).setEmoji('🚒'),
-    new ButtonBuilder().setCustomId('dept_quick_ems').setLabel('Northstar (EMS)').setStyle(ButtonStyle.Success).setEmoji('🚑')
-  );
-  card.addActionRowComponents(buttonsRow);
+  card.addActionRowComponents(new ActionRowBuilder().addComponents(selectMenu));
 
   return card;
 }
 
-// ── Applicant DM Dashboard Builder ──
+// ── Applicant DM Dashboard Builder (High-End & Comprehensive) ──
 export function buildDeptApplicantDashboard(appData) {
   const dept = DEPARTMENTS[appData.deptKey] || DEPARTMENTS.tpd;
   const card = new ContainerBuilder();
 
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `# ${dept.icon} ${dept.name} Application\n` +
-      `Thank you for your interest in serving with the **${dept.name}**, <@${appData.applicantId}>.\n\n` +
-      `> *This is an official recruitment process. Submission does not guarantee acceptance. Applicants are evaluated on sound judgment, integrity, roleplay knowledge, and honesty.*`
+      `# ${dept.name} Application\n` +
+      `### Welcome to the Official ${dept.name} Recruitment Process\n\n` +
+      `Thank you for your interest in serving with the **${dept.name}**, <@${appData.applicantId}>. This application is designed to identify applicants who demonstrate professionalism, maturity, integrity, sound judgment, communication skills, and a genuine understanding of emergency roleplay.\n\n` +
+      `> *This is a selective recruitment process. Submission does not guarantee an interview or appointment. Applicants are evaluated on the quality and depth of their reasoning, not simply one-word answers.*`
     )
   );
 
   card.addSeparatorComponents(thinLine());
 
-  // Department Requirements Box
-  const reqLines = dept.reqs.map(r => `• ${r}`).join('\n');
+  // 12-Step Recruitment Pipeline (Directly from User Specification)
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `### 📌 Department Requirements & Expectations\n${reqLines}`
+      '### What Happens After You Submit?\n' +
+      '**1. Application Review:** Recruitment personnel review your responses for completeness, judgment, and suitability.\n' +
+      '**2. Application Decision:** Outcomes include Accepted for Interview, Further Review, or Denied.\n' +
+      '**3. Background & Conduct Review:** Review of prior departmental experience, server conduct, and disciplinary history.\n' +
+      '**4. Interview:** Qualified applicants may be invited to a formal interview covering situational judgment.\n' +
+      '**5. Conditional Acceptance:** Conditional offer to enter the recruitment pipeline.\n' +
+      '**6. Recruit Status:** Onboarding as a Department Recruit with training requirements.\n' +
+      '**7. Department Academy:** Training covering SOPs, communications, patrol/suppression procedures, report writing, and use-of-force.\n' +
+      '**8. Academy Examination:** Successful completion of written and practical evaluations.\n' +
+      '**9. Field Training Program:** Supervised operations with an assigned Field Training Officer (FTO).\n' +
+      '**10. Probationary Status:** Advancement to probationary operational status under continuous evaluation.\n' +
+      '**11. Final Evaluation:** Determination of competence, professionalism, judgment, and reliability.\n' +
+      '**12. Full Appointment:** Completion results in official appointment to active duty.'
     )
   );
 
   card.addSeparatorComponents(thinLine());
 
-  // Progress Checklist
-  const s1Icon = appData.step1Done ? '✅' : '⚪';
-  const s2Icon = appData.step2Done ? '✅' : '⚪';
-  const s3Icon = appData.step3Done ? '✅' : '⚪';
-  const s4Icon = appData.step4Done ? '✅' : '⚪';
+  // Progress Checklist (6 Comprehensive Sections)
+  const s1 = appData.step1Done ? '✅' : '⚪';
+  const s2 = appData.step2Done ? '✅' : '⚪';
+  const s3 = appData.step3Done ? '✅' : '⚪';
+  const s4 = appData.step4Done ? '✅' : '⚪';
+  const s5 = appData.step5Done ? '✅' : '⚪';
+  const s6 = appData.step6Done ? '✅' : '⚪';
 
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `### 📋 Application Progress Checklist\n` +
-      `${s1Icon} **Step 1:** General Information & Background\n` +
-      `${s2Icon} **Step 2:** ${dept.shortName} Knowledge & Procedures\n` +
-      `${s3Icon} **Step 3:** Realistic Situational Scenarios\n` +
-      `${s4Icon} **Step 4:** Commitment, Leadership & Integrity\n\n` +
-      `*Complete all four sections in order. Once all sections show a green checkmark, the **Submit Application** button will unlock.*`
+      '### Application Sections\n' +
+      `${s1} **Section 1:** Candidate Verification & Availability\n` +
+      `${s2} **Section 2:** Department Experience & Disciplinary History\n` +
+      `${s3} **Section 3:** Chain of Command, Trust & Patrol Decisions\n` +
+      `${s4} **Section 4:** Roleplay Standards & Core Definitions\n` +
+      `${s5} **Section 5:** High-Stakes Realistic Scenarios\n` +
+      `${s6} **Section 6:** Leadership, Accountability & Integrity Pledge\n\n` +
+      `*Click each section button below to open its form. Once all 6 sections show green checkmarks, the Submit button will unlock.*`
     )
   );
 
   card.addSeparatorComponents(thinLine());
 
-  // Step Buttons Row
-  const allComplete = appData.step1Done && appData.step2Done && appData.step3Done && appData.step4Done;
+  card.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(DEPT_AI_POLICY_NOTICE)
+  );
 
-  const stepsRow = new ActionRowBuilder().addComponents(
+  card.addSeparatorComponents(thinLine());
+
+  const allDone = appData.step1Done && appData.step2Done && appData.step3Done && appData.step4Done && appData.step5Done && appData.step6Done;
+
+  // Buttons Row 1: Sections 1-3
+  const row1 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`dept_btn_step1_${appData.id}`)
-      .setLabel(appData.step1Done ? '✓ Step 1: General Info' : 'Step 1: General Info')
+      .setLabel(appData.step1Done ? '✓ Sec 1: Verification' : 'Sec 1: Verification')
       .setStyle(appData.step1Done ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`dept_btn_step2_${appData.id}`)
-      .setLabel(appData.step2Done ? `✓ Step 2: ${dept.shortName} Knowledge` : `Step 2: ${dept.shortName} Knowledge`)
+      .setLabel(appData.step2Done ? '✓ Sec 2: Experience' : 'Sec 2: Experience')
       .setStyle(appData.step2Done ? ButtonStyle.Success : ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(`dept_btn_step3_${appData.id}`)
-      .setLabel(appData.step3Done ? '✓ Step 3: Scenarios' : 'Step 3: Scenarios')
-      .setStyle(appData.step3Done ? ButtonStyle.Success : ButtonStyle.Secondary),
+      .setLabel(appData.step3Done ? '✓ Sec 3: Protocol' : 'Sec 3: Protocol')
+      .setStyle(appData.step3Done ? ButtonStyle.Success : ButtonStyle.Secondary)
+  );
+
+  // Buttons Row 2: Sections 4-6
+  const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`dept_btn_step4_${appData.id}`)
-      .setLabel(appData.step4Done ? '✓ Step 4: Integrity' : 'Step 4: Integrity')
-      .setStyle(appData.step4Done ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setLabel(appData.step4Done ? '✓ Sec 4: RP Knowledge' : 'Sec 4: RP Knowledge')
+      .setStyle(appData.step4Done ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`dept_btn_step5_${appData.id}`)
+      .setLabel(appData.step5Done ? '✓ Sec 5: Scenarios' : 'Sec 5: Scenarios')
+      .setStyle(appData.step5Done ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`dept_btn_step6_${appData.id}`)
+      .setLabel(appData.step6Done ? '✓ Sec 6: Integrity' : 'Sec 6: Integrity')
+      .setStyle(appData.step6Done ? ButtonStyle.Success : ButtonStyle.Secondary)
   );
-  card.addActionRowComponents(stepsRow);
 
-  // Submit / Cancel Row
-  const submitRow = new ActionRowBuilder().addComponents(
+  // Buttons Row 3: Submit / Cancel
+  const row3 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`dept_btn_submit_${appData.id}`)
-      .setLabel(allComplete ? '🚀 Submit Application' : '⏳ Complete All Steps to Submit')
-      .setStyle(allComplete ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setDisabled(!allComplete),
+      .setLabel(allDone ? 'Submit Application' : 'Complete All Sections to Submit')
+      .setStyle(allDone ? ButtonStyle.Success : ButtonStyle.Secondary)
+      .setDisabled(!allDone),
     new ButtonBuilder()
       .setCustomId(`dept_btn_cancel_${appData.id}`)
       .setLabel('Cancel Application')
       .setStyle(ButtonStyle.Danger)
   );
-  card.addActionRowComponents(submitRow);
+
+  card.addActionRowComponents(row1, row2, row3);
 
   return card;
 }
 
-// ── Start Application Workflow ──
+// ── Application Initialization ──
 export async function startDeptApplication(interaction, deptKey) {
   const dept = DEPARTMENTS[deptKey];
   if (!dept) {
@@ -438,7 +345,7 @@ export async function startDeptApplication(interaction, deptKey) {
 
   const userId = interaction.user.id;
   if (startingDeptApps.has(userId)) {
-    await interaction.editReply({ content: '⏳ Please wait a moment, your application is already being initialized.' }).catch(() => {});
+    await interaction.editReply({ content: '⏳ Your application is already being initialized.' }).catch(() => {});
     return;
   }
   startingDeptApps.add(userId);
@@ -448,7 +355,7 @@ export async function startDeptApplication(interaction, deptKey) {
   const existing = [...activeDeptApps.values()].find(a => a.applicantId === userId && a.status === 'pending_review');
   if (existing) {
     await interaction.editReply({
-      content: `⚠️ You already have a pending **${existing.deptName}** application under review! Please wait for Department Leadership to review your submission in <#${DEPT_RESULTS_CHANNEL_ID}>.`
+      content: `⚠️ You already have a pending **${existing.deptName}** application under review. Please await leadership results in <#${DEPT_RESULTS_CHANNEL_ID}>.`
     }).catch(() => {});
     return;
   }
@@ -465,10 +372,14 @@ export async function startDeptApplication(interaction, deptKey) {
     step2Done: false,
     step3Done: false,
     step4Done: false,
-    generalInfo: null,
-    knowledgeAnswers: null,
-    scenarioAnswers: null,
-    commitmentAnswers: null,
+    step5Done: false,
+    step6Done: false,
+    sec1: null,
+    sec2: null,
+    sec3: null,
+    sec4: null,
+    sec5: null,
+    sec6: null,
     createdAt: Date.now(),
     submittedAt: null,
     reviewedBy: null,
@@ -480,12 +391,11 @@ export async function startDeptApplication(interaction, deptKey) {
     const dmCh = await interaction.user.createDM().catch(() => null);
     if (!dmCh) {
       await interaction.editReply({
-        content: '❌ Could not open Direct Messages with you. Please enable **Direct Messages from server members** in your Privacy & Safety settings and try again.'
+        content: '❌ Direct Messages are closed. Please enable **Direct Messages from server members** in your Privacy & Safety settings, then try again.'
       }).catch(() => {});
       return;
     }
 
-    // Clean up older department application cards
     const recentDms = await dmCh.messages.fetch({ limit: 12 }).catch(() => null);
     if (recentDms) {
       const oldCards = recentDms.filter(m =>
@@ -507,218 +417,281 @@ export async function startDeptApplication(interaction, deptKey) {
     saveDeptApplications();
 
     await interaction.editReply({
-      content: `✅ Opened your **${dept.name}** application in your Direct Messages! Please check your DMs to begin.`
+      content: `✅ Opened your **${dept.name}** application in your Direct Messages! Check your DMs to proceed.`
     }).catch(() => {});
   } catch (err) {
     console.error('[DeptApps] Error launching application DM:', err.message);
     await interaction.editReply({
-      content: `❌ Could not send application to your DMs (${err.message}). Ensure your DMs are open.`
+      content: `❌ Could not send application to your DMs (${err.message}).`
     }).catch(() => {});
   }
 }
 
-// ── Modals Builders ──
+// ── Modals Builders (Strictly <= 45 character labels) ──
 export function buildStep1Modal(appId) {
-  const modal = new ModalBuilder()
+  return new ModalBuilder()
     .setCustomId(`dept_modal_step1_${appId}`)
-    .setTitle('Step 1: General Info & Background');
-
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('roblox_user').setLabel(STEP1_QUESTIONS.q1.label).setPlaceholder(STEP1_QUESTIONS.q1.placeholder).setStyle(TextInputStyle.Short).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('age_tz').setLabel(STEP1_QUESTIONS.q2.label).setPlaceholder(STEP1_QUESTIONS.q2.placeholder).setStyle(TextInputStyle.Short).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('hours_week').setLabel(STEP1_QUESTIONS.q3.label).setPlaceholder(STEP1_QUESTIONS.q3.placeholder).setStyle(TextInputStyle.Short).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('prev_exp').setLabel(STEP1_QUESTIONS.q4.label).setPlaceholder(STEP1_QUESTIONS.q4.placeholder).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('past_discipline').setLabel(STEP1_QUESTIONS.q5.label).setPlaceholder(STEP1_QUESTIONS.q5.placeholder).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    )
-  );
-  return modal;
+    .setTitle('Section 1: Verification & Hours')
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('roblox_user').setLabel('Roblox Username*').setPlaceholder('Enter your exact Roblox username').setStyle(TextInputStyle.Short).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('discord_info').setLabel('Discord Username & User ID*').setPlaceholder('Username / Discord ID').setStyle(TextInputStyle.Short).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('age_tz').setLabel('Current Age & Timezone*').setPlaceholder('e.g. 16 | EST (Eastern Time)').setStyle(TextInputStyle.Short).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('community_tenure').setLabel('Community Membership Duration*').setPlaceholder('How long have you been a member of ASRP?').setStyle(TextInputStyle.Short).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('hours_mic').setLabel('Hours/Week & Working Mic Status*').setPlaceholder('e.g. 12 hrs/wk | Yes - working microphone').setStyle(TextInputStyle.Short).setRequired(true)
+      )
+    );
 }
 
-export function buildStep2Modal(appData) {
-  const dept = DEPARTMENTS[appData.deptKey] || DEPARTMENTS.tpd;
-  const cfg = dept.step2;
-  const modal = new ModalBuilder()
-    .setCustomId(`dept_modal_step2_${appData.id}`)
-    .setTitle(cfg.title.slice(0, 45));
-
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(cfg.q1.id).setLabel(cfg.q1.label.slice(0, 45)).setPlaceholder(cfg.q1.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(cfg.q2.id).setLabel(cfg.q2.label.slice(0, 45)).setPlaceholder(cfg.q2.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(cfg.q3.id).setLabel(cfg.q3.label.slice(0, 45)).setPlaceholder(cfg.q3.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(cfg.q4.id).setLabel(cfg.q4.label.slice(0, 45)).setPlaceholder(cfg.q4.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(cfg.q5.id).setLabel(cfg.q5.label.slice(0, 45)).setPlaceholder(cfg.q5.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    )
-  );
-  return modal;
+export function buildStep2Modal(appId) {
+  return new ModalBuilder()
+    .setCustomId(`dept_modal_step2_${appId}`)
+    .setTitle('Section 2: Experience & History')
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('prev_exp').setLabel('Describe your previous RP Experience*').setPlaceholder('Detail previous communities and departments you served with').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('highest_rank').setLabel('Highest rank earned & responsibilities?*').setPlaceholder('State rank, division, and what leadership you held').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('discipline_history').setLabel('Ever removed, demoted, warned in RP?*').setPlaceholder('Truthful explanation (honesty is evaluated)').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('erlc_bans').setLabel('Ever banned from an ER:LC community?*').setPlaceholder('State communities, reasons, or "Never banned"').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('trust_authority').setLabel('Why should we trust you with authority?*').setPlaceholder('Do not just say "I am mature" — explain what makes someone trustworthy').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      )
+    );
 }
 
-export function buildStep3Modal(appData) {
-  const dept = DEPARTMENTS[appData.deptKey] || DEPARTMENTS.tpd;
-  const cfg = dept.step3;
-  const modal = new ModalBuilder()
-    .setCustomId(`dept_modal_step3_${appData.id}`)
-    .setTitle(cfg.title.slice(0, 45));
-
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(cfg.q1.id).setLabel(cfg.q1.label.slice(0, 45)).setPlaceholder(cfg.q1.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(cfg.q2.id).setLabel(cfg.q2.label.slice(0, 45)).setPlaceholder(cfg.q2.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(cfg.q3.id).setLabel(cfg.q3.label.slice(0, 45)).setPlaceholder(cfg.q3.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(cfg.q4.id).setLabel(cfg.q4.label.slice(0, 45)).setPlaceholder(cfg.q4.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(cfg.q5.id).setLabel(cfg.q5.label.slice(0, 45)).setPlaceholder(cfg.q5.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    )
-  );
-  return modal;
+export function buildStep3Modal(appId) {
+  return new ModalBuilder()
+    .setCustomId(`dept_modal_step3_${appId}`)
+    .setTitle('Section 3: Protocol & Standards')
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('respect_vs_trust').setLabel('More important: Respected or Trusted?*').setPlaceholder('Explain your reasoning thoughtfully').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('professionalism_meaning').setLabel('What does professionalism mean to you?*').setPlaceholder('Describe professionalism under stressful roleplay scenes').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('chain_of_command').setLabel('Explain purpose of Chain of Command*').setPlaceholder('Why does chain of command exist and what does it achieve?').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('sergeant_conflict').setLabel('Order conflicts with established policy?*').setPlaceholder('Explain your exact process rather than just "I would disobey"').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('unseen_mistake').setLabel('Serious patrol mistake & nobody saw it?*').setPlaceholder('What do you do immediately?').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      )
+    );
 }
 
 export function buildStep4Modal(appId) {
-  const modal = new ModalBuilder()
+  return new ModalBuilder()
     .setCustomId(`dept_modal_step4_${appId}`)
-    .setTitle(STEP4_QUESTIONS.title.slice(0, 45));
-
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(STEP4_QUESTIONS.q1.id).setLabel(STEP4_QUESTIONS.q1.label.slice(0, 45)).setPlaceholder(STEP4_QUESTIONS.q1.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(STEP4_QUESTIONS.q2.id).setLabel(STEP4_QUESTIONS.q2.label.slice(0, 45)).setPlaceholder(STEP4_QUESTIONS.q2.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(STEP4_QUESTIONS.q3.id).setLabel(STEP4_QUESTIONS.q3.label.slice(0, 45)).setPlaceholder(STEP4_QUESTIONS.q3.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(STEP4_QUESTIONS.q4.id).setLabel(STEP4_QUESTIONS.q4.label.slice(0, 45)).setPlaceholder(STEP4_QUESTIONS.q4.placeholder.slice(0, 100)).setStyle(TextInputStyle.Paragraph).setRequired(true)
-    ),
-    new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId(STEP4_QUESTIONS.q5.id).setLabel(STEP4_QUESTIONS.q5.label.slice(0, 45)).setPlaceholder(STEP4_QUESTIONS.q5.placeholder.slice(0, 100)).setStyle(TextInputStyle.Short).setRequired(true)
-    )
-  );
-  return modal;
+    .setTitle('Section 4: Roleplay Knowledge')
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('meta_power').setLabel('Metagaming vs Powergaming difference?*').setPlaceholder('Provide clear ER:LC definitions and realistic examples for both').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('rdm_vdm').setLabel('What is RDM and VDM?*').setPlaceholder('Provide exact definitions and explain why both are prohibited').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('ic_ooc_separation').setLabel('Why separate IC and OOC information?*').setPlaceholder('Explain why IC frustration must never cross into OOC malice').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('insult_arrest').setLabel('Civilian insults you IC. Justify arrest?*').setPlaceholder('Does an insult provide legal grounds for arrest? Explain why/why not').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('friend_policy_violation').setLabel('Close friend violates policy; nobody saw?*').setPlaceholder('Friend says "Don\'t report this, we are friends." What do you do?').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      )
+    );
 }
 
-// ── Review Log Card Builder (For Staff Review Channel) ──
+export function buildStep5Modal(appId) {
+  return new ModalBuilder()
+    .setCustomId(`dept_modal_step5_${appId}`)
+    .setTitle('Section 5: Scenario Examination')
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('scen_traffic_rude').setLabel('Rude driver: "You are just a kid playing"*').setPlaceholder('Explain exactly how you handle this stop from beginning to end').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('scen_supervisor_arrest').setLabel('Supervisor: Arrest civilian "Cause I say"*').setPlaceholder('You do not understand what violation occurred. What do you do?').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('scen_pursuit_terminate').setLabel('Minor pursuit turns dangerous; terminate?*').setPlaceholder('Supervisor orders termination. Suspect in visual. What do you do?').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('scen_wrong_person').setLabel('Arrested wrong person; nobody noticed?*').setPlaceholder('You realize after completing the arrest. What do you do?').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('scen_action_escalate').setLabel('Escalate minor stop just for more action?*').setPlaceholder('Would you intentionally escalate a scene for entertainment? Explain').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      )
+    );
+}
+
+export function buildStep6Modal(appId) {
+  return new ModalBuilder()
+    .setCustomId(`dept_modal_step6_${appId}`)
+    .setTitle('Section 6: Leadership & Integrity')
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('why_dept_specific').setLabel('Why do you specifically want this dept?*').setPlaceholder('Explain what you want to contribute (not just "I want to be a cop/medic")').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('weakness_growth').setLabel('One personal weakness & how to improve?*').setPlaceholder('Describe a genuine weakness and your active steps to address it').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('unsupervised_authority').setLabel('Given authority, nobody watching. Abuse?*').setPlaceholder('What prevents you from abusing authority? Provide a serious answer').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('criticism_disrespect').setLabel('Criticism vs Disrespect difference?*').setPlaceholder('Explain how you receive disciplinary direction and feedback').setStyle(TextInputStyle.Paragraph).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('integrity_pledge').setLabel('Pledge: 100% original, no AI (I Agree)*').setPlaceholder('Type "I Agree" to pledge truthful, original answers').setStyle(TextInputStyle.Short).setRequired(true)
+      )
+    );
+}
+
+// ── Review Card Builder (In Review Logs #1559117237531447376) ──
 export function buildDeptReviewCard(appData, pageIndex = 0) {
   const dept = DEPARTMENTS[appData.deptKey] || DEPARTMENTS.tpd;
   const card = new ContainerBuilder();
 
-  const totalPages = 4;
+  const totalPages = 6;
   const page = Math.max(0, Math.min(totalPages - 1, pageIndex));
 
-  const g = appData.generalInfo || {};
-  const k = appData.knowledgeAnswers || {};
-  const s = appData.scenarioAnswers || {};
-  const c = appData.commitmentAnswers || {};
+  const s1 = appData.sec1 || {};
+  const s2 = appData.sec2 || {};
+  const s3 = appData.sec3 || {};
+  const s4 = appData.sec4 || {};
+  const s5 = appData.sec5 || {};
+  const s6 = appData.sec6 || {};
 
   if (page === 0) {
-    // Page 1: General Info & Background
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## 📋 ${dept.icon} ${dept.name} Application Review — Page 1/4\n` +
-        `### Candidate Profile & Background\n` +
+        `## ${dept.name} Application Review — Page 1/6\n` +
+        `### Candidate Verification & Availability\n` +
         `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n` +
-        `> **Department:** **${dept.name}** (\`${dept.shortName}\`)\n` +
-        `> **Roblox Username:** \`${g.roblox_user || 'N/A'}\`\n` +
-        `> **Age & Timezone:** \`${g.age_tz || 'N/A'}\`\n` +
-        `> **Dedicated Hours/Week:** \`${g.hours_week || 'N/A'}\`\n\n` +
-        `**Previous RP Experience:**\n` +
-        `> ${(g.prev_exp || 'N/A').slice(0, 400)}\n\n` +
-        `**Past Removals / Demotions / Disciplinary History:**\n` +
-        `> ${(g.past_discipline || 'N/A').slice(0, 400)}`
+        `> **Department:** **${dept.name}**\n` +
+        `> **Roblox Username:** \`${s1.roblox_user || 'N/A'}\`\n` +
+        `> **Discord Info:** \`${s1.discord_info || 'N/A'}\`\n` +
+        `> **Age & Timezone:** \`${s1.age_tz || 'N/A'}\`\n` +
+        `> **Tenure:** \`${s1.community_tenure || 'N/A'}\`\n` +
+        `> **Hours & Microphone:** \`${s1.hours_mic || 'N/A'}\``
       )
     );
   } else if (page === 1) {
-    // Page 2: Knowledge & Procedures
-    const cfg = dept.step2;
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## 📋 ${dept.icon} ${dept.name} Application Review — Page 2/4\n` +
-        `### Department Procedures & Roleplay Knowledge\n` +
+        `## ${dept.name} Application Review — Page 2/6\n` +
+        `### Experience & Disciplinary Record\n` +
         `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
-        `**1. ${cfg.q1.label}:**\n` +
-        `> ${(k[cfg.q1.id] || 'N/A').slice(0, 300)}\n\n` +
-        `**2. ${cfg.q2.label}:**\n` +
-        `> ${(k[cfg.q2.id] || 'N/A').slice(0, 300)}\n\n` +
-        `**3. ${cfg.q3.label}:**\n` +
-        `> ${(k[cfg.q3.id] || 'N/A').slice(0, 300)}\n\n` +
-        `**4. ${cfg.q4.label}:**\n` +
-        `> ${(k[cfg.q4.id] || 'N/A').slice(0, 300)}\n\n` +
-        `**5. ${cfg.q5.label}:**\n` +
-        `> ${(k[cfg.q5.id] || 'N/A').slice(0, 300)}`
+        `**Previous RP Experience:**\n` +
+        `> ${(s2.prev_exp || 'N/A').slice(0, 350)}\n\n` +
+        `**Highest Rank & Responsibilities:**\n` +
+        `> ${(s2.highest_rank || 'N/A').slice(0, 350)}\n\n` +
+        `**Disciplinary History in RP:**\n` +
+        `> ${(s2.discipline_history || 'N/A').slice(0, 350)}\n\n` +
+        `**ER:LC Bans:** \`${(s2.erlc_bans || 'N/A').slice(0, 200)}\`\n\n` +
+        `**Trust with Authority:**\n` +
+        `> ${(s2.trust_authority || 'N/A').slice(0, 350)}`
       )
     );
   } else if (page === 2) {
-    // Page 3: Scenarios
-    const cfg = dept.step3;
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## 📋 ${dept.icon} ${dept.name} Application Review — Page 3/4\n` +
-        `### Realistic Scenarios & Situational Judgment\n` +
+        `## ${dept.name} Application Review — Page 3/6\n` +
+        `### Protocol, Chain of Command & Standards\n` +
         `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
-        `**1. ${cfg.q1.label}:**\n` +
-        `> ${(s[cfg.q1.id] || 'N/A').slice(0, 300)}\n\n` +
-        `**2. ${cfg.q2.label}:**\n` +
-        `> ${(s[cfg.q2.id] || 'N/A').slice(0, 300)}\n\n` +
-        `**3. ${cfg.q3.label}:**\n` +
-        `> ${(s[cfg.q3.id] || 'N/A').slice(0, 300)}\n\n` +
-        `**4. ${cfg.q4.label}:**\n` +
-        `> ${(s[cfg.q4.id] || 'N/A').slice(0, 300)}\n\n` +
-        `**5. ${cfg.q5.label}:**\n` +
-        `> ${(s[cfg.q5.id] || 'N/A').slice(0, 300)}`
+        `**Respected vs Trusted:**\n` +
+        `> ${(s3.respect_vs_trust || 'N/A').slice(0, 350)}\n\n` +
+        `**Professionalism Definition:**\n` +
+        `> ${(s3.professionalism_meaning || 'N/A').slice(0, 350)}\n\n` +
+        `**Chain of Command Purpose:**\n` +
+        `> ${(s3.chain_of_command || 'N/A').slice(0, 350)}\n\n` +
+        `**Conflicting Supervisor Order:**\n` +
+        `> ${(s3.sergeant_conflict || 'N/A').slice(0, 350)}\n\n` +
+        `**Unseen Patrol Mistake:**\n` +
+        `> ${(s3.unseen_mistake || 'N/A').slice(0, 350)}`
+      )
+    );
+  } else if (page === 3) {
+    card.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## ${dept.name} Application Review — Page 4/6\n` +
+        `### Roleplay Knowledge & Server Rules\n` +
+        `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
+        `**Metagaming vs Powergaming:**\n` +
+        `> ${(s4.meta_power || 'N/A').slice(0, 350)}\n\n` +
+        `**RDM & VDM:**\n` +
+        `> ${(s4.rdm_vdm || 'N/A').slice(0, 350)}\n\n` +
+        `**IC vs OOC Separation:**\n` +
+        `> ${(s4.ic_ooc_separation || 'N/A').slice(0, 350)}\n\n` +
+        `**Civilian Insults & Arrest Grounds:**\n` +
+        `> ${(s4.insult_arrest || 'N/A').slice(0, 350)}\n\n` +
+        `**Friend Policy Violation:**\n` +
+        `> ${(s4.friend_policy_violation || 'N/A').slice(0, 350)}`
+      )
+    );
+  } else if (page === 4) {
+    card.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## ${dept.name} Application Review — Page 5/6\n` +
+        `### Scenario Examination\n` +
+        `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
+        `**Rude Traffic Stop Handling:**\n` +
+        `> ${(s5.scen_traffic_rude || 'N/A').slice(0, 350)}\n\n` +
+        `**Supervisor Unexplained Arrest:**\n` +
+        `> ${(s5.scen_supervisor_arrest || 'N/A').slice(0, 350)}\n\n` +
+        `**Dangerous Pursuit Termination:**\n` +
+        `> ${(s5.scen_pursuit_terminate || 'N/A').slice(0, 350)}\n\n` +
+        `**Wrong Person Arrested:**\n` +
+        `> ${(s5.scen_wrong_person || 'N/A').slice(0, 350)}\n\n` +
+        `**Action Escalation Temptation:**\n` +
+        `> ${(s5.scen_action_escalate || 'N/A').slice(0, 350)}`
       )
     );
   } else {
-    // Page 4: Commitment, Integrity & Verdict
-    const isReviewed = appData.status === 'accepted' || appData.status === 'denied';
+    const isDone = appData.status === 'accepted' || appData.status === 'denied';
     const statusText = appData.status === 'accepted'
       ? `✅ **ACCEPTED** by <@${appData.reviewedBy}>`
-      : (appData.status === 'denied' ? `❌ **DENIED** by <@${appData.reviewedBy}>` : '⏳ **Pending Staff Review**');
+      : (appData.status === 'denied' ? `❌ **DENIED** by <@${appData.reviewedBy}>` : '⏳ **Pending Leadership Verdict**');
 
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## 📋 ${dept.icon} ${dept.name} Application Review — Page 4/4\n` +
-        `### Commitment, Integrity & Leadership\n` +
+        `## ${dept.name} Application Review — Page 6/6\n` +
+        `### Leadership, Accountability & Verdict\n` +
         `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n` +
         `> **Status:** ${statusText}\n` +
         (appData.reviewerNotes ? `> **Reviewer Notes:** ${appData.reviewerNotes}\n\n` : '\n') +
         `**Why do you want to join ${dept.shortName}?**\n` +
-        `> ${(c.why_dept || 'N/A').slice(0, 300)}\n\n` +
-        `**Personal Weakness & Improvement:**\n` +
-        `> ${(c.weakness_improve || 'N/A').slice(0, 300)}\n\n` +
-        `**Integrity / Prevention of Authority Abuse:**\n` +
-        `> ${(c.unsupervised_authority || 'N/A').slice(0, 300)}\n\n` +
+        `> ${(s6.why_dept_specific || 'N/A').slice(0, 350)}\n\n` +
+        `**Personal Weakness & Growth:**\n` +
+        `> ${(s6.weakness_growth || 'N/A').slice(0, 350)}\n\n` +
+        `**Preventing Abuse of Authority:**\n` +
+        `> ${(s6.unsupervised_authority || 'N/A').slice(0, 350)}\n\n` +
         `**Criticism vs Disrespect:**\n` +
-        `> ${(c.criticism_disrespect || 'N/A').slice(0, 300)}\n\n` +
-        `**Integrity Pledge:** \`${c.integrity_pledge || 'N/A'}\``
+        `> ${(s6.criticism_disrespect || 'N/A').slice(0, 350)}\n\n` +
+        `**Integrity Pledge:** \`${s6.integrity_pledge || 'N/A'}\``
       )
     );
 
-    if (!isReviewed) {
+    if (!isDone) {
       card.addSeparatorComponents(thinLine());
       const verdictRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`dept_verdict_accept_${appData.id}`).setLabel('Accept Application').setStyle(ButtonStyle.Success),
@@ -730,11 +703,11 @@ export function buildDeptReviewCard(appData, pageIndex = 0) {
 
   card.addSeparatorComponents(thinLine());
 
-  // Nav row
+  // Navigation Row using the requested Custom Arrow Emojis
   const leftBtn = new ButtonBuilder()
     .setCustomId(`dept_rev_page_${appData.id}_${page - 1}`)
     .setStyle(ButtonStyle.Secondary)
-    .setLabel('⬅️ Prev')
+    .setEmoji(EMOJI_ARROW_LEFT)
     .setDisabled(page <= 0);
 
   const indicatorBtn = new ButtonBuilder()
@@ -746,11 +719,10 @@ export function buildDeptReviewCard(appData, pageIndex = 0) {
   const rightBtn = new ButtonBuilder()
     .setCustomId(`dept_rev_page_${appData.id}_${page + 1}`)
     .setStyle(ButtonStyle.Secondary)
-    .setLabel('Next ➡️')
+    .setEmoji(EMOJI_ARROW_RIGHT)
     .setDisabled(page >= totalPages - 1);
 
-  const navRow = new ActionRowBuilder().addComponents(leftBtn, indicatorBtn, rightBtn);
-  card.addActionRowComponents(navRow);
+  card.addActionRowComponents(new ActionRowBuilder().addComponents(leftBtn, indicatorBtn, rightBtn));
 
   return card;
 }
@@ -782,8 +754,8 @@ export async function publishDeptDecision(client, appData, isPassed, reviewerMem
   resultCard.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
       isPassed
-        ? `## 🎖️ ${dept.icon} ${dept.name} Application Passed!`
-        : `## ❌ ${dept.icon} ${dept.name} Application Denied`
+        ? `## ${dept.name} Application Passed!`
+        : `## ${dept.name} Application Denied`
     )
   );
 
@@ -793,7 +765,7 @@ export async function publishDeptDecision(client, appData, isPassed, reviewerMem
     new TextDisplayBuilder().setContent(
       `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n` +
       `> **Department:** **${dept.name}** (\`${dept.shortName}\`)\n` +
-      `> **Roblox Username:** \`${appData.generalInfo?.roblox_user || 'N/A'}\`\n` +
+      `> **Roblox Username:** \`${appData.sec1?.roblox_user || 'N/A'}\`\n` +
       `> **Reviewed By:** <@${reviewerMember.id}> (${reviewerMember.user?.tag || reviewerMember.displayName})\n` +
       `> **Reviewer Notes:** ${notes || (isPassed ? 'Welcome to the department recruitment pipeline.' : 'Did not meet requirements.')}\n` +
       `> **Decision Date:** <t:${Math.floor(Date.now() / 1000)}:f>`
@@ -825,14 +797,14 @@ export async function publishDeptDecision(client, appData, isPassed, reviewerMem
     }).catch((err) => console.error('[DeptApps] Error posting result:', err.message));
   }
 
-  // Also DM applicant
+  // DM applicant
   try {
     const user = await client.users.fetch(appData.applicantId).catch(() => null);
     if (user) {
       const dmCard = new ContainerBuilder();
       dmCard.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `# ${isPassed ? '🎉 Application Passed' : '📋 Application Update'}\n` +
+          `# ${isPassed ? 'Application Passed' : 'Application Update'}\n` +
           `Hello <@${appData.applicantId}>,\n\n` +
           `Your application for **${dept.name}** has been **${isPassed ? 'ACCEPTED' : 'DENIED'}** by <@${reviewerMember.id}>.\n\n` +
           `> **Reviewer Notes:** ${notes || 'No additional notes provided.'}\n` +

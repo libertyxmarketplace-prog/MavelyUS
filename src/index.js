@@ -70,6 +70,8 @@ import {
   buildStep2Modal as buildDeptStep2Modal,
   buildStep3Modal as buildDeptStep3Modal,
   buildStep4Modal as buildDeptStep4Modal,
+  buildStep5Modal as buildDeptStep5Modal,
+  buildStep6Modal as buildDeptStep6Modal,
   buildDeptReviewCard,
   publishDeptDecision,
   getDeptApplication,
@@ -13447,12 +13449,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const appId = interaction.customId.replace('dept_modal_step1_', '');
       const appData = getDeptApplication(appId);
       if (appData) {
-        appData.generalInfo = {
+        appData.sec1 = {
           roblox_user: interaction.fields.getTextInputValue('roblox_user')?.trim() || 'N/A',
+          discord_info: interaction.fields.getTextInputValue('discord_info')?.trim() || 'N/A',
           age_tz: interaction.fields.getTextInputValue('age_tz')?.trim() || 'N/A',
-          hours_week: interaction.fields.getTextInputValue('hours_week')?.trim() || 'N/A',
-          prev_exp: interaction.fields.getTextInputValue('prev_exp')?.trim() || 'N/A',
-          past_discipline: interaction.fields.getTextInputValue('past_discipline')?.trim() || 'N/A'
+          community_tenure: interaction.fields.getTextInputValue('community_tenure')?.trim() || 'N/A',
+          hours_mic: interaction.fields.getTextInputValue('hours_mic')?.trim() || 'N/A'
         };
         appData.step1Done = true;
         updateDeptApplication(appData);
@@ -13466,14 +13468,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const appId = interaction.customId.replace('dept_modal_step2_', '');
       const appData = getDeptApplication(appId);
       if (appData) {
-        const dept = DEPT_CONFIG[appData.deptKey] || DEPT_CONFIG.tpd;
-        const cfg = dept.step2;
-        const answers = {};
-        for (const k of ['q1', 'q2', 'q3', 'q4', 'q5']) {
-          const fieldId = cfg[k].id;
-          answers[fieldId] = interaction.fields.getTextInputValue(fieldId)?.trim() || 'N/A';
-        }
-        appData.knowledgeAnswers = answers;
+        appData.sec2 = {
+          prev_exp: interaction.fields.getTextInputValue('prev_exp')?.trim() || 'N/A',
+          highest_rank: interaction.fields.getTextInputValue('highest_rank')?.trim() || 'N/A',
+          discipline_history: interaction.fields.getTextInputValue('discipline_history')?.trim() || 'N/A',
+          erlc_bans: interaction.fields.getTextInputValue('erlc_bans')?.trim() || 'N/A',
+          trust_authority: interaction.fields.getTextInputValue('trust_authority')?.trim() || 'N/A'
+        };
         appData.step2Done = true;
         updateDeptApplication(appData);
         const card = buildDeptApplicantDashboard(appData);
@@ -13486,14 +13487,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const appId = interaction.customId.replace('dept_modal_step3_', '');
       const appData = getDeptApplication(appId);
       if (appData) {
-        const dept = DEPT_CONFIG[appData.deptKey] || DEPT_CONFIG.tpd;
-        const cfg = dept.step3;
-        const answers = {};
-        for (const k of ['q1', 'q2', 'q3', 'q4', 'q5']) {
-          const fieldId = cfg[k].id;
-          answers[fieldId] = interaction.fields.getTextInputValue(fieldId)?.trim() || 'N/A';
-        }
-        appData.scenarioAnswers = answers;
+        appData.sec3 = {
+          respect_vs_trust: interaction.fields.getTextInputValue('respect_vs_trust')?.trim() || 'N/A',
+          professionalism_meaning: interaction.fields.getTextInputValue('professionalism_meaning')?.trim() || 'N/A',
+          chain_of_command: interaction.fields.getTextInputValue('chain_of_command')?.trim() || 'N/A',
+          sergeant_conflict: interaction.fields.getTextInputValue('sergeant_conflict')?.trim() || 'N/A',
+          unseen_mistake: interaction.fields.getTextInputValue('unseen_mistake')?.trim() || 'N/A'
+        };
         appData.step3Done = true;
         updateDeptApplication(appData);
         const card = buildDeptApplicantDashboard(appData);
@@ -13506,14 +13506,52 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const appId = interaction.customId.replace('dept_modal_step4_', '');
       const appData = getDeptApplication(appId);
       if (appData) {
-        appData.commitmentAnswers = {
-          why_dept: interaction.fields.getTextInputValue('why_dept')?.trim() || 'N/A',
-          weakness_improve: interaction.fields.getTextInputValue('weakness_improve')?.trim() || 'N/A',
+        appData.sec4 = {
+          meta_power: interaction.fields.getTextInputValue('meta_power')?.trim() || 'N/A',
+          rdm_vdm: interaction.fields.getTextInputValue('rdm_vdm')?.trim() || 'N/A',
+          ic_ooc_separation: interaction.fields.getTextInputValue('ic_ooc_separation')?.trim() || 'N/A',
+          insult_arrest: interaction.fields.getTextInputValue('insult_arrest')?.trim() || 'N/A',
+          friend_policy_violation: interaction.fields.getTextInputValue('friend_policy_violation')?.trim() || 'N/A'
+        };
+        appData.step4Done = true;
+        updateDeptApplication(appData);
+        const card = buildDeptApplicantDashboard(appData);
+        await interaction.update({ components: [card.toJSON()], flags: MessageFlags.IsComponentsV2 });
+      }
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('dept_modal_step5_')) {
+      const appId = interaction.customId.replace('dept_modal_step5_', '');
+      const appData = getDeptApplication(appId);
+      if (appData) {
+        appData.sec5 = {
+          scen_traffic_rude: interaction.fields.getTextInputValue('scen_traffic_rude')?.trim() || 'N/A',
+          scen_supervisor_arrest: interaction.fields.getTextInputValue('scen_supervisor_arrest')?.trim() || 'N/A',
+          scen_pursuit_terminate: interaction.fields.getTextInputValue('scen_pursuit_terminate')?.trim() || 'N/A',
+          scen_wrong_person: interaction.fields.getTextInputValue('scen_wrong_person')?.trim() || 'N/A',
+          scen_action_escalate: interaction.fields.getTextInputValue('scen_action_escalate')?.trim() || 'N/A'
+        };
+        appData.step5Done = true;
+        updateDeptApplication(appData);
+        const card = buildDeptApplicantDashboard(appData);
+        await interaction.update({ components: [card.toJSON()], flags: MessageFlags.IsComponentsV2 });
+      }
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('dept_modal_step6_')) {
+      const appId = interaction.customId.replace('dept_modal_step6_', '');
+      const appData = getDeptApplication(appId);
+      if (appData) {
+        appData.sec6 = {
+          why_dept_specific: interaction.fields.getTextInputValue('why_dept_specific')?.trim() || 'N/A',
+          weakness_growth: interaction.fields.getTextInputValue('weakness_growth')?.trim() || 'N/A',
           unsupervised_authority: interaction.fields.getTextInputValue('unsupervised_authority')?.trim() || 'N/A',
           criticism_disrespect: interaction.fields.getTextInputValue('criticism_disrespect')?.trim() || 'N/A',
           integrity_pledge: interaction.fields.getTextInputValue('integrity_pledge')?.trim() || 'N/A'
         };
-        appData.step4Done = true;
+        appData.step6Done = true;
         updateDeptApplication(appData);
         const card = buildDeptApplicantDashboard(appData);
         await interaction.update({ components: [card.toJSON()], flags: MessageFlags.IsComponentsV2 });
@@ -13543,7 +13581,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await publishDeptDecision(interaction.client, appData, isAccept, interaction.member || interaction.user, notes);
 
       // Update the review message in the staff review channel
-      const updatedReviewCard = buildDeptReviewCard(appData, 3);
+      const updatedReviewCard = buildDeptReviewCard(appData, 5);
       if (interaction.message) {
         await interaction.message.edit({
           components: [updatedReviewCard.toJSON()],
@@ -15734,27 +15772,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isButton() && interaction.customId.startsWith('dept_btn_step2_')) {
       const appId = interaction.customId.replace('dept_btn_step2_', '');
-      const appData = getDeptApplication(appId);
-      if (!appData) {
-        await interaction.reply({ content: '❌ Application not found or expired.', flags: MessageFlags.Ephemeral });
-        return;
-      }
-      await interaction.showModal(buildDeptStep2Modal(appData));
+      await interaction.showModal(buildDeptStep2Modal(appId));
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith('dept_btn_step3_')) {
       const appId = interaction.customId.replace('dept_btn_step3_', '');
-      const appData = getDeptApplication(appId);
-      if (!appData) {
-        await interaction.reply({ content: '❌ Application not found or expired.', flags: MessageFlags.Ephemeral });
-        return;
-      }
-      await interaction.showModal(buildDeptStep3Modal(appData));
+      await interaction.showModal(buildDeptStep3Modal(appId));
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith('dept_btn_step4_')) {
       const appId = interaction.customId.replace('dept_btn_step4_', '');
       await interaction.showModal(buildDeptStep4Modal(appId));
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith('dept_btn_step5_')) {
+      const appId = interaction.customId.replace('dept_btn_step5_', '');
+      await interaction.showModal(buildDeptStep5Modal(appId));
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith('dept_btn_step6_')) {
+      const appId = interaction.customId.replace('dept_btn_step6_', '');
+      await interaction.showModal(buildDeptStep6Modal(appId));
       return;
     }
 
@@ -15779,8 +15817,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.reply({ content: '❌ Application not found.', flags: MessageFlags.Ephemeral });
         return;
       }
-      if (!appData.step1Done || !appData.step2Done || !appData.step3Done || !appData.step4Done) {
-        await interaction.reply({ content: '⚠️ Please complete all 4 steps before submitting.', flags: MessageFlags.Ephemeral });
+      if (!appData.step1Done || !appData.step2Done || !appData.step3Done || !appData.step4Done || !appData.step5Done || !appData.step6Done) {
+        await interaction.reply({ content: '⚠️ Please complete all 6 sections before submitting.', flags: MessageFlags.Ephemeral });
         return;
       }
       if (appData.status === 'pending_review') {
