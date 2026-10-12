@@ -119,6 +119,8 @@ import {
   findBestAnswer as kbFindBest,
   getEntry as kbGetEntry,
   isCategoryEnabled,
+  disableAllAiCategories,
+  enableAllAiCategories,
   listApproved as kbListApproved,
   listCandidates as kbListCandidates,
   listPending as kbListPending,
@@ -11878,13 +11880,64 @@ async function handleTicketAiMessage(message, ticket) {
       return;
     }
 
-    if (cleanStaffCmd === 'stop' || cleanStaffCmd === 'pause' || cleanStaffCmd === 'ai stop' || cleanStaffCmd === 'freeze') {
+    // Staff shuts off AI for all categories globally
+    if (
+      /\b(shut off|turn off|disable|kill|stop)\b.*\b(ai|bot)\b.*\b(all category|all categories|all|every category)\b/i.test(cleanStaffCmd) ||
+      cleanStaffCmd.includes('shut off the ai for all category') ||
+      cleanStaffCmd.includes('shut off ai for all category') ||
+      cleanStaffCmd.includes('turn off ai for all category') ||
+      cleanStaffCmd.includes('disable ai for all category') ||
+      cleanStaffCmd === 'shut off ai all' ||
+      cleanStaffCmd === 'turn off ai all'
+    ) {
+      disableAllAiCategories();
+      for (const [chanId, t] of activeTickets.entries()) {
+        t.aiActive = false;
+        t.aiStopped = true;
+        const ch = message.guild?.channels.cache.get(chanId);
+        if (ch) refreshTicketAiState(ch, t).catch(() => {});
+      }
+      saveTickets();
+      await message.reply({
+        content: '🛑 **Ticket AI has been shut off for all categories.** Automated responses have been stopped across all tickets so staff can handle them directly.',
+        allowedMentions: { repliedUser: false }
+      }).catch(() => {});
+      return;
+    }
+
+    // Staff re-enables AI for all categories globally
+    if (
+      /\b(turn on|enable|start|resume)\b.*\b(ai|bot)\b.*\b(all category|all categories|all|every category)\b/i.test(cleanStaffCmd) ||
+      cleanStaffCmd.includes('turn on the ai for all category') ||
+      cleanStaffCmd.includes('enable ai for all category') ||
+      cleanStaffCmd.includes('turn on ai for all category') ||
+      cleanStaffCmd === 'turn on ai all'
+    ) {
+      enableAllAiCategories();
+      await message.reply({
+        content: '▶️ **Ticket AI has been re-enabled for all categories.** Automated responses are now active.',
+        allowedMentions: { repliedUser: false }
+      }).catch(() => {});
+      return;
+    }
+
+    if (
+      cleanStaffCmd === 'stop' ||
+      cleanStaffCmd === 'pause' ||
+      cleanStaffCmd === 'ai stop' ||
+      cleanStaffCmd === 'freeze' ||
+      cleanStaffCmd === 'shut off ai' ||
+      cleanStaffCmd === 'shut off the ai' ||
+      cleanStaffCmd === 'turn off ai' ||
+      cleanStaffCmd === 'turn off the ai' ||
+      cleanStaffCmd === 'disable ai'
+    ) {
       ticket.aiActive = false;
       ticket.aiStopped = true;
       saveTickets();
       refreshTicketAiState(message.channel, ticket).catch(() => {});
       message.reply({
-        content: '⏸️ Ticket AI has been paused by staff. Channel status updated to 🔴.',
+        content: '⏸️ **Ticket AI has been paused by staff.** Channel status updated to 🔴 so staff can assist.',
         allowedMentions: { repliedUser: false }
       }).catch(() => {});
       return;
@@ -19316,6 +19369,59 @@ client.on(Events.MessageCreate, async (message) => {
   }
   try {
     if (!message.guild) return;
+
+    // ── Staff AI Global Toggle (@Alabama Utils shut off the ai for all category / -ai off all) ──
+    const rawContent = message.content?.trim() || '';
+    const botMentioned = !!client.user?.id && (message.mentions?.users?.has(client.user.id) || rawContent.includes(`<@${client.user.id}>`));
+    const isStaffMsg = isStaffMember(message.member) || ticketAiStaffAuthor(message.member);
+
+    if (isStaffMsg && (botMentioned || rawContent.startsWith('-ai'))) {
+      const cleanMsg = rawContent.toLowerCase().replace(/<@!?\d+>/g, '').trim();
+
+      // Shut off AI for all categories
+      if (
+        /\b(shut off|turn off|disable|kill|stop)\b.*\b(ai|bot)\b.*\b(all category|all categories|all|every category)\b/i.test(cleanMsg) ||
+        cleanMsg.includes('shut off the ai for all category') ||
+        cleanMsg.includes('shut off ai for all category') ||
+        cleanMsg.includes('turn off ai for all category') ||
+        cleanMsg.includes('disable ai for all category') ||
+        cleanMsg === '-ai off all' ||
+        cleanMsg === '-ai disable all' ||
+        cleanMsg === '-ai shut off all'
+      ) {
+        disableAllAiCategories();
+        for (const [chanId, t] of activeTickets.entries()) {
+          t.aiActive = false;
+          t.aiStopped = true;
+          const ch = message.guild?.channels.cache.get(chanId);
+          if (ch) refreshTicketAiState(ch, t).catch(() => {});
+        }
+        saveTickets();
+        await message.reply({
+          content: '🛑 **Ticket AI has been shut off for all categories.** Automated responses have been stopped across all tickets so staff can handle them directly.',
+          allowedMentions: { repliedUser: false }
+        }).catch(() => {});
+        return;
+      }
+
+      // Re-enable AI for all categories
+      if (
+        /\b(turn on|enable|start|resume)\b.*\b(ai|bot)\b.*\b(all category|all categories|all|every category)\b/i.test(cleanMsg) ||
+        cleanMsg.includes('turn on the ai for all category') ||
+        cleanMsg.includes('enable ai for all category') ||
+        cleanMsg.includes('turn on ai for all category') ||
+        cleanMsg === '-ai on all' ||
+        cleanMsg === '-ai enable all' ||
+        cleanMsg === '-ai turn on all'
+      ) {
+        enableAllAiCategories();
+        await message.reply({
+          content: '▶️ **Ticket AI has been re-enabled for all categories.** Automated responses are now active.',
+          allowedMentions: { repliedUser: false }
+        }).catch(() => {});
+        return;
+      }
+    }
 
     const ticket = getActiveTicket(message.channel);
     const isPartnershipTicket = ticket && ticket.categoryKey === 'partnership';

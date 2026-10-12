@@ -98,7 +98,8 @@ export const DEPARTMENTS = {
     shortName: 'TPD',
     emoji: EMOJI_POLICE,
     desc: 'City patrol, traffic enforcement, municipal response, and urban order.',
-    roleName: 'Tuscaloosa Police'
+    roleName: 'Tuscaloosa Police',
+    discordInvite: 'https://discord.gg/rdUa4sGssB'
   },
   tcso: {
     key: 'tcso',
@@ -106,7 +107,8 @@ export const DEPARTMENTS = {
     shortName: 'TCSO',
     emoji: EMOJI_SHERIFF,
     desc: 'County jurisdiction, rural patrols, warrants, and court security.',
-    roleName: 'Sheriff\'s Deputy'
+    roleName: 'Sheriff\'s Deputy',
+    discordInvite: 'https://discord.gg/BptjsJXSGu'
   },
   ast: {
     key: 'ast',
@@ -114,7 +116,8 @@ export const DEPARTMENTS = {
     shortName: 'AST',
     emoji: EMOJI_ALEA,
     desc: 'State highway safety, interstate enforcement, and pursuit intervention.',
-    roleName: 'State Trooper'
+    roleName: 'State Trooper',
+    discordInvite: 'https://discord.gg/3JsHhAnEfU'
   },
   tfr: {
     key: 'tfr',
@@ -122,7 +125,8 @@ export const DEPARTMENTS = {
     shortName: 'TFR',
     emoji: EMOJI_FIRE,
     desc: 'Fire suppression, vehicle extrication, and technical rescue operations.',
-    roleName: 'Firefighter'
+    roleName: 'Firefighter',
+    discordInvite: 'https://discord.gg/VyejhZUWj5'
   },
   ems: {
     key: 'ems',
@@ -130,7 +134,8 @@ export const DEPARTMENTS = {
     shortName: 'Northstar EMS',
     emoji: EMOJI_DISPATCH,
     desc: 'Emergency medical services, paramedic trauma care, and dispatch operations.',
-    roleName: 'Paramedic / Dispatcher'
+    roleName: 'Paramedic / Dispatcher',
+    discordInvite: 'https://discord.gg/MRRBwA948N'
   }
 };
 
@@ -777,9 +782,21 @@ export async function publishDeptDecision(client, appData, isPassed, reviewerMem
   if (isPassed) {
     resultCard.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `Congratulations <@${appData.applicantId}>! You have been accepted into the **${dept.name}** recruitment pipeline. Department leadership will be in contact with you regarding training, orientation, and academy onboarding.`
+        `Congratulations <@${appData.applicantId}>! You have been accepted into the **${dept.name}** recruitment pipeline. Department leadership will be in contact with you regarding training, orientation, and academy onboarding.\n\n` +
+        (dept.discordInvite ? `🔗 **Department Server:** [Join ${dept.name}](${dept.discordInvite})` : '')
       )
     );
+    if (dept.discordInvite) {
+      resultCard.addSeparatorComponents(thinLine());
+      const joinRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setLabel(`Join ${dept.shortName} Discord`)
+          .setStyle(ButtonStyle.Link)
+          .setURL(dept.discordInvite)
+          .setEmoji(dept.emoji)
+      );
+      resultCard.addActionRowComponents(joinRow);
+    }
   } else {
     resultCard.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
@@ -810,10 +827,21 @@ export async function publishDeptDecision(client, appData, isPassed, reviewerMem
           `> **Reviewer Notes:** ${notes || 'No additional notes provided.'}\n` +
           `> **Official Decision Post:** <#${DEPT_RESULTS_CHANNEL_ID}>\n\n` +
           (isPassed
-            ? `Please check the department channels in the server for your next steps and academy schedule.`
+            ? `Please join your official department Discord server below to begin onboarding, academy training, and roster verification:\n\n🔗 **Department Discord:** ${dept.discordInvite || 'Contact leadership in main server'}`
             : `You are welcome to reapply during future application cycles.`)
         )
       );
+      if (isPassed && dept.discordInvite) {
+        dmCard.addSeparatorComponents(thinLine());
+        const dmJoinRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setLabel(`Join ${dept.shortName} Discord`)
+            .setStyle(ButtonStyle.Link)
+            .setURL(dept.discordInvite)
+            .setEmoji(dept.emoji)
+        );
+        dmCard.addActionRowComponents(dmJoinRow);
+      }
       await user.send({
         components: [dmCard.toJSON()],
         flags: MessageFlags.IsComponentsV2

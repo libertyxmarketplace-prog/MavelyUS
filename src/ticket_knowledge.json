@@ -3,7 +3,7 @@
   "meta": {
     "name": "Alabama State Roleplay Ticket Knowledge Base",
     "note": "Editable knowledge base. approved:true entries are served with zero API cost. Staff can add/edit/remove entries via /kb without editing bot source.",
-    "updatedAt": 1791792090
+    "updatedAt": 1791795272
   },
   "faqs": [
     {
@@ -804,9 +804,10 @@
       "ia": true,
       "highrank": true,
       "deptreport": true,
-      "partnership": false,
-      "staff_partnership": false
+      "partnership": true,
+      "staff_partnership": true
     },
-    "confidenceThreshold": 0.55
+    "confidenceThreshold": 0.55,
+    "aiGloballyDisabled": false
   }
 }

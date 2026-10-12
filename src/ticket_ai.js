@@ -206,8 +206,14 @@ export function saveKB() {
 
 /** True when AI auto-response is enabled for a ticket category. */
 export function isCategoryEnabled(category) {
-  const cats = loadKB().settings?.enabledCategories || {};
+  const settings = loadKB().settings || {};
+  if (settings.aiGloballyDisabled) return false;
+  const cats = settings.enabledCategories || {};
   return cats[category] !== false;
+}
+
+export function isAiGloballyDisabled() {
+  return loadKB().settings?.aiGloballyDisabled === true;
 }
 
 /** Returns the KB settings block. */
@@ -674,6 +680,32 @@ export function setCategoryEnabled(category, enabled) {
   db.settings.enabledCategories[category] = !!enabled;
   saveKB();
   return db.settings.enabledCategories;
+}
+
+/** Shut off AI auto-response for all categories globally. */
+export function disableAllAiCategories() {
+  const db = loadKB();
+  db.settings = db.settings || {};
+  db.settings.aiGloballyDisabled = true;
+  db.settings.enabledCategories = db.settings.enabledCategories || {};
+  for (const k of Object.keys(db.settings.enabledCategories)) {
+    db.settings.enabledCategories[k] = false;
+  }
+  saveKB();
+  return true;
+}
+
+/** Enable AI auto-response for all categories globally. */
+export function enableAllAiCategories() {
+  const db = loadKB();
+  db.settings = db.settings || {};
+  db.settings.aiGloballyDisabled = false;
+  db.settings.enabledCategories = db.settings.enabledCategories || {};
+  for (const k of Object.keys(db.settings.enabledCategories)) {
+    db.settings.enabledCategories[k] = true;
+  }
+  saveKB();
+  return true;
 }
 
 export function listPending(limit = 25) {
