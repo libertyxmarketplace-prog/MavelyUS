@@ -59,6 +59,24 @@ import {
 import { initDmLog, recordDm } from './dmlog.js';
 const BOT_DMS_FILE = fileURLToPath(new URL('../bot_dms.json', import.meta.url));
 import {
+  DEPARTMENTS as DEPT_CONFIG,
+  DEPT_PANEL_CHANNEL_ID,
+  DEPT_REVIEW_CHANNEL_ID,
+  DEPT_RESULTS_CHANNEL_ID,
+  buildDeptApplicationPanelCard,
+  buildDeptApplicantDashboard,
+  startDeptApplication,
+  buildStep1Modal as buildDeptStep1Modal,
+  buildStep2Modal as buildDeptStep2Modal,
+  buildStep3Modal as buildDeptStep3Modal,
+  buildStep4Modal as buildDeptStep4Modal,
+  buildDeptReviewCard,
+  publishDeptDecision,
+  getDeptApplication,
+  updateDeptApplication,
+  loadDeptApplications
+} from './dept_applications.js';
+import {
   AI_DIRECTIVE_ID,
   AI_OWNER_ID,
   AI_STAFF_ROLE_ID,
@@ -7403,7 +7421,8 @@ function buildPanelHubCard() {
       '**Application Panel:** In-Game Staff applications.\n' +
       '**Information Panel:** Community rules, roleplay rules, and server guides.\n' +
       '**Shop Panel:** Supporter tiers and perks.\n' +
-      '**Economy Panel:** Robbery info, jobs and paychecks, and department funds.'
+      '**Economy Panel:** Robbery info, jobs and paychecks, and department funds.\n' +
+      '**Dept Applications Panel:** Recruitment hub for TPD, TCSO, Troopers, Fire, and Northstar.'
     )
   );
   card.addSeparatorComponents(thinLine());
@@ -7412,12 +7431,13 @@ function buildPanelHubCard() {
       new ButtonBuilder().setCustomId('panel_post_session').setLabel('Session').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('panel_post_ticket').setLabel('Tickets').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('panel_post_verify').setLabel('Verification').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('panel_post_application').setLabel('Applications').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('panel_post_application').setLabel('Staff Apps').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('panel_post_information').setLabel('Information').setStyle(ButtonStyle.Secondary)
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('panel_post_shop').setLabel('Shop').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('panel_post_economy').setLabel('Economy').setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId('panel_post_economy').setLabel('Economy').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('panel_post_dept_app').setLabel('Dept Applications').setStyle(ButtonStyle.Secondary)
     )
   );
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent('-# Alabama State Roleplay • Staff only'));
@@ -7726,6 +7746,15 @@ async function postPanelByType(postInteraction, type, targetChannel, pingRole) {
     lastAppPanelByChannel.set(`${postInteraction.guildId}:${channel.id}`, sent.id);
     saveAppPanels();
     return `Staff Application Panel posted in <#${channel.id}>.`;
+  }
+  if (t === 'dept' || t === 'dept_app' || t === 'department' || t === 'departments' || t === 'department_app' || t === 'dept_applications') {
+    const channel = targetChannel || postInteraction.guild?.channels.cache.get(DEPT_PANEL_CHANNEL_ID) || postInteraction.channel;
+    const bannerPath = fileURLToPath(new URL('./assets/dept_app_banner.png', import.meta.url));
+    const bannerExists = fs.existsSync(bannerPath);
+    const files = bannerExists ? [new AttachmentBuilder(bannerPath, { name: 'dept_app_banner.png' })] : [];
+    const card = buildDeptApplicationPanelCard(bannerExists ? 'attachment://dept_app_banner.png' : null);
+    await channel.send({ components: [card.toJSON()], files, flags: MessageFlags.IsComponentsV2 });
+    return `Department Applications Panel posted in <#${channel.id}>.`;
   }
   if (t === 'information' || t === 'info') {
     const channel = targetChannel || postInteraction.channel;
@@ -10623,6 +10652,7 @@ client.once(Events.ClientReady, async (readyClient) => {
     loadSafeZoneStrikes();
     loadSuggestions();
     loadApplications();
+    loadDeptApplications();
     loadAppeals();
     loadPartnerships();
     loadPartnerBans();
@@ -13412,6 +13442,121 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
+    // ─────────────── Department Application: Modal Submits (DM) ───────────────
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('dept_modal_step1_')) {
+      const appId = interaction.customId.replace('dept_modal_step1_', '');
+      const appData = getDeptApplication(appId);
+      if (appData) {
+        appData.generalInfo = {
+          roblox_user: interaction.fields.getTextInputValue('roblox_user')?.trim() || 'N/A',
+          age_tz: interaction.fields.getTextInputValue('age_tz')?.trim() || 'N/A',
+          hours_week: interaction.fields.getTextInputValue('hours_week')?.trim() || 'N/A',
+          prev_exp: interaction.fields.getTextInputValue('prev_exp')?.trim() || 'N/A',
+          past_discipline: interaction.fields.getTextInputValue('past_discipline')?.trim() || 'N/A'
+        };
+        appData.step1Done = true;
+        updateDeptApplication(appData);
+        const card = buildDeptApplicantDashboard(appData);
+        await interaction.update({ components: [card.toJSON()], flags: MessageFlags.IsComponentsV2 });
+      }
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('dept_modal_step2_')) {
+      const appId = interaction.customId.replace('dept_modal_step2_', '');
+      const appData = getDeptApplication(appId);
+      if (appData) {
+        const dept = DEPT_CONFIG[appData.deptKey] || DEPT_CONFIG.tpd;
+        const cfg = dept.step2;
+        const answers = {};
+        for (const k of ['q1', 'q2', 'q3', 'q4', 'q5']) {
+          const fieldId = cfg[k].id;
+          answers[fieldId] = interaction.fields.getTextInputValue(fieldId)?.trim() || 'N/A';
+        }
+        appData.knowledgeAnswers = answers;
+        appData.step2Done = true;
+        updateDeptApplication(appData);
+        const card = buildDeptApplicantDashboard(appData);
+        await interaction.update({ components: [card.toJSON()], flags: MessageFlags.IsComponentsV2 });
+      }
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('dept_modal_step3_')) {
+      const appId = interaction.customId.replace('dept_modal_step3_', '');
+      const appData = getDeptApplication(appId);
+      if (appData) {
+        const dept = DEPT_CONFIG[appData.deptKey] || DEPT_CONFIG.tpd;
+        const cfg = dept.step3;
+        const answers = {};
+        for (const k of ['q1', 'q2', 'q3', 'q4', 'q5']) {
+          const fieldId = cfg[k].id;
+          answers[fieldId] = interaction.fields.getTextInputValue(fieldId)?.trim() || 'N/A';
+        }
+        appData.scenarioAnswers = answers;
+        appData.step3Done = true;
+        updateDeptApplication(appData);
+        const card = buildDeptApplicantDashboard(appData);
+        await interaction.update({ components: [card.toJSON()], flags: MessageFlags.IsComponentsV2 });
+      }
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('dept_modal_step4_')) {
+      const appId = interaction.customId.replace('dept_modal_step4_', '');
+      const appData = getDeptApplication(appId);
+      if (appData) {
+        appData.commitmentAnswers = {
+          why_dept: interaction.fields.getTextInputValue('why_dept')?.trim() || 'N/A',
+          weakness_improve: interaction.fields.getTextInputValue('weakness_improve')?.trim() || 'N/A',
+          unsupervised_authority: interaction.fields.getTextInputValue('unsupervised_authority')?.trim() || 'N/A',
+          criticism_disrespect: interaction.fields.getTextInputValue('criticism_disrespect')?.trim() || 'N/A',
+          integrity_pledge: interaction.fields.getTextInputValue('integrity_pledge')?.trim() || 'N/A'
+        };
+        appData.step4Done = true;
+        updateDeptApplication(appData);
+        const card = buildDeptApplicantDashboard(appData);
+        await interaction.update({ components: [card.toJSON()], flags: MessageFlags.IsComponentsV2 });
+      }
+      return;
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('dept_verdict_modal_')) {
+      const isAccept = interaction.customId.startsWith('dept_verdict_modal_accept_');
+      const appId = isAccept
+        ? interaction.customId.replace('dept_verdict_modal_accept_', '')
+        : interaction.customId.replace('dept_verdict_modal_deny_', '');
+      const appData = getDeptApplication(appId);
+      if (!appData) {
+        await interaction.reply({ content: '❌ Application record not found.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      const notes = interaction.fields.getTextInputValue('verdict_notes')?.trim() || 'No notes provided.';
+      appData.status = isAccept ? 'accepted' : 'denied';
+      appData.reviewedBy = interaction.user.id;
+      appData.reviewerNotes = notes;
+      updateDeptApplication(appData);
+
+      // Publish official decision to Results Channel (1360793057930252539) + DM applicant
+      await publishDeptDecision(interaction.client, appData, isAccept, interaction.member || interaction.user, notes);
+
+      // Update the review message in the staff review channel
+      const updatedReviewCard = buildDeptReviewCard(appData, 3);
+      if (interaction.message) {
+        await interaction.message.edit({
+          components: [updatedReviewCard.toJSON()],
+          flags: MessageFlags.IsComponentsV2
+        }).catch(() => {});
+      }
+
+      await interaction.editReply({
+        content: `✅ Recorded verdict (**${isAccept ? 'ACCEPTED' : 'DENIED'}**) and published to <#${DEPT_RESULTS_CHANNEL_ID}>.`
+      });
+      return;
+    }
+
     // ─────────────── Ban Appeal: Modal Submit ───────────────
     if (interaction.isModalSubmit() && interaction.customId === 'appeal_modal_submit') {
       const robloxUser = interaction.fields.getTextInputValue('roblox_user')?.trim() || 'N/A';
@@ -15564,6 +15709,149 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (interaction.isButton() && (interaction.customId === 'app_start_ingame' || interaction.customId === 'app_start_discord')) {
       await startStaffApplication(interaction, interaction.customId);
+      return;
+    }
+
+    // ─────────────── Department Application: Select & Quick Buttons ───────────────
+    if (interaction.isStringSelectMenu() && interaction.customId === 'dept_app_select') {
+      const selected = interaction.values?.[0] || '';
+      const deptKey = selected.replace('dept_apply_', '');
+      await startDeptApplication(interaction, deptKey);
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('dept_quick_')) {
+      const deptKey = interaction.customId.replace('dept_quick_', '');
+      await startDeptApplication(interaction, deptKey);
+      return;
+    }
+
+    // ─────────────── Department Application: Step Modals Launch (DM) ───────────────
+    if (interaction.isButton() && interaction.customId.startsWith('dept_btn_step1_')) {
+      const appId = interaction.customId.replace('dept_btn_step1_', '');
+      await interaction.showModal(buildDeptStep1Modal(appId));
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith('dept_btn_step2_')) {
+      const appId = interaction.customId.replace('dept_btn_step2_', '');
+      const appData = getDeptApplication(appId);
+      if (!appData) {
+        await interaction.reply({ content: '❌ Application not found or expired.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await interaction.showModal(buildDeptStep2Modal(appData));
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith('dept_btn_step3_')) {
+      const appId = interaction.customId.replace('dept_btn_step3_', '');
+      const appData = getDeptApplication(appId);
+      if (!appData) {
+        await interaction.reply({ content: '❌ Application not found or expired.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      await interaction.showModal(buildDeptStep3Modal(appData));
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith('dept_btn_step4_')) {
+      const appId = interaction.customId.replace('dept_btn_step4_', '');
+      await interaction.showModal(buildDeptStep4Modal(appId));
+      return;
+    }
+
+    // ─────────────── Department Application: Submit / Cancel (DM) ───────────────
+    if (interaction.isButton() && interaction.customId.startsWith('dept_btn_cancel_')) {
+      const appId = interaction.customId.replace('dept_btn_cancel_', '');
+      const appData = getDeptApplication(appId);
+      if (appData) {
+        appData.status = 'cancelled';
+        updateDeptApplication(appData);
+      }
+      const cancelCard = new ContainerBuilder();
+      cancelCard.addTextDisplayComponents(new TextDisplayBuilder().setContent('## ❌ Application Cancelled\nYou have cancelled this application. You may start a new application at any time from <#1360792977181769768>.'));
+      await interaction.update({ components: [cancelCard.toJSON()], flags: MessageFlags.IsComponentsV2 });
+      return;
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('dept_btn_submit_')) {
+      const appId = interaction.customId.replace('dept_btn_submit_', '');
+      const appData = getDeptApplication(appId);
+      if (!appData) {
+        await interaction.reply({ content: '❌ Application not found.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      if (!appData.step1Done || !appData.step2Done || !appData.step3Done || !appData.step4Done) {
+        await interaction.reply({ content: '⚠️ Please complete all 4 steps before submitting.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      if (appData.status === 'pending_review') {
+        await interaction.reply({ content: '⚠️ Your application is already submitted and under review.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      appData.status = 'pending_review';
+      appData.submittedAt = Date.now();
+      updateDeptApplication(appData);
+
+      // Post in Review Channel (1559117237531447376)
+      const reviewChan = await interaction.client.channels.fetch(DEPT_REVIEW_CHANNEL_ID).catch(() => null);
+      if (reviewChan) {
+        const reviewCard = buildDeptReviewCard(appData, 0);
+        await reviewChan.send({
+          allowedMentions: { parse: [] },
+          components: [reviewCard.toJSON()],
+          flags: MessageFlags.IsComponentsV2
+        }).catch((e) => console.error('[DeptApps] Error posting to review channel:', e.message));
+      }
+
+      const submittedCard = new ContainerBuilder();
+      submittedCard.addTextDisplayComponents(new TextDisplayBuilder().setContent(`## 🎉 ${appData.deptName} Application Submitted!\nThank you <@${interaction.user.id}>! Your application has been submitted to **Department Leadership**.\n\nYou will be notified here in DMs once a decision is posted in <#${DEPT_RESULTS_CHANNEL_ID}>.`));
+      await interaction.update({ components: [submittedCard.toJSON()], flags: MessageFlags.IsComponentsV2 });
+      return;
+    }
+
+    // ─────────────── Department Application: Review Paging & Verdict Buttons ───────────────
+    if (interaction.isButton() && interaction.customId.startsWith('dept_rev_page_')) {
+      const parts = interaction.customId.replace('dept_rev_page_', '').split('_');
+      const appId = parts.slice(0, -1).join('_');
+      const pageIndex = parseInt(parts[parts.length - 1], 10) || 0;
+      const appData = getDeptApplication(appId);
+      if (!appData) {
+        await interaction.reply({ content: '❌ Application record not found.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const updatedCard = buildDeptReviewCard(appData, pageIndex);
+      await interaction.update({ components: [updatedCard.toJSON()], flags: MessageFlags.IsComponentsV2 });
+      return;
+    }
+
+    if (interaction.isButton() && (interaction.customId.startsWith('dept_verdict_accept_') || interaction.customId.startsWith('dept_verdict_deny_'))) {
+      const isAccept = interaction.customId.startsWith('dept_verdict_accept_');
+      const appId = isAccept ? interaction.customId.replace('dept_verdict_accept_', '') : interaction.customId.replace('dept_verdict_deny_', '');
+      const appData = getDeptApplication(appId);
+      if (!appData) {
+        await interaction.reply({ content: '❌ Application record not found.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      if (appData.status === 'accepted' || appData.status === 'denied') {
+        await interaction.reply({ content: `⚠️ This application has already been ${appData.status.toUpperCase()} by <@${appData.reviewedBy}>.`, flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      const modal = new ModalBuilder()
+        .setCustomId(`dept_verdict_modal_${isAccept ? 'accept' : 'deny'}_${appId}`)
+        .setTitle(isAccept ? 'Accept Department Application' : 'Deny Department Application');
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('verdict_notes')
+            .setLabel('Reviewer Notes / Feedback')
+            .setPlaceholder(isAccept ? 'e.g. Welcome to TPD recruit academy. Check DMs for schedule.' : 'e.g. Application lacked detail on scenario 2 and radio codes.')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+        )
+      );
+      await interaction.showModal(modal);
       return;
     }
 
@@ -19390,6 +19678,22 @@ client.on(Events.MessageCreate, async (message) => {
           await handleTicketUnaddMember(message, false, targetUser);
         }
       }
+      return;
+    }
+
+    // ── Post Department Applications Panel (-deptpanel / -deptapp) ──
+    if (raw === 'deptpanel' || raw === 'deptapp' || raw === 'deptapplications') {
+      const member = message.member || (await message.guild?.members.fetch(message.author.id).catch(() => null));
+      if (!isStaffMember(member) && !member?.permissions?.has(PermissionFlagsBits.ManageGuild)) {
+        await autoDeleteReply(message, '❌ You must have staff permissions to post the Department Applications Panel.', 15000);
+        return;
+      }
+      const bannerPath = fileURLToPath(new URL('./assets/dept_app_banner.png', import.meta.url));
+      const bannerExists = fs.existsSync(bannerPath);
+      const files = bannerExists ? [new AttachmentBuilder(bannerPath, { name: 'dept_app_banner.png' })] : [];
+      const card = buildDeptApplicationPanelCard(bannerExists ? 'attachment://dept_app_banner.png' : null);
+      await message.channel.send({ components: [card.toJSON()], files, flags: MessageFlags.IsComponentsV2 });
+      await message.delete().catch(() => {});
       return;
     }
 
