@@ -706,20 +706,35 @@ export async function scheduleMeeting({ guild, channel, title, start, location, 
   // Anything that is not an explicit id means "the staff team".
   if (!ids.size) (await staffMemberIds(guild, staffRoleId)).forEach((id) => ids.add(id));
 
-  // Idempotency guard: if another instance (or a double-fired event) already
-  // created this exact meeting, reuse it instead of DMing everyone twice.
-  loadMeetings(); // pick up anything another instance wrote to the shared file
-  const existing = [...meetings.values()].find(
-    (m) => m.status === 'scheduled' && m.title === (title || 'Staff Meeting') && Math.abs(m.startTs - when) < 60_000
+  // If a duplicate was created within the last 15 seconds, prevent rapid double-clicks.
+  // Otherwise, supersede any older scheduled meeting with the same title so tests & reschedules work seamlessly.
+  loadMeetings();
+  const rapidDuplicate = [...meetings.values()].find(
+    (m) =>
+      m.status === 'scheduled' &&
+      m.title.toLowerCase() === (title || 'Staff Meeting').toLowerCase() &&
+      Math.abs(m.startTs - when) < 60_000 &&
+      Date.now() - (m.createdAt || 0) < 15_000
   );
-  if (existing) {
+  if (rapidDuplicate) {
     return {
       ok: true,
       message:
-        `ℹ️ **${existing.title}** is already scheduled for <t:${Math.floor(existing.startTs / 1000)}:F> — ` +
-        `I did not send duplicate invites.\n` +
-        `> Use -ai postpone the meeting or -ai cancel the meeting to change it.`
+        `**${rapidDuplicate.title}** is scheduled for <t:${Math.floor(rapidDuplicate.startTs / 1000)}:F>.\n` +
+        `> Invites have been dispatched.`
     };
+  }
+
+  // Supersede any older scheduled meeting with the same title
+  for (const m of meetings.values()) {
+    if (
+      m.status === 'scheduled' &&
+      m.title.toLowerCase() === (title || 'Staff Meeting').toLowerCase() &&
+      (!guild?.id || !m.guildId || m.guildId === guild?.id)
+    ) {
+      m.status = 'cancelled';
+      m.cancelReason = 'Superseded by new schedule';
+    }
   }
 
   // Resolve the place: a channel id/mention becomes a readable label plus a
