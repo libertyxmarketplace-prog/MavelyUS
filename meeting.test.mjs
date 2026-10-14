@@ -237,11 +237,11 @@ assert.strictEqual(cardBeforeAccept.flags, 1 << 15, 'card must carry the IsCompo
 assert.ok([17, 18].includes(cardBeforeJson.type), 'card is a Components V2 container');
 assert.strictEqual(cardBeforeJson.accent_color, undefined, 'card has no accent color (borderless V2 panel)');
 
-// RSVP buttons present: ONLY Joining & Maybe
-assert.ok(labelsBefore.some((l) => /Joining/.test(l)), 'has a Joining button');
-assert.ok(labelsBefore.some((l) => /Maybe/.test(l)), 'has a Maybe button');
-assert.ok(!labelsBefore.some((l) => /Not going/.test(l)), 'no Not going button');
-assert.ok(!labelsBefore.some((l) => /Can't make it/.test(l)), 'no Can\'t make it button');
+// RSVP buttons present: Yes and No with custom checkmark and wrong emojis
+assert.ok(labelsBefore.some((l) => /^"?Yes"?$/.test(l) || /Yes/.test(l)), 'has a Yes button');
+assert.ok(labelsBefore.some((l) => /^"?No"?$/.test(l) || /No/.test(l)), 'has a No button');
+assert.ok(JSON.stringify(cardBeforeJson).includes('1549993561871618060'), 'has checkmark emoji');
+assert.ok(JSON.stringify(cardBeforeJson).includes('1549993610550714381'), 'has wrong emoji');
 
 // Join button hidden before accept
 assert.ok(!labelsBefore.some((l) => /Join Meeting/.test(l)), 'Join button hidden until accepted');
@@ -255,7 +255,10 @@ const cardAfterAccept = cardPayload(m0, 'invite', 'u1');
 const labelsAfter = JSON.stringify(cardAfterAccept.components[0]).match(/"label":"([^"]+)"/g) || [];
 assert.ok(labelsAfter.some((l) => /Join Meeting/.test(l)), 'Join button unlocked after accepting');
 
-console.log('card: borderless V2 / Joining & Maybe only (gray) / Join unlocked on accept / no tally:', 'ok');
+// Meeting Confirmed message is deleted / not present
+assert.ok(!JSON.stringify(cardAfterAccept).includes('Meeting Confirmed'), 'no Meeting Confirmed header');
+
+console.log('card: borderless V2 / Yes & No with custom emojis / Join unlocked on accept / no confirmed msg:', 'ok');
 
 // 13. Natural full date with weekday, month, time, and timezone.
 const userPrompt = 'We will be holding a mandatory Staff Meeting this upcoming Wednesday, October 21st at 6:00 PM EST.';

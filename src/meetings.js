@@ -252,17 +252,35 @@ export function parseWhen(input) {
 }
 // ── Cards ────────────────────────────────────────────────────────────────────
 
-/** RSVP statuses staff can pick from the invitation card. */
-const RSVP_STATUSES = ['yes', 'maybe', 'busy', 'no'];
-const RSVP_LABEL = { yes: 'Joining', maybe: 'Maybe', busy: "Can't make it", no: 'Not going' };
-const RSVP_EMOJI = { yes: '', maybe: '', busy: '', no: '' };
+const RSVP_STATUSES = ['yes', 'no'];
+const RSVP_LABEL = { yes: 'Yes', no: 'No' };
+
+const CHECKMARK_EMOJI = { id: '1549993561871618060', name: 'checkmark' };
+const WRONG_EMOJI = { id: '1549993610550714381', name: 'wrong' };
 
 // Custom ids: meet_rsvp_<status>_<meetingId>
-// Joining and Maybe are gray buttons with no emojis
+// Yes and No buttons with custom emojis
 const RSVP_BUTTONS = [
-  { status: 'yes', label: 'Joining', style: ButtonStyle.Secondary },
-  { status: 'maybe', label: 'Maybe', style: ButtonStyle.Secondary }
+  { status: 'yes', label: 'Yes', style: ButtonStyle.Secondary, emoji: CHECKMARK_EMOJI },
+  { status: 'no', label: 'No', style: ButtonStyle.Secondary, emoji: WRONG_EMOJI }
 ];
+
+/** Formats the meeting location as a clickable Discord channel mention and URL link. */
+function formatWhere(meeting) {
+  const loc = String(meeting.location || '').trim();
+  const url = meeting.locationUrl || (isLink(loc) ? loc : null);
+  const idMatch = loc.match(/\b\d{17,20}\b/)?.[0];
+
+  if (idMatch) {
+    if (url) return `<#${idMatch}> (${url})`;
+    return `<#${idMatch}>`;
+  }
+  if (url) {
+    if (loc && !isLink(loc)) return `${loc} (${url})`;
+    return url;
+  }
+  return loc || 'To be announced';
+}
 
 /** Thin divider used between card sections. */
 const divider = () =>
@@ -271,7 +289,7 @@ const divider = () =>
 /** True for an absolute http(s) link the card can turn into a button. */
 const isLink = (value) => /^https?:\/\/\S+$/i.test(String(value || '').trim());
 
-/** A link button — it opens the voice channel / invite. Zero emojis. */
+/** A link button — it opens the voice channel / invite. */
 function joinRow(url) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Join Meeting').setURL(url)
@@ -280,14 +298,7 @@ function joinRow(url) {
 
 /**
  * The meeting card — a compact Components V2 panel without side accent border.
- * Completely free of emojis. Clean, modern typography and layout.
- *
- * Variants:
- * - invite: Initial invitation. Shows details + gray Joining & Maybe buttons.
- * - reminder: Sent 30 minutes ahead of the meeting. Displays Join Meeting button.
- * - start: Sent when meeting starts. Displays Join Meeting button.
- * - postponed: Informs of date change.
- * - cancelled: Informs of cancellation.
+ * Always displays "Meeting Invitation" without redundant "Meeting Confirmed" headers.
  *
  * @param {object} meeting
  * @param {'invite'|'reminder'|'postponed'|'cancelled'|'start'} variant
@@ -298,13 +309,12 @@ function buildCard(meeting, variant = 'invite', viewerId = null) {
   const mine = viewerId ? meeting.rsvp?.[viewerId] : null;
   const isAccepted = mine?.status === 'yes';
 
-  // Headings — strictly no emojis
+  // Headings — always Meeting Invitation (no "Meeting Confirmed" banner)
   let heading = '## Meeting Invitation';
   if (variant === 'cancelled') heading = '## Meeting Cancelled';
   else if (variant === 'postponed') heading = '## Meeting Postponed';
   else if (variant === 'reminder') heading = '## Meeting Reminder';
   else if (variant === 'start') heading = '## Meeting Starting Now';
-  else if (isAccepted) heading = '## Meeting Confirmed';
 
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${heading}\n### **${meeting.title}**`));
   card.addSeparatorComponents(divider());
@@ -320,7 +330,7 @@ function buildCard(meeting, variant = 'invite', viewerId = null) {
     fields.push(`**When**  <t:${secs}:F>  ·  <t:${secs}:R>`);
   }
 
-  fields.push(`**Where**  ${meeting.location || 'To be announced'}`);
+  fields.push(`**Where**  ${formatWhere(meeting)}`);
   fields.push(`**Host**  <@${meeting.hostId}>`);
   if (meeting.agenda) fields.push(`**Agenda**  ${meeting.agenda}`);
   if (meeting.postponedCount) {
@@ -333,13 +343,13 @@ function buildCard(meeting, variant = 'invite', viewerId = null) {
 
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent(fields.join('\n')));
 
-  // Remodeled DM status section for the viewer (no emojis)
+  // Status line for the viewer with matching emoji indicators
   if (viewerId && variant !== 'cancelled') {
     let mineLine = '**Your Status**  Awaiting response';
     if (isAccepted) {
-      mineLine = '**Your Status**  Confirmed — Attending';
-    } else if (mine?.status === 'maybe') {
-      mineLine = '**Your Status**  Tentative — Marked as maybe';
+      mineLine = '<:checkmark:1549993561871618060> **Your Status**  Yes — Attending';
+    } else if (mine?.status === 'no') {
+      mineLine = '<:wrong:1549993610550714381> **Your Status**  No — Not attending';
     }
     card.addSeparatorComponents(divider());
     card.addTextDisplayComponents(new TextDisplayBuilder().setContent(mineLine));
@@ -355,9 +365,6 @@ function buildCard(meeting, variant = 'invite', viewerId = null) {
       card.addActionRowComponents(joinRow(url));
     }
 
-    // RSVP buttons:
-    // If attendee already accepted, provide a gray "Change to Maybe" button
-    // Otherwise show the gray "Joining" and "Maybe" buttons
     if (variant === 'invite' || variant === 'reminder') {
       card.addSeparatorComponents(divider());
       card.addActionRowComponents(rsvpRow(meeting.id, mine?.status));
@@ -365,36 +372,28 @@ function buildCard(meeting, variant = 'invite', viewerId = null) {
   }
 
   card.addSeparatorComponents(divider());
-  const footerText = isAccepted
-    ? '-# A reminder will be sent 30 minutes before the meeting.'
-    : '-# Reminders are sent 30 minutes before the meeting.';
-  card.addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
+  card.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent('-# Reminders are sent 30 minutes before the meeting.')
+  );
 
   return card;
 }
 
-/** One row of RSVP buttons for a meeting (gray buttons, no emojis). */
+/** One row of RSVP buttons for a meeting (Yes and No with custom emojis). */
 function rsvpRow(meetingId, currentStatus = null) {
   const row = new ActionRowBuilder();
-  if (currentStatus === 'yes') {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`meet_rsvp_maybe_${meetingId}`)
-        .setLabel('Change to Maybe')
-        .setStyle(ButtonStyle.Secondary)
-    );
-  } else {
-    row.addComponents(
-      new ButtonBuilder()
-        .setCustomId(`meet_rsvp_yes_${meetingId}`)
-        .setLabel('Joining')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(`meet_rsvp_maybe_${meetingId}`)
-        .setLabel('Maybe')
-        .setStyle(ButtonStyle.Secondary)
-    );
-  }
+  row.addComponents(
+    new ButtonBuilder()
+      .setCustomId(`meet_rsvp_yes_${meetingId}`)
+      .setLabel('Yes')
+      .setEmoji(CHECKMARK_EMOJI)
+      .setStyle(currentStatus === 'yes' ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`meet_rsvp_no_${meetingId}`)
+      .setLabel('No')
+      .setEmoji(WRONG_EMOJI)
+      .setStyle(currentStatus === 'no' ? ButtonStyle.Danger : ButtonStyle.Secondary)
+  );
   return row;
 }
 
@@ -1088,20 +1087,6 @@ export async function handleMeetingButton(interaction) {
   } catch {
     // Fall through to a plain acknowledgement so the click still registers.
   }
-
-  const label = RSVP_LABEL[status] || 'No response yet';
-  const suffix = previous && previous !== status ? ` (was ${RSVP_LABEL[previous] || previous})` : '';
-  let followUpContent = `Your response has been saved: **${label}**${suffix}.`;
-  if (status === 'yes') {
-    followUpContent = 'Attendance confirmed. You will receive a reminder 30 minutes before the meeting.';
-    const url = meeting.locationUrl || (isLink(meeting.location) ? String(meeting.location).trim() : null);
-    if (url) {
-      followUpContent += `\n> Link: ${url}`;
-    }
-  }
-  await interaction
-    .followUp({ content: followUpContent, flags: MessageFlags.Ephemeral })
-    .catch(() => null);
   return true;
 }
 
