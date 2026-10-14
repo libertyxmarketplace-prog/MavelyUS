@@ -29,6 +29,7 @@
  */
 
 import axios from 'axios';
+import { parseWhen } from './meetings.js';
 
 // ── Access control ────────────────────────────────────────────────────────────
 export const AI_OWNER_ID = '1341965114101731418';
@@ -795,21 +796,39 @@ function durationFromText(t) {
   return numeric?.[0] ?? null;
 }
 
-/** Pulls a meeting title out of "schedule a meeting to discuss X". */
+/** Pulls a meeting title out of "schedule a meeting to discuss X" or "holding a mandatory Staff Meeting". */
 export function extractMeetingTitle(raw) {
+  // Check for explicit title indicators first
+  const explicit = raw.match(/\b(?:title|called|topic)\s*[:=]\s*["']?([^,\n"']+)["']?/i);
+  if (explicit && explicit[1].trim()) return explicit[1].trim().slice(0, 120);
+
+  // Check for phrases like "mandatory staff meeting", "executive meeting", "all-hands meeting", "staff meeting"
+  const specialMeeting = raw.match(/\b((?:mandatory\s+)?(?:staff|executive|high\s+rank|ia|internal\s+affairs|general|team|all[\s-]hands|muster|training)\s+(?:meeting|briefing))\b/i);
+  if (specialMeeting && specialMeeting[1].trim()) {
+    return specialMeeting[1].trim().replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 120);
+  }
+
+  // Meeting to/about ...
+  const about = raw.match(/\bmeeting\s+(?:to\s+discuss|about|regarding|for)\s+([^,.\n]+)/i);
+  if (about && about[1].trim()) {
+    const cleaned = about[1].trim().replace(/\b(at|on|this|next|tomorrow|in)\s+.*$/i, '').trim();
+    if (cleaned.length > 2) return cleaned.slice(0, 120);
+  }
+
   const text = String(raw)
     .replace(/<@!?\d{17,20}>|<#\d{17,20}>|<@&\d{17,20}>|\b\d{17,20}\b/g, ' ')
     .replace(/^.*?\b(meeting|briefing|training)\b\s*/i, '')
     .replace(
-      /\b(schedule|plan|set up|organize|organise|arrange|book|create|a|an|the|at|on|for|about|to|please|in|tomorrow|today|tonight|next|this|morning|evening|afternoon)\b/ig,
+      /\b(schedule|plan|set up|organize|organise|arrange|book|create|a|an|the|at|on|for|about|to|please|in|tomorrow|today|tonight|next|this|morning|evening|afternoon|upcoming|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|est|edt|cst|cdt|mst|mdt|pst|pdt|utc|gmt)\b/ig,
       ' '
     )
     .replace(/\d+\s*(?:minutes?|mins?|hours?|hrs?|days?|weeks?)\b/ig, ' ')
     .replace(/\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/ig, ' ')
+    .replace(/\b\d{1,2}(?:st|nd|rd|th)\b/ig, ' ')
     .replace(/\s{2,}/g, ' ')
     .replace(/^[\s:,\-]+|[\s:,\-]+$/g, '')
     .trim();
-  return text ? text.slice(0, 120) : 'Staff Meeting';
+  return text && text.length > 2 ? text.slice(0, 120) : 'Staff Meeting';
 }
 
 /** Strips the command tokens out of a request to leave the human reason. */
@@ -894,22 +913,32 @@ export function parseLocally(request) {
       reply: 'Cancelling the next meeting.'
     };
   }
-  if (/\b(list|show|what|upcoming|view)\b/.test(t) && /\bmeetings?\b/.test(t)) {
-    return { action: 'meeting_list', args: {}, reply: 'Listing scheduled meetings.' };
-  }
-  // RSVP roll-call — BEFORE the desk "busy" rule below, otherwise "who is busy"
-  // would flip the desk to Busy instead of answering the question.
   if (
-    /\b(rsvp|responded|replied|accepted|declined|going|joining|attending|busy)\b/.test(t) &&
-    /\b(who|whose|which|everyone|anyone)\b/.test(t)
+    (/\b(schedule|scheduling|scheduled|plan|planning|planned|set ?up|organi[sz]e|organi[sz]ing|arrange|arranging|book|booking|hold|holding|run|running|host|hosting)\b/i.test(t) &&
+     /\b(meeting|meetings|briefing|muster|conference)\b/i.test(t)) ||
+    (/\b(staff|mandatory)\s+meeting\b/i.test(t))
   ) {
-    return { action: 'meeting_rsvp', args: {}, reply: 'Roll-calling the next meeting.' };
-  }
-  if (/\b(schedule|plan|set ?up|organi[sz]e|arrange|book|hold|run)\b/.test(t) && /\bmeeting|briefing|muster\b/.test(t)) {
-    const attendees = [...raw.matchAll(/<@!?(\d{17,20})>/g)].map((m) => m[1]);
-    if (!attendees.length && /\bstaff\b/.test(t)) attendees.push('staff');
-    const start = durationFromText(t) || (/tomorrow/.test(t) ? 'tomorrow' : /tonight/.test(t) ? 'tonight' : null);
+    const attendees = [];
+    for (const m of raw.matchAll(/<@!?(\d{17,20})>/g)) {
+      if (!attendees.includes(m[1])) attendees.push(m[1]);
+    }
+    for (const m of raw.matchAll(/<@&(\d{17,20})>/g)) {
+      if (!attendees.includes(m[0])) attendees.push(m[0]);
+    }
+    const roleIdMatch = raw.match(/\brole(?:\s*id)?\s*[:\s]\s*(\d{17,20})\b/i);
+    if (roleIdMatch && !attendees.includes(roleIdMatch[1])) {
+      attendees.push(roleIdMatch[1]);
+    }
+    if (!attendees.length && /\b(everyone|all|@everyone)\b/i.test(t)) attendees.push('everyone');
+    else if (!attendees.length && /\bstaff\b/i.test(t)) attendees.push('staff');
+
+    const parsedStart = parseWhen(raw);
+    const start = parsedStart ? String(raw) : (durationFromText(t) || (/tomorrow/.test(t) ? 'tomorrow' : /tonight/.test(t) ? 'tonight' : null));
     const title = extractMeetingTitle(raw);
+
+    const chanMatch = raw.match(/\bchan(?:nel)?\s*[:\s]\s*(<#\d{17,20}>|\d{17,20}|https?:\/\/\S+|#[\w-]+)/i);
+    const location = chanMatch ? chanMatch[1] : extractChannelId(raw);
+
     return {
       action: 'meeting_schedule',
       args: {
@@ -918,13 +947,31 @@ export function parseLocally(request) {
         // 'Staff Meeting' / the Staff Team when a slot stays empty.
         title: title === 'Staff Meeting' ? null : title,
         start: start || null,
-        location: extractChannelId(raw),
+        location: location || null,
         attendees,
         agenda: null,
         reminders: true
       },
       reply: 'Scheduling the meeting and notifying everyone.'
     };
+  }
+  // RSVP roll-call — BEFORE the desk "busy" rule below, otherwise "who is busy"
+  // would flip the desk to Busy instead of answering the question.
+  if (
+    (/\b(rsvp|responded|replied|accepted|declined|going|joining|attending|busy|join|attendance|coming|make it)\b/i.test(t) &&
+     /\b(who|whos|who's|whose|which|everyone|anyone|list)\b/i.test(t)) ||
+    (/\b(attendance|roll ?call)\b/i.test(t) && /\bmeeting\b/i.test(t)) ||
+    /who(?:'s|s|\s+is)?\s+(?:joining|attending|coming|going|making it)/i.test(t) ||
+    /whos\s+(?:joining|attending|coming|going)/i.test(t)
+  ) {
+    return { action: 'meeting_rsvp', args: {}, reply: 'Checking attendance for the next meeting.' };
+  }
+  if (
+    (/\b(list|show|view)\b/.test(t) && /\bmeetings?\b/.test(t)) ||
+    (/\bwhat\b/.test(t) && /\bmeetings?\b/.test(t)) ||
+    (/\bupcoming\s+meetings?\b/.test(t))
+  ) {
+    return { action: 'meeting_list', args: {}, reply: 'Listing scheduled meetings.' };
   }
 
   // ── Staff records: infractions ──────────────────────────────────────────────

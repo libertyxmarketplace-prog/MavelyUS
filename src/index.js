@@ -133,6 +133,19 @@ import {
 import http from 'node:http';
 import path from 'node:path';
 import { fork } from 'node:child_process';
+import {
+  handlePlayCommand,
+  handleStopCommand,
+  handleLoopCommand,
+  handleReplayCommand,
+  handleSkipCommand,
+  handlePauseCommand,
+  handleResumeCommand,
+  handleQueueCommand,
+  handleNowPlayingCommand,
+  handleVolumeCommand,
+  handleMusicButtonInteraction
+} from './music.js';
 
 /**
  * ─────────────────────────────────────────────────────────────────────
@@ -761,6 +774,72 @@ const retriggerCommand = new SlashCommandBuilder()
 const commandsCommand = new SlashCommandBuilder()
   .setName('commands')
   .setDescription('Display the complete, beautifully organized guide of all bot commands.');
+
+const configCommand = new SlashCommandBuilder()
+  .setName('config')
+  .setDescription('View and inspect Alabama Bot server configuration & live systems dashboard.')
+  .addStringOption((opt) =>
+    opt.setName('section').setDescription('Configuration category').setRequired(false).addChoices(
+      { name: 'Overview & Server Settings', value: 'overview' },
+      { name: 'Staff & Demotions', value: 'staff' },
+      { name: 'Tickets & Support Desk', value: 'tickets' },
+      { name: 'Anti-Nuke Protection', value: 'antinuke' },
+      { name: 'ER:LC Private Server', value: 'erlc' },
+      { name: 'Music Player Settings', value: 'music' },
+      { name: 'AI Command Engine', value: 'ai' }
+    )
+  );
+
+const playCommand = new SlashCommandBuilder()
+  .setName('play')
+  .setDescription('Play high-quality music from YouTube, SoundCloud, Spotify, or direct links.')
+  .addStringOption((opt) => opt.setName('query').setDescription('Song title, artist, YouTube URL, or playlist').setRequired(true));
+
+const stopCommand = new SlashCommandBuilder()
+  .setName('stop')
+  .setDescription('Stop music playback, clear queue, and leave voice channel.');
+
+const loopCommand = new SlashCommandBuilder()
+  .setName('loop')
+  .setDescription('Toggle track or queue looping mode.')
+  .addStringOption((opt) =>
+    opt.setName('mode').setDescription('Loop mode').setRequired(false).addChoices(
+      { name: 'Turn Loop Off', value: 'off' },
+      { name: 'Loop Current Song', value: 'song' },
+      { name: 'Loop Entire Queue', value: 'queue' }
+    )
+  );
+
+const replayCommand = new SlashCommandBuilder()
+  .setName('replay')
+  .setDescription('Replay the currently playing track from the beginning.');
+
+const skipCommand = new SlashCommandBuilder()
+  .setName('skip')
+  .setDescription('Skip the currently playing track to the next song in queue.');
+
+const pauseCommand = new SlashCommandBuilder()
+  .setName('pause')
+  .setDescription('Pause music playback.');
+
+const resumeCommand = new SlashCommandBuilder()
+  .setName('resume')
+  .setDescription('Resume music playback.');
+
+const queueCommand = new SlashCommandBuilder()
+  .setName('queue')
+  .setDescription('View upcoming songs in the server music queue.');
+
+const nowPlayingCommand = new SlashCommandBuilder()
+  .setName('nowplaying')
+  .setDescription('View the currently playing song with progress bar and interactive controls.');
+
+const volumeCommand = new SlashCommandBuilder()
+  .setName('volume')
+  .setDescription('Adjust music playback volume (1-100%).')
+  .addIntegerOption((opt) =>
+    opt.setName('level').setDescription('Volume level from 1 to 100').setRequired(true).setMinValue(1).setMaxValue(100)
+  );
 
 // Staff control surface for the ticket-AI knowledge base (approve/edit/reject/…).
 const kbCommand = new SlashCommandBuilder()
@@ -1522,7 +1601,8 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildModeration,
-    GatewayIntentBits.DirectMessages
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildVoiceStates
   ],
   partials: [Partials.Channel, Partials.Message],
   // Idle = visible in the member list, but never a green "Online" dot.
@@ -6070,6 +6150,144 @@ function savePartnerBans() {
   }
 }
 
+// ── Counting Channel (1282141621462241361) ──
+const COUNTING_CHANNEL_ID = '1282141621462241361';
+const COUNTING_FILE = fileURLToPath(new URL('../counting.json', import.meta.url));
+let countingState = {
+  channelId: COUNTING_CHANNEL_ID,
+  currentCount: 2265,
+  lastUserId: null
+};
+
+function loadCountingState() {
+  try {
+    if (fs.existsSync(COUNTING_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(COUNTING_FILE, 'utf8'));
+      if (raw && typeof raw.currentCount === 'number') {
+        countingState.currentCount = raw.currentCount;
+        countingState.channelId = raw.channelId || COUNTING_CHANNEL_ID;
+        countingState.lastUserId = raw.lastUserId || null;
+      }
+    } else {
+      saveCountingState();
+    }
+    console.log(`[counting] Loaded counting state: currentCount=${countingState.currentCount}`);
+  } catch (err) {
+    console.error('[counting] Failed to load counting.json:', err.message);
+  }
+}
+
+function saveCountingState() {
+  try {
+    fs.writeFileSync(COUNTING_FILE, JSON.stringify(countingState, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[counting] Failed to save counting.json:', err.message);
+  }
+}
+
+// Automatically sync the latest count from the channel so the bot never gets stuck behind
+async function syncCountingWithChannel() {
+  try {
+    const ch = await client.channels.fetch(COUNTING_CHANNEL_ID).catch(() => null);
+    if (!ch || !ch.isTextBased()) return;
+    const msgs = await ch.messages.fetch({ limit: 15 }).catch(() => null);
+    if (!msgs || msgs.size === 0) return;
+
+    for (const msg of msgs.values()) {
+      if (msg.author.bot) continue;
+      const raw = (msg.content || '').trim().replace(/,/g, '');
+      if (/^\d+$/.test(raw)) {
+        const num = parseInt(raw, 10);
+        if (num >= countingState.currentCount) {
+          countingState.currentCount = num;
+          countingState.lastUserId = msg.author.id;
+          saveCountingState();
+          const hasCheck = msg.reactions.cache.some((r) => r.emoji.name === '✅' && r.me);
+          if (!hasCheck) {
+            await msg.react('✅').catch(() => {});
+          }
+          console.log(`[counting] Synchronized with channel: count=${num} by ${msg.author.tag}`);
+          break;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[counting] Failed to sync counting with channel:', err.message);
+  }
+}
+
+// Initial load on startup
+loadCountingState();
+
+let countingQueue = Promise.resolve();
+async function handleCountingMessage(message) {
+  if (message.author.bot) return;
+
+  countingQueue = countingQueue.then(async () => {
+    try {
+      const raw = (message.content || '').trim();
+      const cleaned = raw.replace(/,/g, '').trim();
+      const isNumber = /^\d+$/.test(cleaned);
+      const parsed = isNumber ? parseInt(cleaned, 10) : null;
+      const expected = countingState.currentCount + 1;
+
+      if (isNumber && parsed === expected) {
+        countingState.currentCount = expected;
+        countingState.lastUserId = message.author.id;
+        saveCountingState();
+        await message.react('✅').catch(() => {});
+      } else {
+        // Incorrect count or non-numeric message: delete the user's message only
+        await message.delete().catch((err) => {
+          console.warn(`[counting] Could not delete incorrect message from ${message.author.id}: ${err.message}`);
+        });
+      }
+    } catch (err) {
+      console.error('[counting] Error in handleCountingMessage:', err.message);
+    }
+  });
+  return countingQueue;
+}
+
+async function handleCountingAdminCommand(message) {
+  const parts = message.content.trim().split(/\s+/);
+  const sub = (parts[1] || '').toLowerCase();
+
+  if (sub === 'sync') {
+    await syncCountingWithChannel();
+    const reply = await message.reply(`✅ Counting synchronized to **${countingState.currentCount}**. Next expected count is **${countingState.currentCount + 1}**.`);
+    setTimeout(() => {
+      reply.delete().catch(() => {});
+      message.delete().catch(() => {});
+    }, 8000);
+    return;
+  }
+
+  if (sub === 'set') {
+    const val = parseInt(parts[2], 10);
+    if (isNaN(val) || val < 0) {
+      const reply = await message.reply('❌ Usage: `-count set <number>`');
+      setTimeout(() => { reply.delete().catch(() => {}); message.delete().catch(() => {}); }, 8000);
+      return;
+    }
+    countingState.currentCount = val;
+    countingState.lastUserId = null;
+    saveCountingState();
+    const reply = await message.reply(`✅ Counting set to **${val}**. Next expected count is **${val + 1}**.`);
+    setTimeout(() => {
+      reply.delete().catch(() => {});
+      message.delete().catch(() => {});
+    }, 8000);
+    return;
+  }
+
+  const reply = await message.reply(`🔢 **Counting Status**\n> Current Count: **${countingState.currentCount}**\n> Next Expected: **${countingState.currentCount + 1}**\n> Last User: ${countingState.lastUserId ? `<@${countingState.lastUserId}>` : '*None*'}`);
+  setTimeout(() => {
+    reply.delete().catch(() => {});
+    message.delete().catch(() => {});
+  }, 10000);
+}
+
 let ticketDeskState = {
   status: 'online', // 'online' | 'busy' | 'closed'
   categories: {
@@ -6775,138 +6993,74 @@ function buildInformationCard(section = 'info_overview', guild = null, includeBa
   if (section === 'info_community_rules') {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## COMMUNITY RULES & REGULATIONS\n` +
-        `> Welcome to **Alabama State Roleplay**. All members are required to strictly follow the community regulations below and Discord Terms of Service.`
+        `## 📜 Community Rules & Regulations\n` +
+        `> Welcome to **Alabama State Roleplay**. All members are required to strictly follow community regulations and Discord Terms of Service.`
       )
     );
     card.addSeparatorComponents(thinLine());
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## English Only Protocol\n` +
-        `> English is the strictly mandated language across all text channels and voice sessions.\n\n` +
-        `## High-Rank Restriction\n` +
-        `> Do not ping High Ranks, Ownership, or Executives. For assistance, submit a ticket in <#1360798150910021735>.\n\n` +
-        `## Zero Drama & External Hostility\n` +
-        `> Inciting unnecessary drama or importing outside community conflicts is strictly prohibited.\n\n` +
-        `## Spam & Disruption\n` +
-        `> Chat flooding, automated script spam, copypastas, and mass tagging are forbidden.\n\n` +
-        `## Explicit Content\n` +
-        `> NSFW, sexually explicit, gory, or graphic content triggers an immediate permanent ban.\n\n` +
-        `## Unauthorized Advertising\n` +
-        `> Advertising external Discord servers, social handles, or unsolicited direct messages is prohibited.\n\n` +
-        `## Voice Chat Protocol\n` +
-        `> Screaming, soundboards, ear-rape, and rapid channel hopping are prohibited during patrols.\n\n` +
-        `## Punishment Evasion\n` +
-        `> Leaving the server or using alternate accounts to evade moderation results in a permanent blacklist.\n\n` +
-        `## Threats & Harassment\n` +
-        `> Targeted harassment, cyberbullying, malicious threats, or doxxing result in immediate expulsion.\n\n` +
-        `## Discriminatory Speech\n` +
-        `> Racial slurs, hate speech, homophobic slurs, and discriminatory remarks carry zero tolerance.\n\n` +
-        `## Identity Synchronization\n` +
-        `> Your Discord server nickname must clearly match your active Roblox username.`
+        `### Core Guidelines\n` +
+        `> • **English Only Protocol** — English is strictly mandated across all text channels and voice sessions.\n` +
+        `> • **High-Rank Restriction** — Do not ping High Ranks, Ownership, or Executives. Submit a ticket in <#1360798150910021735>.\n` +
+        `> • **Zero Drama & Hostility** — Inciting drama or importing outside conflicts is strictly prohibited.\n` +
+        `> • **Spam & Disruption** — Chat flooding, automated scripts, copypastas, and mass tagging are forbidden.\n` +
+        `> • **Explicit Content** — NSFW, sexually explicit, gory, or graphic content triggers an immediate permanent ban.\n` +
+        `> • **Unauthorized Advertising** — External Discord servers, social handles, or unsolicited DMs are prohibited.\n` +
+        `> • **Voice Chat Protocol** — Screaming, soundboards, ear-rape, and rapid hopping are prohibited during patrols.\n` +
+        `> • **Punishment Evasion** — Leaving or using alt accounts to evade moderation results in a permanent blacklist.\n` +
+        `> • **Threats & Harassment** — Targeted harassment, cyberbullying, or doxxing result in immediate expulsion.\n` +
+        `> • **Discriminatory Speech** — Racial slurs, hate speech, and discriminatory remarks carry zero tolerance.\n` +
+        `> • **Identity Synchronization** — Your server nickname must clearly match your active Roblox username.`
       )
     );
   } else if (section === 'info_roleplay_rules') {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## ROLEPLAY RULES & REGULATIONS\n` +
-        `> These regulations govern all active roleplay sessions within **Alabama State Roleplay**.\n\n` +
-        `> **Standard Punishment Escalation:**\n` +
-        `> 1st Offense: First Warning ┃ 2nd Offense: Second Warning ┃ 3rd Offense: Server Kick\n` +
-        `> *(Severe offenses such as suicide RP, combat logging, or hitman violations result in an immediate ban)*`
+        `## 🚨 Roleplay Rules & Regulations\n` +
+        `> Regulations governing active roleplay sessions within **Alabama State Roleplay**.\n` +
+        `> **Standard Escalation:** 1st Warning ➔ 2nd Warning ➔ Server Kick *(Severe offenses: Immediate Ban)*`
       )
     );
     card.addSeparatorComponents(thinLine());
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Metagaming\n` +
-        `> Using information your character could not realistically know during roleplay.\n\n` +
-        `## Fear Roleplay\n` +
-        `> You must value your character's life and react realistically in dangerous situations.\n\n` +
-        `## Fail Roleplay (FRP)\n` +
-        `> Performing actions that are unrealistic or could not reasonably occur in real life.\n\n` +
-        `## Interfering with Roleplay\n` +
-        `> Do not disrupt ongoing roleplay situations that you are not involved in.\n\n` +
-        `## Random Deathmatch (RDM)\n` +
-        `> Attacking or killing another player without a valid roleplay reason.\n\n` +
-        `## Vehicle Deathmatch (VDM)\n` +
-        `> Intentionally hitting or running over players without a valid roleplay reason.\n\n` +
-        `## New Life Rule (NLR)\n` +
-        `> Requires you to forget previous events after death; returning to scene is prohibited.\n\n` +
-        `## Crash Roleplay\n` +
-        `> All vehicle crashes must be roleplayed realistically, regardless of severity.\n\n` +
-        `## Suicide Roleplay\n` +
-        `> Depicting suicide or self-harm in roleplay is strictly prohibited. (Immediate Ban)\n\n` +
-        `## Gang Roleplay\n` +
-        `> Unauthorized gang roleplay is prohibited. Only approved crime groups may operate.\n\n` +
-        `## Realistic Outfits\n` +
-        `> All players must use realistic avatars. Wings, antlers, swords, and unrealistic items are prohibited.\n\n` +
-        `## Cuff Rushing\n` +
-        `> Handcuffing without properly roleplaying the arrest or apprehension is prohibited.\n\n` +
-        `## Cop Baiting\n` +
-        `> Intentionally provoking police to initiate a pursuit or traffic stop is prohibited.\n\n` +
-        `## Powergaming\n` +
-        `> Forcing actions or outcomes onto another player without allowing them a chance to respond.\n\n` +
-        `## Breaking Character\n` +
-        `> Going out of character during active roleplay to gain an advantage is prohibited.`
-      )
-    );
-    card.addSeparatorComponents(thinLine());
-    card.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        `## No Intent\n` +
-        `> Actions that disrupt roleplay without purpose (random towing, reckless griefing, excessive drifting).\n\n` +
-        `## Out-of-State Roleplay\n` +
-        `> Roleplaying characters, agencies, or entities outside the designated Alabama jurisdiction is forbidden.\n\n` +
-        `## Gamepass Weapons\n` +
-        `> Gamepass weapons may only be used during approved Level 3 Priority or by authorized staff.\n\n` +
-        `## Evading Staff\n` +
-        `> You must comply with staff. Running from staff vehicles or evading teleportation is prohibited.\n\n` +
-        `## Hitman Roleplay\n` +
-        `> Must have legitimate roleplay context and be conducted during an approved Priority.\n\n` +
-        `## Combat Logging\n` +
-        `> Leaving the game to avoid arrest, death, or active roleplay. (Immediate Ban)\n\n` +
-        `## Safe Zones\n` +
-        `> Priority activities are prohibited in Spawns, Fire Dept, Hospital, and Gun Store.\n\n` +
-        `## Lying to Staff\n` +
-        `> Providing false statements or intentionally misleading staff during an investigation.\n\n` +
-        `## Animal Roleplay\n` +
-        `> Animal roleplay requires prior approval from Moderation leadership.\n\n` +
-        `## Disrespect\n` +
-        `> Disrespect toward staff members or other community members is strictly prohibited.\n\n` +
-        `## Politics & Real-World Events\n` +
-        `> Political debates, civil rights disputes, and real-world tragic events are prohibited.\n\n` +
-        `## Peacetime & Priority Timers\n` +
-        `> You may not start or participate in priority activities while Peacetime or the Priority Timer is active.\n\n` +
-        `## Traffic & Driving Standards\n` +
-        `> Follow realistic driving standards and speed limits unless involved in an active emergency chase.\n\n` +
-        `## Roblox Terms of Service\n` +
-        `> All members must follow Roblox Terms of Service while participating in Alabama Roleplay.`
+        `### Roleplay Standards\n` +
+        `> • **Metagaming** — Using information your character could not realistically know during roleplay.\n` +
+        `> • **Fear Roleplay** — Value your character's life and react realistically in dangerous situations.\n` +
+        `> • **Fail Roleplay (FRP)** — Performing unrealistic actions that could not reasonably occur in real life.\n` +
+        `> • **Interfering with RP** — Do not disrupt ongoing roleplay situations that you are not involved in.\n` +
+        `> • **Random Deathmatch (RDM)** — Attacking or killing another player without a valid roleplay reason.\n` +
+        `> • **Vehicle Deathmatch (VDM)** — Intentionally hitting or running over players without valid reason.\n` +
+        `> • **New Life Rule (NLR)** — Forget previous events after death; returning to scene is prohibited.\n` +
+        `> • **Crash Roleplay** — All vehicle crashes must be roleplayed realistically, regardless of severity.\n` +
+        `> • **Suicide Roleplay** — Depicting suicide or self-harm in roleplay is strictly prohibited. *(Immediate Ban)*\n` +
+        `> • **Gang Roleplay** — Unauthorized gang roleplay is prohibited. Only approved crime groups may operate.\n` +
+        `> • **Realistic Outfits** — Wings, antlers, swords, and unrealistic avatar items are prohibited in-game.\n` +
+        `> • **Cuff Rushing & Cop Baiting** — Handcuffing without RP or deliberately provoking police is prohibited.\n` +
+        `> • **Powergaming** — Forcing actions or outcomes onto another player without fair chance to respond.\n` +
+        `> • **Combat Logging** — Leaving the game to avoid arrest, death, or active roleplay. *(Immediate Ban)*\n` +
+        `> • **Safe Zones** — Priority activities are prohibited in Spawns, Fire Dept, Hospital, and Gun Store.\n` +
+        `> • **Traffic Standards** — Follow realistic driving standards and speed limits unless in an emergency chase.`
       )
     );
   } else if (section === 'info_faq') {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## FREQUENTLY ASKED QUESTIONS\n` +
+        `## ❓ Frequently Asked Questions\n` +
         `> Essential operational guidance and quick answers for all community members.`
       )
     );
     card.addSeparatorComponents(thinLine());
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Staff Applications\n` +
-        `> Staff recruitment is handled via our official application panel in <#1539681421306896476>. Do not ping staff regarding your status.\n\n` +
-        `## Support & Assistance\n` +
-        `> Need help, have questions, or need to report a player or staff member? Open an official ticket in <#1360798150910021735>.\n\n` +
-        `## Department Applications\n` +
-        `> To join a whitelisted law enforcement, medical, or fire agency, submit an application in <#1360792977181769768>.\n\n` +
-        `## Server Schedule & Sessions\n` +
-        `> Current patrol schedules, session votes, and server start times are posted in <#1232495212333498455>.\n\n` +
-        `## How to Join the Server\n` +
-        `> 1. Open **Emergency Response: Alabama** on Roblox.\n` +
-        `> 2. Navigate to **Servers** ➔ **Join Server** ➔ Server Code: \`ALABAM\`\n\n` +
-        `## Callsigns & Alabama CAD & Radio\n` +
-        `> Department officers must display an approved callsign and join the active Alabama CAD & Radio during patrols.`
+        `### Community FAQ\n` +
+        `> • **Staff Applications** — Handled via official application panel in <#1539681421306896476>. Do not ping staff regarding your status.\n` +
+        `> • **Support & Assistance** — Need help or reporting an issue? Open an official ticket in <#1360798150910021735>.\n` +
+        `> • **Department Applications** — Join whitelisted agencies via application in <#1360792977181769768>.\n` +
+        `> • **Patrol Schedules** — Session votes and start times are posted in <#1232495212333498455>.\n` +
+        `> • **Joining the Server** — In ER:LC on Roblox ➔ **Servers** ➔ **Join Server** ➔ Server Code: \`ALABAM\`\n` +
+        `> • **Callsigns & CAD Radio** — Department officers must display an approved callsign and join CAD & Radio during patrols.`
       )
     );
   } else {
@@ -10465,6 +10619,17 @@ function toggleVoter(vote, userId) {
 function getSlashPayload() {
   return [
     commandsCommand.toJSON(),
+    configCommand.toJSON(),
+    playCommand.toJSON(),
+    stopCommand.toJSON(),
+    loopCommand.toJSON(),
+    replayCommand.toJSON(),
+    skipCommand.toJSON(),
+    pauseCommand.toJSON(),
+    resumeCommand.toJSON(),
+    queueCommand.toJSON(),
+    nowPlayingCommand.toJSON(),
+    volumeCommand.toJSON(),
     retriggerCommand.toJSON(),
     sessionCommand.toJSON(),
     panelCommand.toJSON(),
@@ -10646,6 +10811,8 @@ client.once(Events.ClientReady, async (readyClient) => {
     console.log('Registered commands across all active guilds.');
     console.log('BUILD: dual-server-session-ticket-security-engine');
     loadTickets();
+    loadCountingState();
+    syncCountingWithChannel().catch((err) => console.error('[counting] Startup sync error:', err.message));
     loadTicketDeskState();
     loadTicketPanels();
     loadAppPanels();
@@ -10801,6 +10968,7 @@ setInterval(async () => {
 
 // ═══════════════════════ Welcome Message ═══════════════════════
 const WELCOME_CHANNEL_ID = '1232495212019056733';
+const INFORMATION_CHANNEL_ID = '1232495212019056736';
 
 client.on(Events.GuildMemberAdd, async (member) => {
   if (!isLeader) return;
@@ -10818,7 +10986,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
     const memberCount = member.guild.memberCount;
 
     const welcomeText =
-      `<:Alabama_logo:1536900254304174080> Welcome to **Alabama State Roleplay**, ${member}. Navigate the server through <#${channel.id}>`;
+      `<:Alabama_logo:1536900254304174080> Welcome to **Alabama State Roleplay**, ${member}. Navigate the server through <#${INFORMATION_CHANNEL_ID}>`;
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -11750,6 +11918,164 @@ function buildQuickActionButtons(text, ticket = null) {
 }
 
 /**
+/**
+ * Parses user or staff training text in formats:
+ *  - question -> answer
+ *  - question | answer
+ *  - Q: question A: answer
+ */
+function parseTrainInput(raw) {
+  let text = String(raw || '').replace(/<@!?\d+>/g, '').trim();
+  text = text.replace(/^-(?:train|learn)\s*/i, '');
+  text = text.replace(/^train\s*:\s*/i, '');
+  text = text.replace(/^train\s+/i, '');
+  text = text.trim();
+
+  let question = null;
+  let answer = null;
+
+  if (/\s*(?:->|=>)\s*/.test(text)) {
+    const parts = text.split(/\s*(?:->|=>)\s*/);
+    question = parts[0]?.trim();
+    answer = parts.slice(1).join(' -> ').trim();
+  } else if (text.includes('|')) {
+    const parts = text.split('|');
+    question = parts[0]?.trim();
+    answer = parts.slice(1).join('|').trim();
+  } else if (/^q:\s*(.+?)\s*a:\s*(.+)$/is.test(text)) {
+    const match = text.match(/^q:\s*(.+?)\s*a:\s*(.+)$/is);
+    question = match[1]?.trim();
+    answer = match[2]?.trim();
+  }
+
+  if (question && answer) {
+    return { question, answer };
+  }
+  return null;
+}
+
+/** Handles -train and @bot train commands to learn approved knowledge. */
+async function executeTrainCommand(message, rawText) {
+  const member = message.member || (await message.guild?.members.fetch(message.author.id).catch(() => null));
+  if (!isStaffMember(member) && !ticketAiStaffAuthor(member)) {
+    await message.reply({ content: '❌ You must have staff permissions to train the AI assistant.', allowedMentions: { repliedUser: false } }).catch(() => {});
+    return;
+  }
+
+  const parsed = parseTrainInput(rawText);
+  if (!parsed || !parsed.question || !parsed.answer) {
+    await message.reply({
+      content:
+        `ℹ️ **How to Train the AI Assistant:**\n` +
+        `> \`-train <question> -> <answer>\`\n` +
+        `> or \`@${client.user?.username || 'Alabama Bot'} train: <question> -> <answer>\`\n\n` +
+        `*Examples:*\n` +
+        `> \`-train when are sessions hosted? -> Check <#1232495212333498455> for official patrol schedules!\`\n` +
+        `> \`-train how do I apply for staff? -> Submit your application in <#1539681421306896476>.\``,
+      allowedMentions: { repliedUser: false }
+    }).catch(() => {});
+    return;
+  }
+
+  try {
+    const rec = kbAddEntry({
+      question: parsed.question,
+      answer: parsed.answer,
+      category: 'general'
+    });
+
+    await message.reply({
+      content:
+        `🧠 **AI Successfully Trained & Memorized!**\n\n` +
+        `> **Question:** ${parsed.question}\n` +
+        `> **Learned Answer:** ${parsed.answer}\n\n` +
+        `✅ Stored in knowledge base as an approved answer. Next time anyone asks this, the AI will answer accurately!`,
+      allowedMentions: { repliedUser: false }
+    }).catch(() => {});
+  } catch (err) {
+    console.error('[train] Failed to add knowledge entry:', err);
+    await message.reply({
+      content: `❌ Failed to save training entry: ${err.message}`,
+      allowedMentions: { repliedUser: false }
+    }).catch(() => {});
+  }
+}
+
+/** Whether a member is a Senior High Rank / Executive with approval authority. */
+function isSeniorHighRank(member) {
+  if (!member) return false;
+  if (member.permissions?.has(PermissionFlagsBits.Administrator) || member.permissions?.has(PermissionFlagsBits.ManageGuild)) return true;
+  if (member.roles?.cache?.has('1341932333741244476')) return true;
+  return member.roles?.cache?.some((r) =>
+    /(super\s*high\s*rank|senior\s*high\s*rank|high\s*rank|\bshr\b|\bhr\b|executive|director|co-?owner|owner|management)/i.test(r.name)
+  );
+}
+
+/** Processes Senior High Rank approval of staff retirement from within a ticket. */
+async function processRetirementApproval(channel, ticket, approver, guild) {
+  if (!ticket.retirementData) return;
+  const DEFAULT_RETIREMENT_CHANNEL_ID = '1344860625742073856';
+  const targetUserId = ticket.retirementData.userId;
+  const targetMember = guild ? await guild.members.fetch(targetUserId).catch(() => null) : null;
+  const targetUser = targetMember?.user || (await client.users.fetch(targetUserId).catch(() => null)) || { id: targetUserId, username: ticket.retirementData.userTag || 'Staff Member' };
+
+  // 1. Post to official retirement announcement channel
+  const retChannel = guild ? await guild.channels.fetch(DEFAULT_RETIREMENT_CHANNEL_ID).catch(() => null) : null;
+  if (retChannel) {
+    const hasBannerFile = fs.existsSync(RETIREMENT_BANNER_PATH);
+    const files = hasBannerFile ? [new AttachmentBuilder(RETIREMENT_BANNER_PATH, { name: 'retirement_banner.png' })] : [];
+    const container = buildRetirementContainer({
+      targetUser,
+      targetMember,
+      previousRank: ticket.retirementData.rank || 'Staff Member',
+      farewellMessage: ticket.retirementData.remarks || null,
+      moderator: approver,
+      hasBannerFile
+    });
+    await retChannel.send({
+      components: [container.toJSON()],
+      files,
+      flags: MessageFlags.IsComponentsV2
+    }).catch((err) => console.error('[retirement] Failed to send announcement:', err.message));
+  }
+
+  // 2. Remove staff roles from member
+  if (targetMember) {
+    for (const r of targetMember.roles.cache.values()) {
+      if (r.id === guild.id) continue;
+      if (
+        ERLC_ENFORCER_CONFIG.staffRoleIds.includes(r.id) ||
+        /(staff|admin|mod\b|moderator|supervisor|director|executive|management|trainee|junior\s*mod|senior\s*mod|trial\s*mod|head\s*admin)/i.test(r.name)
+      ) {
+        await targetMember.roles.remove(r.id).catch(() => {});
+      }
+    }
+  }
+
+  // 3. Mark ticket state and confirm in channel
+  ticket.retirementState = 'completed';
+  saveTickets();
+
+  await channel.send({
+    content:
+      `🎖️ **Retirement Approved & Announcement Published!**\n\n` +
+      `> **Approved By:** <@${approver.id}>\n` +
+      `> **Staff Member:** <@${targetUserId}>\n` +
+      `> The official staff retirement announcement has been posted in <#${DEFAULT_RETIREMENT_CHANNEL_ID}>.\n\n` +
+      `Staff roles have been removed. Thank you for your dedication, service, and leadership in Alabama State Roleplay!`
+  }).catch(() => {});
+}
+
+/** Processes Senior High Rank denial of staff retirement from within a ticket. */
+async function processRetirementDenial(channel, ticket, denier) {
+  ticket.retirementState = 'denied';
+  saveTickets();
+  await channel.send({
+    content: `❌ **Retirement Request Denied** by <@${denier.id}>.`
+  }).catch(() => {});
+}
+
+/**
  * Posts the AI's opening response for a freshly created ticket. Reads the
  * ticket reason first. Partnership/staff_partnership are skipped (AI disabled
  * there by owner request). Never throws — failures are logged only.
@@ -11763,6 +12089,22 @@ function sendTicketAiOpening(channel, ticketData) {
   if (!isCategoryEnabled(category)) return; // partnership etc. → human only
   if (category === 'partnership' || category === 'staff_partnership') return;
   const reason = ticketData.reason;
+
+  if (reason && /\b(retire|retirement|resign|resigning|resignation|step down|stepping down)\b/i.test(reason)) {
+    ticketData.retirementState = 'collecting_info';
+    saveTickets();
+    channel.send({
+      content:
+        `**Alabama Support Assistant**\n\n` +
+        `To process your retirement, please provide the following details:\n\n` +
+        `• **Your current rank**\n` +
+        `• **Reason for retirement** *(optional)*\n` +
+        `• **Any final remarks or messages for the community** *(optional)*\n\n` +
+        `Once I have this information, I will escalate your request to Senior High Rank for review.`,
+      allowedMentions: { parse: [] }
+    }).catch((e) => console.warn(`[ticket-ai] Could not post opening retirement reply: ${e.message}`));
+    return;
+  }
 
   try { channel.sendTyping().catch(() => {}); } catch {}
 
@@ -11825,12 +12167,115 @@ async function handleTicketAiMessage(message, ticket) {
   const authorIsStaff = ticketAiStaffAuthor(member);
   const isAuthor = message.author.id === ticket.authorId;
 
+  // 0. Staff AI Training inside ticket
+  if (authorIsStaff && (content.startsWith('-train') || content.startsWith('train:') || content.startsWith('-learn') || (botPinged && /\btrain\b/i.test(content)))) {
+    await executeTrainCommand(message, content);
+    return;
+  }
+
+  // 0.1. Staff Retirement Workflow: Senior High Rank Approval / Denial
+  if (ticket.retirementState === 'pending_shr_approval') {
+    if (isSeniorHighRank(member)) {
+      if (/\b(accept|approve|yeah accept|accept retirement|approved|approve retirement)\b/i.test(content)) {
+        await processRetirementApproval(message.channel, ticket, message.author, message.guild);
+        return;
+      }
+      if (/\b(deny|deny retirement|reject)\b/i.test(content)) {
+        await processRetirementDenial(message.channel, ticket, message.author);
+        return;
+      }
+    }
+  }
+
+  // 0.2. Staff Retirement Workflow: User submitting answers
+  if (ticket.retirementState === 'collecting_info' && (isAuthor || authorIsStaff)) {
+    let rank = 'Staff Member';
+    let reason = 'Personal reasons';
+    let remarks = content;
+
+    const rankMatch = content.match(/(?:current\s*)?rank\s*[:=-]\s*([^\n\r]+)/i);
+    const reasonMatch = content.match(/reason(?:\s*for\s*retirement)?\s*[:=-]\s*([^\n\r]+)/i);
+    const remarksMatch = content.match(/(?:final\s*)?(?:remarks|message|notes)\s*[:=-]\s*([^\n\r]+)/i);
+
+    if (rankMatch) rank = rankMatch[1].trim();
+    if (reasonMatch) reason = reasonMatch[1].trim();
+    if (remarksMatch) remarks = remarksMatch[1].trim();
+
+    ticket.retirementData = {
+      userId: message.author.id,
+      userTag: message.author.tag || message.author.username,
+      rank,
+      reason,
+      remarks,
+      submittedAt: Date.now()
+    };
+    ticket.retirementState = 'pending_shr_approval';
+    ticket.aiActive = false;
+    ticket.aiStopped = true;
+    saveTickets();
+
+    const shrCard = new ContainerBuilder();
+    shrCard.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 🎖️ Senior High Rank Review — Staff Retirement'));
+    shrCard.addSeparatorComponents(thinLine());
+    shrCard.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `> Staff member <@${message.author.id}> has submitted their official retirement details.\n\n` +
+        `• **Current Rank:** ${rank}\n` +
+        `• **Reason for Retirement:** ${reason}\n` +
+        `• **Final Remarks:** ${remarks}\n\n` +
+        `Senior High Rank leadership: click **Approve Retirement** below or reply \`accept\` / \`approve\` to publish the official retirement announcement.`
+      )
+    );
+    shrCard.addSeparatorComponents(thinLine());
+    shrCard.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`ticket_retire_approve_${ticket.channelId}`)
+          .setLabel('Approve Retirement')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('🎖️'),
+        new ButtonBuilder()
+          .setCustomId(`ticket_retire_deny_${ticket.channelId}`)
+          .setLabel('Deny')
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji('✖️')
+      )
+    );
+
+    const shrRoleId = '1341932333741244476';
+    await message.reply({
+      content: `🔔 <@&${shrRoleId}> **Senior High Rank Review Required**`,
+      components: [shrCard.toJSON()],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { roles: [shrRoleId], repliedUser: false }
+    }).catch(() => {});
+    return;
+  }
+
+  // 0.3. Staff Retirement Workflow: User requesting to retire
+  const isRetireMention = /\b(retire|retirement|retiring|resign|resigning|resignation|step down|stepping down)\b/i.test(content);
+  if (isRetireMention && (!ticket.retirementState || ticket.retirementState === 'none')) {
+    ticket.retirementState = 'collecting_info';
+    saveTickets();
+    await message.reply({
+      content:
+        `**Alabama Support Assistant**\n\n` +
+        `To process your retirement, please provide the following details:\n\n` +
+        `• **Your current rank**\n` +
+        `• **Reason for retirement** *(optional)*\n` +
+        `• **Any final remarks or messages for the community** *(optional)*\n\n` +
+        `Once I have this information, I will escalate your request to Senior High Rank for review.`,
+      allowedMentions: { repliedUser: false }
+    }).catch(() => {});
+    return;
+  }
+
   // ---- Staff reply / controls ----
   if (authorIsStaff) {
     const cleanStaffCmd = content.toLowerCase().replace(/<@!?\d+>/g, '').trim();
 
     // Staff unclaims the ticket
-    if (cleanStaffCmd === 'unclaim' || cleanStaffCmd === 'unclaim ticket' || cleanStaffCmd === 'unclaim it') {
+    if (/\bunclaim\b/i.test(cleanStaffCmd) || /\bunclaim\b/i.test(content)) {
       ticket.claimedBy = null;
       ticket.aiActive = false;
       ticket.aiStopped = true;
@@ -11856,7 +12301,7 @@ async function handleTicketAiMessage(message, ticket) {
     }
 
     // Staff claims the ticket
-    if (cleanStaffCmd === 'claim' || cleanStaffCmd === 'claim ticket' || cleanStaffCmd === 'claim it') {
+    if (/\b(claim|claim\s+(?:the\s+|this\s+)?ticket|claim\s+it)\b/i.test(cleanStaffCmd)) {
       ticket.claimedBy = message.author.id;
       ticket.aiActive = false;
       ticket.aiStopped = true;
@@ -12012,16 +12457,54 @@ async function handleTicketAiMessage(message, ticket) {
     refreshTicketAiState(message.channel, ticket).catch(() => {});
   }
 
-  // 2. User requests human/staff support or expresses opt-out
-  const humanRequestRegex = /\b(no ai|don'?t want ai|dont want ai|human|real person|talk to (?:a )?(?:human|staff|person)|speak (?:to|with) (?:a )?(?:human|staff|person)|i don'?t wanna chat with ai|i dont wanna chat with ai|stop talking to ai)\b/i;
-  if (humanRequestRegex.test(content)) {
+  // 1.5. Unclaim request
+  if (/\bunclaim\b/i.test(content)) {
+    ticket.claimedBy = null;
     ticket.aiActive = false;
     ticket.aiStopped = true;
     saveTickets();
-    refreshTicketAiState(message.channel, ticket).catch(() => {});
+    try {
+      await message.channel.setName(`🔴・${ticket.authorUsername}`).catch(() => null);
+    } catch {}
+    if (ticket.controlMessageId) {
+      try {
+        const ctrl = await message.channel.messages.fetch(ticket.controlMessageId);
+        await ctrl.edit({
+          components: [buildTicketControlContainer(ticket).toJSON()],
+          flags: MessageFlags.IsComponentsV2
+        });
+      } catch {}
+    }
+    const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+    await message.reply({
+      content: `> 🔓 **Unclaimed** — Ticket is open for any staff member to claim.\n\n<@&${roleId}>`,
+      allowedMentions: { roles: [roleId], repliedUser: false }
+    }).catch(() => {});
+    return;
+  }
+
+  // 2. User requests human/staff support or expresses opt-out or asks to redirect/transfer to agent
+  const humanRequestRegex = /\b(no ai|don'?t want ai|dont want ai|human|real person|talk to (?:a )?(?:human|staff|person|agent|support agent|support)|speak (?:to|with) (?:a )?(?:human|staff|person|agent|support agent|support)|i don'?t wanna chat with ai|i dont wanna chat with ai|stop talking to ai|redirect(?: me)? to (?:a )?(?:support agent|support|staff|human|agent)|transfer(?: me)? to (?:a )?(?:support agent|support|staff|human|agent)|connect(?: me)? (?:to|with) (?:a )?(?:support agent|support|staff|human|agent)|(?:need|want|get|call|ping) (?:a )?(?:support agent|staff|human agent|human|agent|representative)|support agent|live agent|representative)\b/i;
+  if (humanRequestRegex.test(content)) {
+    ticket.claimedBy = null;
+    ticket.aiActive = false;
+    ticket.aiStopped = true;
+    saveTickets();
+    try {
+      await message.channel.setName(`🔴・${ticket.authorUsername}`).catch(() => null);
+    } catch {}
+    if (ticket.controlMessageId) {
+      try {
+        const ctrl = await message.channel.messages.fetch(ticket.controlMessageId);
+        await ctrl.edit({
+          components: [buildTicketControlContainer(ticket).toJSON()],
+          flags: MessageFlags.IsComponentsV2
+        });
+      } catch {}
+    }
     const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
     message.reply({
-      content: `I understand you would prefer to speak directly with our team. I have stepped aside and notified staff.\n\n<@&${roleId}>`,
+      content: `> 👤 **Support Agent Requested** — I have stepped aside and notified our staff team to assist you directly.\n\n<@&${roleId}>`,
       allowedMentions: { roles: [roleId], repliedUser: false }
     }).catch(() => {});
     return;
@@ -12107,6 +12590,28 @@ async function handleTicketAiMessage(message, ticket) {
     }))
     .then((res) => {
       if (!res || !res.text) return;
+      if (res.escalated) {
+        ticket.claimedBy = null;
+        ticket.aiActive = false;
+        ticket.aiStopped = true;
+        saveTickets();
+        try {
+          message.channel.setName(`🔴・${ticket.authorUsername}`).catch(() => null);
+        } catch {}
+        if (ticket.controlMessageId) {
+          message.channel.messages.fetch(ticket.controlMessageId).then((ctrl) => {
+            return ctrl.edit({
+              components: [buildTicketControlContainer(ticket).toJSON()],
+              flags: MessageFlags.IsComponentsV2
+            });
+          }).catch(() => {});
+        }
+        const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+        return message.reply({
+          content: `> 👤 **Support Agent Requested** — ${res.text.replace(/🤖/g, '').trim()}\n\n<@&${roleId}>`,
+          allowedMentions: { roles: [roleId], repliedUser: false }
+        }).catch(() => {});
+      }
       const cleanText = res.text.replace(/🤖/g, '').trim();
       const components = buildQuickActionButtons(`${content} ${cleanText}`, ticket);
       return message.reply({
@@ -12691,6 +13196,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return false;
       });
       if (handled) return;
+    }
+
+    // ─────────────── Music Player Buttons ───────────────
+    if (interaction.isButton() && interaction.customId.startsWith('music_')) {
+      const handled = await handleMusicButtonInteraction(interaction);
+      if (handled) return;
+    }
+
+    // ─────────────── /config Dashboard Select Menu ───────────────
+    if (interaction.isStringSelectMenu() && interaction.customId === 'config_tab_select') {
+      const section = interaction.values[0] || 'overview';
+      const card = buildConfigDashboard(section, interaction.guild);
+      await interaction.update(card);
+      return;
     }
 
     // ─────────────── postpone: custom duration modal ───────────────
@@ -14186,6 +14705,43 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } else if (interaction.commandName === 'media') {
         await handleMediaCommand(interaction);
         return;
+      } else if (interaction.commandName === 'play') {
+        const query = interaction.options.getString('query');
+        await handlePlayCommand(interaction, query);
+        return;
+      } else if (interaction.commandName === 'stop') {
+        await handleStopCommand(interaction);
+        return;
+      } else if (interaction.commandName === 'loop') {
+        const mode = interaction.options.getString('mode');
+        await handleLoopCommand(interaction, mode);
+        return;
+      } else if (interaction.commandName === 'replay') {
+        await handleReplayCommand(interaction);
+        return;
+      } else if (interaction.commandName === 'skip') {
+        await handleSkipCommand(interaction);
+        return;
+      } else if (interaction.commandName === 'pause') {
+        await handlePauseCommand(interaction);
+        return;
+      } else if (interaction.commandName === 'resume') {
+        await handleResumeCommand(interaction);
+        return;
+      } else if (interaction.commandName === 'queue') {
+        await handleQueueCommand(interaction);
+        return;
+      } else if (interaction.commandName === 'nowplaying') {
+        await handleNowPlayingCommand(interaction);
+        return;
+      } else if (interaction.commandName === 'volume') {
+        const level = interaction.options.getInteger('level');
+        await handleVolumeCommand(interaction, level);
+        return;
+      } else if (interaction.commandName === 'config') {
+        const section = interaction.options.getString('section') || 'overview';
+        await handleConfigCommand(interaction, section);
+        return;
       }
     }
 
@@ -14637,6 +15193,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
       ticket.claimedBy = null;
+      ticket.aiActive = false;
+      ticket.aiStopped = true;
       saveTickets();
 
       try {
@@ -14657,9 +15215,35 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
       }
 
+      const roleId = TICKET_ESCALATION_ROLES[ticket.categoryKey] || TICKET_ESCALATION_ROLES.general;
       await interaction.reply({
-        content: `> 🔓 **Unclaimed** by <@${interaction.user.id}>. Ticket is open for any staff member to claim.`
+        content: `> 🔓 **Unclaimed** by <@${interaction.user.id}>. Ticket is open for any staff member to claim.\n\n<@&${roleId}>`,
+        allowedMentions: { roles: [roleId] }
       });
+      return;
+    }
+
+    // ─────────────── Ticket Control: Retirement Approval / Denial ───────────────
+    if (interaction.isButton() && (interaction.customId.startsWith('ticket_retire_approve_') || interaction.customId.startsWith('ticket_retire_deny_'))) {
+      const channelId = interaction.customId.replace('ticket_retire_approve_', '').replace('ticket_retire_deny_', '');
+      const ticket = activeTickets.get(channelId) || getActiveTicket(interaction.channel);
+      if (!ticket) {
+        await interaction.reply({ content: '❌ Could not find active ticket record.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+      const member = interaction.member || (await interaction.guild?.members.fetch(interaction.user.id).catch(() => null));
+      if (!isSeniorHighRank(member)) {
+        await interaction.reply({ content: '❌ Only Senior High Rank / High Rank leadership can approve staff retirements.', flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      await interaction.deferUpdate().catch(() => {});
+
+      if (interaction.customId.startsWith('ticket_retire_approve_')) {
+        await processRetirementApproval(interaction.channel, ticket, interaction.user, interaction.guild);
+      } else {
+        await processRetirementDenial(interaction.channel, ticket, interaction.user);
+      }
       return;
     }
 
@@ -17374,33 +17958,196 @@ async function handleTicketUnaddMember(interaction, isSlash = true, targetUser =
   }
 }
 
+function buildConfigDashboard(section = 'overview', guild = null) {
+  const card = new ContainerBuilder().setAccentColor(0x5865f2);
+
+  card.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      '## ⚙️ Alabama Bot • Server Configuration Dashboard\n' +
+      '*Live executive settings, operational thresholds, and active subsystem controls.*'
+    )
+  );
+
+  card.addSeparatorComponents(thinLine());
+
+  if (section === 'overview') {
+    card.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `### 🌐 Core Server & Session Settings\n` +
+        `> • **Server Name:** \`${SERVER.name}\` • **Owner:** \`${SERVER.ownerName}\`\n` +
+        `> • **Private Server Code:** \`${SERVER.code}\` • **Join Link:** [policeroleplay.community/join/${SERVER.code}](${SERVER.joinUrl})\n` +
+        `> • **Session Channel:** ${config.sessionChannelId ? `<#${config.sessionChannelId}>` : '`Current / Dynamic Channel`'}\n` +
+        `> • **Session Notification Role:** <@&${config.pingRoleId || SERVER.pingRoleId}>\n` +
+        `> • **Cluster Instance ID:** \`${INSTANCE_ID}\` • **Status:** \`${isLeader ? '🟢 Leader (Active)' : '⚪ Standby'}\`\n` +
+        `> • **Gateway Ping:** \`${client.ws.ping ?? 0}ms\` • **Uptime:** \`${Math.floor(process.uptime() / 60)}m\``
+      )
+    );
+  } else if (section === 'staff') {
+    card.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `### 🛡️ Staff Administration & Demotions\n` +
+        `> • **Derank / Infraction Channel:** <#${STAFF_CONFIG.derankChannelId}>\n` +
+        `> • **Staff Roles Monitored:** <@&1341965114101731418> (and department leads)\n` +
+        `> • **Recorded Infractions:** \`${activeInfractions?.size ?? 0} active record(s)\`\n` +
+        `> • **Staff Applications:** \`${appGateState?.ingame ? '🟢 Open (In-Game Staff)' : '🔴 Closed'}\`\n` +
+        `> • **Management Commands:** \`/staff promotion\`, \`/staff derank\`, \`/staff infraction\`, \`/retirement\``
+      )
+    );
+  } else if (section === 'tickets') {
+    const deskState = ticketDeskState?.open ? (ticketDeskState?.busy ? '🟡 Busy' : '🟢 Online') : '🔴 Closed';
+    card.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `### 🎫 Ticket Desk & Support System\n` +
+        `> • **Desk Availability:** **${deskState}**\n` +
+        `> • **Active Support Channels:** \`${activeTickets?.size ?? 0} open ticket(s)\`\n` +
+        `> • **Categories:** \`General Support\`, \`Internal Affairs\`, \`High Rank\`, \`Partnerships\`, \`Staff Apps\`\n` +
+        `> • **AI Auto-Responder:** \`${aiConfigured() ? '🟢 Active & Self-Learning' : '⚪ Offline'}\`\n` +
+        `> • **Desk Controls:** \`-busy\`, \`-open\`, \`-close all\`, \`-add @user\`, \`-unadd @user\``
+      )
+    );
+  } else if (section === 'antinuke') {
+    card.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `### 🚨 Anti-Nuke Security Shield\n` +
+        `> • **Audit Log Channel:** <#${ANTINUKE_CONFIG.logChannelId}>\n` +
+        `> • **Channel Deletion Thresholds:** \`${ANTINUKE_CONFIG.thresholds.channelDeleteMinor}\` (minor) / \`${ANTINUKE_CONFIG.thresholds.channelDeleteMajor}\` (major) per 10s\n` +
+        `> • **Role Deletion Thresholds:** \`${ANTINUKE_CONFIG.thresholds.roleDeleteMinor}\` (minor) / \`${ANTINUKE_CONFIG.thresholds.roleDeleteMajor}\` (major) per 10s\n` +
+        `> • **Ban / Kick Thresholds:** \`${ANTINUKE_CONFIG.thresholds.banMinor}\` (minor) / \`${ANTINUKE_CONFIG.thresholds.banMajor}\` (major) per 10s\n` +
+        `> • **Emergency Ping Targets:** ${ANTINUKE_CONFIG.alertTargets.full.map((id) => `<@&${id}>`).join(' ')}\n` +
+        `> • **Status:** 🛡️ Active 24/7 background guard with automated quarantine`
+      )
+    );
+  } else if (section === 'erlc') {
+    card.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `### 🚔 ER:LC In-Game Private Server\n` +
+        `> • **Join Server Code:** \`${SERVER.code}\`\n` +
+        `> • **API Connection:** ${config.apiKey ? '🟢 Online & Connected' : '⚪ Not Configured'}\n` +
+        `> • **Safe Zone Strikes Logged:** \`${safeZoneStrikes?.size ?? 0} player(s)\`\n` +
+        `> • **In-Game Commands:** \`/erlc scan\`, \`/erlc pm\`, \`/erlc jail\`, \`/erlc kick\`, \`/erlc ban\`, \`/erlc message\`, \`/erlc hint\``
+      )
+    );
+  } else if (section === 'music') {
+    card.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `### 🎵 Music Engine & Audio Playback\n` +
+        `> • **Audio Engine:** \`yt-dlp 2026 + FFmpeg Studio Transcoder (s16le 48kHz Stereo)\`\n` +
+        `> • **Voice Gateway Intent:** \`GatewayIntentBits.GuildVoiceStates (Connected)\`\n` +
+        `> • **Default Volume:** \`80%\` • **Loop Modes:** \`Off\`, \`Current Track\`, \`Queue\`\n` +
+        `> • **Supported Media:** YouTube Videos, YouTube Music, Playlists, SoundCloud, Spotify, Direct Links\n` +
+        `> • **Commands:** \`-play\`, \`-stop\`, \`-loop\`, \`-replay\`, \`-skip\`, \`-pause\`, \`-resume\`, \`-queue\`, \`-np\`, \`-volume\``
+      )
+    );
+  } else {
+    card.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `### 🧠 AI Command Engine\n` +
+        `> • **Status:** ${aiConfigured() ? '🟢 Online & Ready' : '⚪ Offline (Offline Parser Active)'}\n` +
+        `> • **Active Provider Chain:** \`${providerSummary()}\`\n` +
+        `> • **Usage:** Type \`-ai <plain english request>\` in any channel\n` +
+        `> • **Access:** Staff Team and above, Directive, Owner`
+      )
+    );
+  }
+
+  card.addSeparatorComponents(thinLine());
+
+  // Category select menu
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId('config_tab_select')
+    .setPlaceholder('Select a configuration category...')
+    .addOptions(
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Overview & Server')
+        .setDescription('Community info, join links, session settings')
+        .setValue('overview')
+        .setDefault(section === 'overview')
+        .setEmoji('🌐'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Staff & Demotions')
+        .setDescription('Staff roles, derank channel, infraction logs')
+        .setValue('staff')
+        .setDefault(section === 'staff')
+        .setEmoji('🛡️'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Tickets & Desk')
+        .setDescription('Availability, categories, AI auto-responder')
+        .setValue('tickets')
+        .setDefault(section === 'tickets')
+        .setEmoji('🎫'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Anti-Nuke Shield')
+        .setDescription('Action limits, alert roles, audit logs')
+        .setValue('antinuke')
+        .setDefault(section === 'antinuke')
+        .setEmoji('🚨'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('ER:LC Private Server')
+        .setDescription('API connection, safe zone strikes, in-game moderation')
+        .setValue('erlc')
+        .setDefault(section === 'erlc')
+        .setEmoji('🚔'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('Music Player')
+        .setDescription('yt-dlp streaming, volume, loop modes, voice gateway')
+        .setValue('music')
+        .setDefault(section === 'music')
+        .setEmoji('🎵'),
+      new StringSelectMenuOptionBuilder()
+        .setLabel('AI Command Engine')
+        .setDescription('Provider chain, model failovers, plain English actions')
+        .setValue('ai')
+        .setDefault(section === 'ai')
+        .setEmoji('🧠')
+    );
+
+  const actionRow = new ActionRowBuilder().addComponents(menu);
+  card.addActionRowComponents(actionRow);
+
+  return { components: [card.toJSON()], flags: MessageFlags.IsComponentsV2 };
+}
+
+async function handleConfigCommand(interactionOrMessage, section = 'overview') {
+  const isSlash = typeof interactionOrMessage.reply === 'function' && interactionOrMessage.isChatInputCommand?.();
+  const payload = buildConfigDashboard(section, interactionOrMessage.guild);
+
+  if (isSlash) {
+    // Ephemeral reply so chat is never bloated
+    payload.flags = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2;
+    await interactionOrMessage.reply(payload);
+  } else {
+    // Auto-delete reply after 60s
+    await autoDeleteReply(interactionOrMessage, payload, 60000);
+  }
+}
+
 function buildCommandsGuidePage(pageIndex = 0) {
   const card = new ContainerBuilder();
-  const totalPages = 9;
+  const totalPages = 10;
   const page = Math.max(0, Math.min(totalPages - 1, pageIndex));
 
   if (page === 0) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory - Panel Hub & Content\n` +
-        `*Page 1 of ${totalPages} • Every panel and postable card lives here.*\n\n` +
-        `</panel:1549298204271448168> </shop:1549298204271448168> </media:1549298204271448168> </information:1549298204271448168>\n\n` +
-        `> • Panel Hub - post the Session, Tickets, Verification, Applications, Information (game rules) and Shop panels. One command covers every panel.\n` +
-        `> • Shop - post the membership shop panel (Donation / Membership+ / Paid Partnership).\n` +
-        `> • Media - post a media drop with a banner, credit and an optional ping (Media Team only).\n` +
-        `> • Information - server overview, community rules, FAQ and the full Game Rules (R-1 to R-55).\n\n` +
-        `*The old /session panel, /ticket panel, /verify panel, /information panel and /staff application panel commands were removed. Use /panel instead.*`
+        `## Command Directory — Panel Hub & Systems\n` +
+        `*Page 1 of ${totalPages} • Every panel, configuration, and postable card lives here.*\n\n` +
+        `</panel:1549298204271448168> </config:1549298204271448168> </shop:1549298204271448168> </media:1549298204271448168> </information:1549298204271448168>\n\n` +
+        `> • **Panel Hub** — Post Session, Tickets, Verification, Applications, Rules and Shop panels with \`/panel\`.\n` +
+        `> • **Config Dashboard** — View and inspect all live bot settings, thresholds, and systems with \`/config\` or \`-config\`.\n` +
+        `> • **Shop** — Post the membership shop panel (Donation / Membership+ / Paid Partnership).\n` +
+        `> • **Media** — Post a media drop with a banner, credit and optional ping (Media Team only).\n` +
+        `> • **Information** — Server overview, community rules, FAQ and the full Game Rules (R-1 to R-55).`
       )
     );
   } else if (page === 1) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory - Session Operations\n` +
+        `## Command Directory — Session Operations\n` +
         `*Page 2 of ${totalPages} • Voting, hosting, and shutting down sessions.*\n\n` +
         `</session vote:1549298204271448167> </session shutdown:1549298204271448167> </panel:1549298204271448168>\n\n` +
-        `> • Session Vote - goal-based vote with a timer. Members vote straight from the card.\n` +
-        `> • Session Shutdown - ends the session, posts the closed card and DMs everyone who voted.\n` +
-        `> • Panel Hub - post or refresh the live session panel with /panel type:Session.\n\n` +
+        `> • **Session Vote** — Goal-based vote with a timer. Members vote straight from the card.\n` +
+        `> • **Session Shutdown** — Ends the session, posts the closed card and DMs everyone who voted.\n` +
+        `> • **Panel Hub** — Post or refresh the live session panel with \`/panel type:Session\`.\n\n` +
         `> When a vote hits its goal the host is DM'd a decision card (Start / Postpone).\n` +
         `> Starting a session posts only the session panel, with no extra text in the channel.`
       )
@@ -17408,182 +18155,119 @@ function buildCommandsGuidePage(pageIndex = 0) {
   } else if (page === 2) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory - Staff & Management\n` +
+        `## Command Directory — Staff & Management\n` +
         `*Page 3 of ${totalPages} • Staff administration, ranks, and applications.*\n\n` +
         `</staff promotion:1549298204271448169> </staff derank:1549298204271448169> </staff feedback:1549298204271448169> </staff infraction:1549298204271448169> </retirement:1549298204271448169> </panel:1549298204271448168>\n\n` +
-        `> • Staff Promotion - issue a promotion announcement and update the user's roles\n` +
-        `> • Staff Derank - demote a staff member and strip their designated roles\n` +
-        `> • Staff Infraction - official staff infraction notice\n` +
-        `> • Staff Feedback - submit a 1 to 5 star rating and review for a staff member\n` +
-        `> • Retirement - post the official staff retirement announcement\n` +
-        `> • Panel Hub - post the Applications panel with /panel type:Applications\n\n` +
+        `> • **Staff Promotion** — Issue a promotion announcement and update the user's roles.\n` +
+        `> • **Staff Derank** — Demote a staff member and strip their designated roles.\n` +
+        `> • **Staff Infraction** — Official staff infraction notice with reason and logs.\n` +
+        `> • **Staff Feedback** — Submit a 1 to 5 star rating and review for a staff member.\n` +
+        `> • **Retirement** — Post the official staff retirement announcement.\n` +
+        `> • **Panel Hub** — Post the Applications panel with \`/panel type:Applications\`.\n\n` +
         `> Applications are In-Game Staff only. The application opens in the applicant's DMs.`
       )
     );
   } else if (page === 3) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory - Moderation & Server Security\n` +
+        `## Command Directory — Moderation & Server Security\n` +
         `*Page 4 of ${totalPages} • Discord moderation, safety enforcement, and anti-nuke.*\n\n` +
         `</ban:1549298204271448173> </kick:1549298204724691004> </timeout:1549298204724691005> </unban:1549298204724691012> </purge:1549298204724691006>\n` +
         `</antinuke status:1549298204724691007> </antinuke snapshot:1549298204724691007> </antinuke restore:1549298204724691007>\n\n` +
-        `> • Ban, Kick, Timeout, Unban and Purge - day-to-day moderation. Purge bulk-deletes recent messages.\n` +
-        `> • /antinuke status - shows what the defence is watching, the saved backups, and who gets pinged.\n` +
-        `> • /antinuke snapshot - takes a fresh backup of every channel and role.\n` +
-        `> • /antinuke restore - puts deleted channels and roles back from the backup.`
+        `> • **Ban, Kick, Timeout, Unban, Purge** — Day-to-day moderation. Purge bulk-deletes recent messages.\n` +
+        `> • **/antinuke status** — Shows what the defence is watching, the saved backups, and who gets pinged.\n` +
+        `> • **/antinuke snapshot** — Takes a fresh backup of every channel and role.\n` +
+        `> • **/antinuke restore** — Puts deleted channels and roles back from the backup.`
       )
     );
   } else if (page === 4) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory - ER:LC In-Game Moderation\n` +
+        `## Command Directory — ER:LC In-Game Moderation\n` +
         `*Page 5 of ${totalPages} • Private server policing, command execution, and safe zones.*\n\n` +
         `</erlc scan:1549298204724691009> </erlc status:1549298204724691009> </erlc pm:1549298204724691009> </erlc message:1549298204724691009> </erlc hint:1549298204724691009>\n` +
         `</erlc jail:1549298204724691009> </erlc unjail:1549298204724691009> </erlc kick:1549298204724691009> </erlc ban:1549298204724691009>\n` +
         `</safezone strike:1549298204724691013> </safezone status:1549298204724691013> </safezone clear:1549298204724691013> </exploit report:1549298204724691009>\n\n` +
-        `> • /erlc scan, /erlc status, /erlc pm, /erlc message, /erlc hint - check players, send private messages, broadcast with :m and drop hints with :h.\n` +
-        `> • /erlc jail, /erlc unjail, /erlc kick, /erlc ban - punish players in the private server.\n` +
-        `> • /safezone strike, /safezone status, /safezone clear - log players who shoot in the safe zone. Each strike escalates the penalty.\n` +
-        `> • /exploit report - file a report on an exploiter with evidence attached.`
+        `> • **/erlc scan, status, pm, message, hint** — Check players, send PMs, broadcast with :m and drop hints with :h.\n` +
+        `> • **/erlc jail, unjail, kick, ban** — Punish players in the private server.\n` +
+        `> • **/safezone strike, status, clear** — Log players who shoot in safe zones. Escalates automatically.\n` +
+        `> • **/exploit report** — File a report on an exploiter with evidence attached.`
       )
     );
   } else if (page === 5) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory - Tickets & Community\n` +
+        `## Command Directory — Tickets & Community\n` +
         `*Page 6 of ${totalPages} • Assistance desk, member management, and prefix controls.*\n\n` +
         `</panel:1549298204271448168> </add:1549610085385240646> </unadd:1549610085385240647> </proof partnership:1549298204271448172> </suggest:1549298204271448171>\n\n` +
-        `> • Panel Hub - post the Tickets panel with /panel type:Tickets\n` +
-        `> • /add and /unadd - add or remove people from an open ticket\n` +
-        `> • /proof partnership - upload proof for a paid partnership\n` +
-        `> • /suggest - submit an interactive community suggestion\n\n` +
-        `> Every ticket has a Claim, a Close and a red Report button.\n` +
-        `> Reports stay sealed until a staff member claims the ticket. The full details\n` +
-        `> are then released privately to whoever claimed it.\n\n` +
+        `> • **Panel Hub** — Post the Tickets panel with \`/panel type:Tickets\`.\n` +
+        `> • **/add and /unadd** — Add or remove people from an open ticket.\n` +
+        `> • **/proof partnership** — Upload proof for a paid partnership.\n` +
+        `> • **/suggest** — Submit an interactive community suggestion.\n\n` +
         `### Prefix Controls\n` +
-        `> • -busy / -open / -close all - set the desk to Online, Busy or Closed\n` +
-        `> • -open <dept> / -close <dept> - lock or unlock one department\n` +
-        `> • -add @user / -unadd @user - manage ticket channel members\n` +
-        `> • -partnership <text> - submit a partnership application inside a ticket\n` +
-        `> • -confirm - verify a paid partnership payment\n` +
-        `> • -ai <request> - the AI command engine, say it in plain English (full guide on page 9)\n` +
-        `> • -status - show the current ticket desk availability`
+        `> • \`-busy\` / \`-open\` / \`-close all\` — Set the desk to Online, Busy or Closed.\n` +
+        `> • \`-open <dept>\` / \`-close <dept>\` — Lock or unlock one department.\n` +
+        `> • \`-add @user\` / \`-unadd @user\` — Manage ticket channel members.\n` +
+        `> • \`-partnership <text>\` — Submit a partnership application inside a ticket.\n` +
+        `> • \`-confirm\` — Verify a paid partnership payment.\n` +
+        `> • \`-status\` — Show the current ticket desk availability.`
       )
     );
   } else if (page === 6) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory - Leave of Absence\n` +
+        `## Command Directory — Leave of Absence (LOA)\n` +
         `*Page 7 of ${totalPages} • Staff leave requests and approvals.*\n\n` +
         `</loa:1549298204271448168>\n\n` +
-        `> • /loa - submit a leave request (Roblox name, rank, start date, end date, reason)\n` +
-        `> • -loa - the same thing as a prefix message, with the fields split by a pipe\n` +
-        `> • -loaend @user - end someone's leave early\n\n` +
-        `How it works\n` +
-        `> • The request posts in <#${LOA_ACTION_CHANNEL_ID}> with an Approve and a Deny button.\n` +
-        `> • Only ${LOA_APPROVER_ROLE_LABEL} can press them, and it can only be pressed once.\n` +
-        `> • Approve takes their staff roles off and puts the LOA tag on their nickname.\n` +
-        `> • The button card is then deleted and replaced with an approved or denied card.\n` +
-        `> • The leave ends itself on the end date: roles go back on, the nickname clears,\n` +
-        `> and the member gets a DM saying so.`
+        `> • **/loa** — Submit a leave request (Roblox name, rank, start date, end date, reason).\n` +
+        `> • **-loa** — The same thing as a prefix message, with fields split by a pipe.\n` +
+        `> • **-loaend @user** — End someone's leave early.\n\n` +
+        `> Requests post in management with Approve and Deny buttons. Approved leaves automatically manage staff roles and nickname tags.`
       )
     );
   } else if (page === 7) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Emergency Controls & Appealsn` +
-        `*Page 8 of ${totalPages} • Emergency recovery, appeals, and system diagnostics.*nn` +
-        `</appeal:1549597649848766495> </retrigger:1549298204271448166> </commands:1549298204271448164>nn` +
-        `> • Appeal: Open official private server ban appealn` +
-        `> • Retrigger: Emergency reboot & re-sync (re-registers commands, restarts timers, unblocks buttons)n` +
-        `> • Commands Directory: Open this interactive multi-page command directory`
+        `## Command Directory — High-Fidelity Music Bot\n` +
+        `*Page 8 of ${totalPages} • YouTube & audio streaming with interactive controls.*\n\n` +
+        `</play:1549298204271448168> </stop:1549298204271448168> </loop:1549298204271448168> </replay:1549298204271448168> </skip:1549298204271448168>\n\n` +
+        `> • **-play <query/url>** or **/play** — Play songs or playlists from YouTube, SoundCloud, or Spotify.\n` +
+        `> • **-stop** or **/stop** — Stop music, clear the queue, and leave voice channel.\n` +
+        `> • **-loop [mode]** or **/loop** — Cycle loop mode: Single Track 🔂, Entire Queue 🔁, or Off ⏹️.\n` +
+        `> • **-replay** or **/replay** — Replay the currently playing track from the beginning.\n` +
+        `> • **-skip** or **/skip** — Skip to the next track in queue.\n` +
+        `> • **-pause** / **-resume** — Pause or continue playback.\n` +
+        `> • **-queue** or **/queue** — View upcoming tracks in the music queue.\n` +
+        `> • **-nowplaying** or **/nowplaying** — Interactive card with progress bar and control buttons.\n` +
+        `> • **-volume <1-100>** or **/volume** — Adjust playback volume smoothly.`
+      )
+    );
+  } else if (page === 8) {
+    card.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## Command Directory — Emergency Controls & Appeals\n` +
+        `*Page 9 of ${totalPages} • Emergency recovery, appeals, and system diagnostics.*\n\n` +
+        `</appeal:1549597649848766495> </retrigger:1549298204271448166> </config:1549298204271448164> </commands:1549298204271448164>\n\n` +
+        `> • **Appeal** — Open official private server ban appeal.\n` +
+        `> • **Retrigger** — Emergency reboot & re-sync (re-registers commands, restarts timers, unblocks buttons).\n` +
+        `> • **Config Dashboard** — View and configure server settings, channels, and thresholds with \`/config\`.\n` +
+        `> • **Commands Directory** — Open this interactive multi-page command directory.`
       )
     );
   } else {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — AI Command Enginen` +
-        `*Page 9 of ${totalPages} — say what you want in plain English.*nn` +
-        `### How it worksn` +
-        `> There is no /ai slash command — type -ai <request> in any channel.n` +
-        `> The bot reads plain English, runs the action and replies in seconds.nn` +
-        `### Available to youn` +
-        `Sessions and panelsn` +
-        `> -ai start a session vote with 5 users for 2 hoursn` +
-        `> -ai close the sessionn` +
-        `> -ai post the session panelnn` +
-        `Ticket deskn` +
-        `> -ai make the ticket desk busyn` +
-        `> -ai open internal affairsn` +
-        `> -ai close all ticketsn` +
-        `> -ai what is the desk statusnn` +
-        `Ticketsn` +
-        `> -ai close this ticketn` +
-        `> -ai close the general ticketn` +
-        `> -ai ticket infon` +
-        `> -ai add @user to this ticketnn` +
-        `Applicationsn` +
-        `> -ai close staff applicationsn` +
-        `> -ai open applicationsnn` +
-        `Channel toolsn` +
-        `> -ai slowmode 30n` +
-        `> -ai pin the last messagenn` +
-        `Communityn` +
-        `> -ai make a suggestion that we add more staffn` +
-        `> -ai show the top suggestionn` +
-        `> -ai poll Friday or Saturday: session; no sessionnn` +
-        `Staff recordsn` +
-        `> -ai list infractionsn` +
-        `> -ai list @user infractionsn` +
-        `> -ai revoke @user infractionn` +
-        `> -ai revoke @user promotionnn` +
-        `Meetingsn` +
-        `> -ai schedule a meeting in 2 hours to discuss staffingn` +
-        `> -ai schedule a staff meeting tomorrow at 7pmn` +
-        `> -ai postpone the meeting by 1 hourn` +
-        `> -ai cancel the meetingn` +
-        `> -ai list meetingsn` +
-        `> Attendees get a DM RSVP card (Can attend / Cannot attend / Maybe),n` +
-        `> reminders go out 7 days before and the morning of, and postponingn` +
-        `> edits the existing card instead of pinging anyone twice.nn` +
-        `Messagesn` +
-        `> -ai dm @user you are invited to the meetingn` +
-        `> -ai send a message in game we are fulln` +
-        `> -ai in game ban RobloxName for exploitingnn` +
-        `Infon` +
-        `> -ai how many players are onlinen` +
-        `> -ai whois @usern` +
-        `> -ai avatar @usern` +
-        `> -ai discord server infon` +
-        `> -ai bot statsnn` +
-        `### Ownern` +
-        `Moderationn` +
-        `> -ai ban @user for 7 days for spammingn` +
-        `> -ai unban @usern` +
-        `> -ai kick @user for raidingn` +
-        `> -ai timeout @user for 2 hoursn` +
-        `> -ai purge 25nn` +
-        `Servern` +
-        `> -ai say Session starts in 5 minutesn` +
-        `> -ai lock this channeln` +
-        `> -ai hide this channeln` +
-        `> -ai set nickname of @user to Helpern` +
-        `> -ai give @user the Moderator rolenn` +
-        `In-gamen` +
-        `> -ai jail RobloxNamen` +
-        `> -ai unjail RobloxNamen` +
-        `> -ai announce we are fulln` +
-        `> -ai pm RobloxName to join staffnn` +
-        `Systemn` +
-        `> -ai retrigger the botnn` +
-        `### Notesn` +
-        `> Type -ai help at any time — it is DM'd to you so only you can read it.n` +
-        `> Provider and token status is never shown unless you ask: -ai providers.n` +
-        `> Nothing is guessed — unclear requests are refused instead of acted on.\n` +
-        `> Suggestions are posted with your exact words, never rewritten.\n` +
-        `> In-game actions (jail, kick, ban, announce, hint, pm) are open to staff.\n` +
-        `> Every action is written to Security-Logs with the request and result.\n` +
-        `> Access: Staff Team role and above, Directive Team, bot owner.`
+        `## Command Directory — AI Command Engine\n` +
+        `*Page 10 of ${totalPages} — Say what you want in plain English.*\n\n` +
+        `### How it works\n` +
+        `> Type **\`-ai <request>\`** in any channel. The bot parses plain English and acts immediately.\n\n` +
+        `### Popular Actions\n` +
+        `> • **Sessions:** \`-ai start a session vote with 5 users for 2 hours\` • \`-ai close session\`\n` +
+        `> • **Tickets:** \`-ai close this ticket\` • \`-ai make ticket desk busy\` • \`-ai ticket info\`\n` +
+        `> • **Staff:** \`-ai list infractions\` • \`-ai revoke @user infraction\` • \`-ai list meetings\`\n` +
+        `> • **Moderation:** \`-ai ban @user for 7 days for spamming\` • \`-ai timeout @user 1 hour\`\n` +
+        `> • **In-Game:** \`-ai in game jail RobloxName\` • \`-ai announce server is full\`\n\n` +
+        `> Type **\`-ai help\`** at any time to receive a private DM guide of all AI capabilities.`
       )
     );
   }
@@ -17628,7 +18312,7 @@ async function handleCommandsGuideCommand(interaction, isSlash = true, pageIndex
   if (isSlash) {
     await interaction.reply({
       components: [card.toJSON()],
-      flags: MessageFlags.IsComponentsV2
+      flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
     });
   } else {
     await autoDeleteReply(
@@ -17698,6 +18382,7 @@ async function handleRetriggerCommand(interaction, isSlash = true) {
   // 2. Reload All Datastores from disk
   try {
     loadTickets();
+    loadCountingState();
     loadTicketDeskState();
     loadTicketPanels();
     loadAppPanels();
@@ -18631,6 +19316,7 @@ function buildAiContext(message) {
     postponeMeeting: meetingPostpone,
     cancelMeeting: meetingCancel,
     listMeetings: meetingList,
+    meetingRsvp: meetingRsvp,
     topSuggestion: aiTopSuggestion,
     resolvePingRole: (roleId) => (roleId ? String(roleId) : null),
     resolveUserId: (value) => (value ? String(value).match(/\d{17,20}/)?.[0] ?? null : null),
@@ -18656,7 +19342,20 @@ async function runAiIntent(message, intent, replyTarget) {
   }
 
   const notice = intent.gatewayNotice ? `${intent.gatewayNotice}\n\n` : '';
-  await replyTarget?.edit({ content: `${notice}${result.message}`.slice(0, 1900) }).catch(() => null);
+  const payload = {};
+  if (result.components) {
+    payload.components = result.components;
+    if (result.flags) payload.flags = result.flags;
+  }
+  if (result.embeds) payload.embeds = result.embeds;
+  if (result.content !== undefined) {
+    payload.content = `${notice}${result.content}`.slice(0, 1900);
+  } else if (result.message && !result.components) {
+    payload.content = `${notice}${result.message}`.slice(0, 1900);
+  } else if (result.message && result.components) {
+    payload.content = notice ? notice.slice(0, 1900) : '';
+  }
+  await replyTarget?.edit(payload).catch(() => null);
 
   // Only audit real actions — refused or unmapped requests are noise.
   if (intent.action !== 'unsupported' && intent.action !== 'ai_chat') await logAiAction(ctx, intent, result);
@@ -19370,10 +20069,30 @@ client.on(Events.MessageCreate, async (message) => {
   try {
     if (!message.guild) return;
 
+    // ── Counting Channel (1282141621462241361) & -count Admin Command ──
+    if (message.content?.trim().startsWith('-count')) {
+      const isStaffOrOwner = isStaffMember(message.member) || isManagement(message.member) || isHighRank(message.member) || message.author.id === AI_OWNER_ID;
+      if (isStaffOrOwner) {
+        await handleCountingAdminCommand(message);
+        return;
+      }
+    }
+
+    if (message.channelId === COUNTING_CHANNEL_ID) {
+      await handleCountingMessage(message);
+      return;
+    }
+
     // ── Staff AI Global Toggle (@Alabama Utils shut off the ai for all category / -ai off all) ──
     const rawContent = message.content?.trim() || '';
     const botMentioned = !!client.user?.id && (message.mentions?.users?.has(client.user.id) || rawContent.includes(`<@${client.user.id}>`));
     const isStaffMsg = isStaffMember(message.member) || ticketAiStaffAuthor(message.member);
+
+    // ── Staff AI Training: -train / -learn / @bot train: ──
+    if (isStaffMsg && (rawContent.startsWith('-train') || rawContent.startsWith('-learn') || (botMentioned && /\btrain\b/i.test(rawContent)))) {
+      await executeTrainCommand(message, rawContent);
+      return;
+    }
 
     if (isStaffMsg && (botMentioned || rawContent.startsWith('-ai'))) {
       const cleanMsg = rawContent.toLowerCase().replace(/<@!?\d+>/g, '').trim();
@@ -20208,6 +20927,69 @@ client.on(Events.MessageCreate, async (message) => {
       return;
     }
 
+    // ── Music Bot Prefix Commands ──
+    if (raw.startsWith('play ') || raw.startsWith('p ') || raw === 'play' || raw === 'p') {
+      const query = raw.startsWith('play ') ? message.content.slice(message.content.indexOf(' ') + 1).trim()
+        : raw.startsWith('p ') ? message.content.slice(message.content.indexOf(' ') + 1).trim()
+        : '';
+      await handlePlayCommand(message, query);
+      return;
+    }
+
+    if (raw === 'stop') {
+      await handleStopCommand(message);
+      return;
+    }
+
+    if (raw === 'loop' || raw.startsWith('loop ')) {
+      const mode = raw.startsWith('loop ') ? raw.slice(5).trim() : null;
+      await handleLoopCommand(message, mode);
+      return;
+    }
+
+    if (raw === 'replay') {
+      await handleReplayCommand(message);
+      return;
+    }
+
+    if (raw === 'skip' || raw === 'next') {
+      await handleSkipCommand(message);
+      return;
+    }
+
+    if (raw === 'pause') {
+      await handlePauseCommand(message);
+      return;
+    }
+
+    if (raw === 'resume') {
+      await handleResumeCommand(message);
+      return;
+    }
+
+    if (raw === 'queue' || raw === 'q') {
+      await handleQueueCommand(message);
+      return;
+    }
+
+    if (raw === 'nowplaying' || raw === 'np') {
+      await handleNowPlayingCommand(message);
+      return;
+    }
+
+    if (raw.startsWith('volume ') || raw.startsWith('vol ')) {
+      const arg = raw.startsWith('volume ') ? raw.slice(7).trim() : raw.slice(4).trim();
+      await handleVolumeCommand(message, arg);
+      return;
+    }
+
+    // ── Server & Bot Configuration Dashboard ──
+    if (raw === 'config' || raw.startsWith('config ') || raw === 'settings' || raw.startsWith('settings ')) {
+      const sec = raw.includes(' ') ? raw.split(/\s+/)[1].trim() : 'overview';
+      await handleConfigCommand(message, sec);
+      return;
+    }
+
     if (raw === 'ticket help' || raw === 'ticket commands') {
       const helpCard = new ContainerBuilder();
       helpCard.addTextDisplayComponents(new TextDisplayBuilder().setContent('## Ticket Desk Staff Commands'));
@@ -20751,6 +21533,23 @@ client.on(Events.MessageCreate, async (message) => {
         }
         return;
       }
+
+      if (raw.startsWith('setcount') || raw === 'count' || raw === 'counting') {
+        if (!isStaffMember(message.member) && !message.member?.permissions?.has(PermissionFlagsBits.ManageGuild)) {
+          return;
+        }
+        if (raw.startsWith('setcount')) {
+          const num = parseInt(raw.slice(8).trim(), 10);
+          if (!isNaN(num) && num >= 0) {
+            countingState.currentCount = num;
+            saveCountingState();
+            await autoDeleteReply(message, `✅ Counting state updated: Current count is now **${num}**. Next expected count is **${num + 1}**.`, 15000);
+            return;
+          }
+        }
+        await autoDeleteReply(message, `🔢 Current count is **${countingState.currentCount}** in <#${COUNTING_CHANNEL_ID}>. Next expected count is **${countingState.currentCount + 1}**.`, 15000);
+        return;
+      }
     }
   } catch (err) {
     console.error('Error in MessageCreate prefix command:', err.message);
@@ -20906,6 +21705,19 @@ export {
   loadSuggestions,
   retriggerCommand,
   commandsCommand,
+  configCommand,
+  playCommand,
+  stopCommand,
+  loopCommand,
+  replayCommand,
+  skipCommand,
+  pauseCommand,
+  resumeCommand,
+  queueCommand,
+  nowPlayingCommand,
+  volumeCommand,
+  buildConfigDashboard,
+  handleConfigCommand,
   addCommand,
   unaddCommand,
   handleRetriggerCommand,

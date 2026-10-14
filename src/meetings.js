@@ -47,7 +47,13 @@ export function loadMeetings() {
   try {
     if (!cfg.storeFile || !fs.existsSync(cfg.storeFile)) return 0;
     const raw = JSON.parse(fs.readFileSync(cfg.storeFile, 'utf8'));
-    for (const [id, rec] of Object.entries(raw)) meetings.set(id, rec);
+    for (const [id, rec] of Object.entries(raw)) {
+      if (meetings.has(id)) {
+        Object.assign(meetings.get(id), rec);
+      } else {
+        meetings.set(id, rec);
+      }
+    }
     return meetings.size;
   } catch (err) {
     console.error('Could not read meetings.json:', err.message);
@@ -78,8 +84,8 @@ export function initMeetingService({ client, storeFile, tzOffset }) {
 // ── Time parsing ─────────────────────────────────────────────────────────────
 
 /** UTC epoch (ms) for a wall-clock time expressed in the configured offset. */
-function wallClock(baseDate, hour, minute) {
-  const shifted = new Date(baseDate.getTime() + cfg.tzOffset * HOUR);
+function wallClock(baseDate, hour, minute, tzOffset = cfg.tzOffset) {
+  const shifted = new Date(baseDate.getTime() + tzOffset * HOUR);
   const utc = Date.UTC(
     shifted.getUTCFullYear(),
     shifted.getUTCMonth(),
@@ -87,14 +93,57 @@ function wallClock(baseDate, hour, minute) {
     hour,
     minute
   );
-  return utc - cfg.tzOffset * HOUR;
+  return utc - tzOffset * HOUR;
 }
+
+const TZ_OFFSETS = {
+  est: -5,
+  edt: -4,
+  cst: -6,
+  cdt: -5,
+  mst: -7,
+  mdt: -6,
+  pst: -8,
+  pdt: -7,
+  utc: 0,
+  gmt: 0
+};
+
+const MONTH_NAMES = {
+  jan: 0, january: 0,
+  feb: 1, february: 1,
+  mar: 2, march: 2,
+  apr: 3, april: 3,
+  may: 4,
+  jun: 5, june: 5,
+  jul: 6, july: 6,
+  aug: 7, august: 7,
+  sep: 8, sept: 8, september: 8,
+  oct: 9, october: 9,
+  nov: 10, november: 10,
+  dec: 11, december: 11
+};
+
+const DOW_NAMES = {
+  sun: 0, sunday: 0,
+  mon: 1, monday: 1,
+  tue: 2, tues: 2, tuesday: 2,
+  wed: 3, wednes: 3, wednesday: 3,
+  thu: 4, thur: 4, thurs: 4, thursday: 4,
+  fri: 5, friday: 5,
+  sat: 6, satur: 6, saturday: 6
+};
 
 /**
  * Reads a meeting time out of free text.
- * Supports: ISO ("2026-03-14T19:00"), "in 2 hours", "tomorrow at 7pm",
- * "tonight", "at 18:30". Returns null when nothing usable is found — the
- * caller then refuses instead of guessing.
+ * Supports:
+ * - Natural full dates: "this upcoming Wednesday, October 21st at 6:00 PM EST"
+ * - Month & Day: "October 21st at 6pm", "Oct 21 18:00"
+ * - Day of week: "Wednesday at 6pm", "next Friday 7pm"
+ * - Relative: "in 2 hours", "3 days", "45 mins"
+ * - Day words: "tomorrow at 7pm", "tonight", "today at 18:30"
+ * - ISO: "2026-03-14T19:00"
+ * - Timezones: EST, EDT, CST, CDT, MST, MDT, PST, PDT, UTC, GMT
  */
 export function parseWhen(input) {
   const text = String(input || '').trim().toLowerCase();
@@ -104,14 +153,20 @@ export function parseWhen(input) {
   // 1. Relative — checked FIRST so a duration is never mistaken for a date.
   //    Covers "in 2 hours", "2 hours", "in 3 days", "45 minutes", "3d".
   const rel = text.match(/\b(\d+(?:\.\d+)?)\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|wks?|w)\b/);
-  if (rel) {
+  // Ensure it's not preceded by a month name (e.g., "October 21st at 6:00 PM")
+  const isMonthDay = /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}/.test(text);
+  if (rel && !isMonthDay) {
     const n = Number(rel[1]);
     const unit = rel[2][0];
     const ms = unit === 'm' ? 60_000 : unit === 'h' ? HOUR : unit === 'd' ? DAY : 604_800_000;
     return now.getTime() + n * ms;
   }
 
-  // 2. Optional time of day: "at 7pm", "at 18:30", "19:00".
+  // Timezone extraction
+  const tzMatch = text.match(/\b(est|edt|cst|cdt|mst|mdt|pst|pdt|utc|gmt)\b/);
+  const activeTz = tzMatch ? TZ_OFFSETS[tzMatch[1]] : cfg.tzOffset;
+
+  // 2. Time of day: "at 7pm", "6:00 pm", "at 18:30", "19:00"
   let hour = null;
   let minute = 0;
   const ampm = text.match(/\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
@@ -127,23 +182,71 @@ export function parseWhen(input) {
     }
   }
 
-  // Always the NEXT occurrence, so these branches can never return the past.
-  const upcoming = (base, h, m) => {
-    const ts = wallClock(base, h, m);
-    return ts > now.getTime() ? ts : ts + DAY;
-  };
-
-  // 3. Day words, resolved against the server's local wall clock.
-  if (/\btomorrow\b/.test(text)) return wallClock(new Date(now.getTime() + DAY), hour ?? 19, minute);
-  if (/\b(tonight|this evening|today)\b/.test(text)) return upcoming(now, hour ?? 19, minute);
-  if (hour !== null) return upcoming(now, hour, minute);
-
-  // 4. Absolute: "2026-03-14T19:00".
+  // 3. Absolute ISO: "2026-03-14T19:00" or "2026-03-14 19:00"
   const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[t ](\d{1,2})(?::(\d{2}))?)?/);
   if (iso) {
     const [, y, mo, d, h, mi] = iso;
-    return wallClock(new Date(Date.UTC(+y, +mo - 1, +d, 12)), +(h ?? 19), +(mi ?? 0));
+    return wallClock(new Date(Date.UTC(+y, +mo - 1, +d, 12)), +(h ?? hour ?? 19), +(mi ?? minute ?? 0), activeTz);
   }
+
+  // 4. Specific Month and Day: "October 21st", "Oct 21", "21st of October"
+  const monthMatch =
+    text.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?\b/) ||
+    text.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s*,?\s*(\d{4}))?\b/);
+
+  if (monthMatch) {
+    const isFirstNum = /^\d+$/.test(monthMatch[1]);
+    const monthStr = isFirstNum ? monthMatch[2] : monthMatch[1];
+    const dayStr = isFirstNum ? monthMatch[1] : monthMatch[2];
+    const yearStr = monthMatch[3];
+
+    const monthKey = monthStr.slice(0, 3);
+    const month = MONTH_NAMES[monthKey] ?? MONTH_NAMES[monthStr];
+    const day = Number(dayStr);
+    const shiftedNow = new Date(now.getTime() + activeTz * HOUR);
+    let year = yearStr ? Number(yearStr) : shiftedNow.getUTCFullYear();
+
+    const targetH = hour ?? 19;
+    const targetM = minute ?? 0;
+    let ts = Date.UTC(year, month, day, targetH, targetM) - activeTz * HOUR;
+    // If no year specified and date already passed by more than 1 day, roll to next year
+    if (!yearStr && ts < now.getTime() - DAY) {
+      year += 1;
+      ts = Date.UTC(year, month, day, targetH, targetM) - activeTz * HOUR;
+    }
+    return ts;
+  }
+
+  // 5. Day of week: "Wednesday", "this upcoming Wednesday", "next Friday"
+  const dowMatch = text.match(/\b(?:(?:this\s+)?upcoming\s+|next\s+|this\s+)?(mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|sat(?:ur)?|sun)(?:day)?\b/);
+  if (dowMatch) {
+    const dowKey = dowMatch[1].slice(0, 3);
+    const targetDow = DOW_NAMES[dowKey] ?? DOW_NAMES[dowMatch[1]];
+    if (targetDow !== undefined) {
+      const shiftedNow = new Date(now.getTime() + activeTz * HOUR);
+      const currentDow = shiftedNow.getUTCDay();
+      let diff = (targetDow - currentDow + 7) % 7;
+      const targetH = hour ?? 19;
+      const targetM = minute ?? 0;
+      const todayTs = Date.UTC(shiftedNow.getUTCFullYear(), shiftedNow.getUTCMonth(), shiftedNow.getUTCDate(), targetH, targetM) - activeTz * HOUR;
+      if (diff === 0 && (todayTs <= now.getTime() || /\b(next|upcoming)\b/.test(dowMatch[0]))) {
+        diff = 7;
+      }
+      const targetDate = new Date(shiftedNow.getTime() + diff * DAY);
+      return Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), targetDate.getUTCDate(), targetH, targetM) - activeTz * HOUR;
+    }
+  }
+
+  // Always the NEXT occurrence, so these branches can never return the past.
+  const upcoming = (base, h, m) => {
+    const ts = wallClock(base, h, m, activeTz);
+    return ts > now.getTime() ? ts : ts + DAY;
+  };
+
+  // 6. Day words, resolved against the server's local wall clock.
+  if (/\btomorrow\b/.test(text)) return wallClock(new Date(now.getTime() + DAY), hour ?? 19, minute, activeTz);
+  if (/\b(tonight|this evening|today)\b/.test(text)) return upcoming(now, hour ?? 19, minute);
+  if (hour !== null) return upcoming(now, hour, minute);
 
   return null;
 }
@@ -152,13 +255,13 @@ export function parseWhen(input) {
 /** RSVP statuses staff can pick from the invitation card. */
 const RSVP_STATUSES = ['yes', 'maybe', 'busy', 'no'];
 const RSVP_LABEL = { yes: 'Joining', maybe: 'Maybe', busy: "Can't make it", no: 'Not going' };
-const RSVP_EMOJI = { yes: '✅', maybe: '❔', busy: '🚫', no: '❌' };
+const RSVP_EMOJI = { yes: '', maybe: '', busy: '', no: '' };
+
 // Custom ids: meet_rsvp_<status>_<meetingId>
+// Joining and Maybe are gray buttons with no emojis
 const RSVP_BUTTONS = [
-  { status: 'yes', label: 'Joining', style: ButtonStyle.Success, emoji: '✅' },
-  { status: 'maybe', label: 'Maybe', style: ButtonStyle.Primary, emoji: '❔' },
-  { status: 'busy', label: "Can't make it", style: ButtonStyle.Secondary, emoji: '🚫' },
-  { status: 'no', label: 'Not going', style: ButtonStyle.Danger, emoji: '❌' }
+  { status: 'yes', label: 'Joining', style: ButtonStyle.Secondary },
+  { status: 'maybe', label: 'Maybe', style: ButtonStyle.Secondary }
 ];
 
 /** Thin divider used between card sections. */
@@ -168,44 +271,57 @@ const divider = () =>
 /** True for an absolute http(s) link the card can turn into a button. */
 const isLink = (value) => /^https?:\/\/\S+$/i.test(String(value || '').trim());
 
-/** A link button — it opens the voice channel / invite and never notifies. */
+/** A link button — it opens the voice channel / invite. Zero emojis. */
 function joinRow(url) {
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Join the meeting').setURL(url)
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Join Meeting').setURL(url)
   );
 }
 
 /**
- * The meeting card — a compact Components V2 panel, sent as a DM.
- * Headings, bold labels and blockquotes only: no emoji, no RSVP controls.
- * The single button is the location link, and it only appears when the host
- * actually supplied a place for the meeting.
+ * The meeting card — a compact Components V2 panel without side accent border.
+ * Completely free of emojis. Clean, modern typography and layout.
+ *
+ * Variants:
+ * - invite: Initial invitation. Shows details + gray Joining & Maybe buttons.
+ * - reminder: Sent 30 minutes ahead of the meeting. Displays Join Meeting button.
+ * - start: Sent when meeting starts. Displays Join Meeting button.
+ * - postponed: Informs of date change.
+ * - cancelled: Informs of cancellation.
  *
  * @param {object} meeting
  * @param {'invite'|'reminder'|'postponed'|'cancelled'|'start'} variant
+ * @param {string|null} viewerId
  */
 function buildCard(meeting, variant = 'invite', viewerId = null) {
   const card = new ContainerBuilder();
-  try {
-    card.setAccentColor(variant === 'cancelled' ? 0x80848e : variant === 'postponed' ? 0xfee75c : 0x5865f2);
-  } catch { /* accent is cosmetic */ }
+  const mine = viewerId ? meeting.rsvp?.[viewerId] : null;
+  const isAccepted = mine?.status === 'yes';
 
-  const heading = {
-    cancelled: '## Meeting Cancelled',
-    postponed: '## Meeting Postponed',
-    reminder: '## Meeting Reminder',
-    start: '## Meeting Starting Now'
-  }[variant] || '## Meeting Invitation';
+  // Headings — strictly no emojis
+  let heading = '## Meeting Invitation';
+  if (variant === 'cancelled') heading = '## Meeting Cancelled';
+  else if (variant === 'postponed') heading = '## Meeting Postponed';
+  else if (variant === 'reminder') heading = '## Meeting Reminder';
+  else if (variant === 'start') heading = '## Meeting Starting Now';
+  else if (isAccepted) heading = '## Meeting Confirmed';
 
-  card.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${heading}\n**${meeting.title}**`));
+  card.addTextDisplayComponents(new TextDisplayBuilder().setContent(`${heading}\n### **${meeting.title}**`));
   card.addSeparatorComponents(divider());
 
   const secs = Math.floor(meeting.startTs / 1000);
-  const fields = [
-    `**When**  <t:${secs}:F>  ·  <t:${secs}:R>`,
-    `**Where**  ${meeting.location || 'Not set'}`,
-    `**Host**  <@${meeting.hostId}>`
-  ];
+  const fields = [];
+
+  if (variant === 'reminder') {
+    fields.push(`**Starting**  <t:${secs}:R>  ·  <t:${secs}:t>`);
+  } else if (variant === 'start') {
+    fields.push(`**Started**  <t:${secs}:t>`);
+  } else {
+    fields.push(`**When**  <t:${secs}:F>  ·  <t:${secs}:R>`);
+  }
+
+  fields.push(`**Where**  ${meeting.location || 'To be announced'}`);
+  fields.push(`**Host**  <@${meeting.hostId}>`);
   if (meeting.agenda) fields.push(`**Agenda**  ${meeting.agenda}`);
   if (meeting.postponedCount) {
     fields.push(
@@ -214,75 +330,72 @@ function buildCard(meeting, variant = 'invite', viewerId = null) {
     );
   }
   if (variant === 'cancelled' && meeting.cancelReason) fields.push(`**Reason**  ${meeting.cancelReason}`);
+
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent(fields.join('\n')));
 
-  // Your reply — only this viewer sees their own choice; everyone else sees the
-  // neutral tally below. Removed entirely on cancelled cards.
+  // Remodeled DM status section for the viewer (no emojis)
   if (viewerId && variant !== 'cancelled') {
-    const mine = meeting.rsvp?.[viewerId];
-    const mineLine = mine?.status
-      ? `${RSVP_EMOJI[mine.status]} **Your reply:** ${RSVP_LABEL[mine.status]}`
-      : '❔ **Your reply:** Not responded yet — pick an option below.';
+    let mineLine = '**Your Status**  Awaiting response';
+    if (isAccepted) {
+      mineLine = '**Your Status**  Confirmed — Attending';
+    } else if (mine?.status === 'maybe') {
+      mineLine = '**Your Status**  Tentative — Marked as maybe';
+    }
     card.addSeparatorComponents(divider());
     card.addTextDisplayComponents(new TextDisplayBuilder().setContent(mineLine));
   }
 
-  // RSVP controls. Available on every live card so anyone who opens it can
-  // respond (in the announcement channel or their own DM).
+  // Action buttons
   if (variant !== 'cancelled') {
-    // Optional quick-open link when the host gave a real URL (voice/invite).
     const url = meeting.locationUrl || (isLink(meeting.location) ? String(meeting.location).trim() : null);
-    if (url) {
+
+    // Show Join Meeting button if meeting is starting, in reminder mode, or if attendee accepted
+    if (url && (variant === 'start' || variant === 'reminder' || isAccepted)) {
       card.addSeparatorComponents(divider());
       card.addActionRowComponents(joinRow(url));
     }
 
-    card.addSeparatorComponents(divider());
-    card.addActionRowComponents(rsvpRow(meeting.id));
-
-    // Live tally so the host/anyone can see the headcount and names at a glance.
-    const tally = rsvpTally(meeting);
-    if (tally) {
+    // RSVP buttons:
+    // If attendee already accepted, provide a gray "Change to Maybe" button
+    // Otherwise show the gray "Joining" and "Maybe" buttons
+    if (variant === 'invite' || variant === 'reminder') {
       card.addSeparatorComponents(divider());
-      card.addTextDisplayComponents(new TextDisplayBuilder().setContent(tally));
+      card.addActionRowComponents(rsvpRow(meeting.id, mine?.status));
     }
   }
 
   card.addSeparatorComponents(divider());
-  card.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('-# Reminders are sent 7 days before and the morning of the meeting.')
-  );
+  const footerText = isAccepted
+    ? '-# A reminder will be sent 30 minutes before the meeting.'
+    : '-# Reminders are sent 30 minutes before the meeting.';
+  card.addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
+
   return card;
 }
 
-/** One row of RSVP buttons for a meeting. */
-function rsvpRow(meetingId) {
-  return new ActionRowBuilder().addComponents(
-    RSVP_BUTTONS.map((b) =>
+/** One row of RSVP buttons for a meeting (gray buttons, no emojis). */
+function rsvpRow(meetingId, currentStatus = null) {
+  const row = new ActionRowBuilder();
+  if (currentStatus === 'yes') {
+    row.addComponents(
       new ButtonBuilder()
-        .setCustomId(`meet_rsvp_${b.status}_${meetingId}`)
-        .setLabel(b.label)
-        .setEmoji(b.emoji)
-        .setStyle(b.style)
-    )
-  );
-}
-
-/** Human-readable roll-call grouped by status; blank when nobody has replied. */
-function rsvpTally(meeting) {
-  const rsvp = meeting.rsvp || {};
-  const buckets = {};
-  for (const [uid, entry] of Object.entries(rsvp)) {
-    const st = entry?.status;
-    if (!st || !RSVP_LABEL[st]) continue;
-    (buckets[st] = buckets[st] || []).push(uid);
+        .setCustomId(`meet_rsvp_maybe_${meetingId}`)
+        .setLabel('Change to Maybe')
+        .setStyle(ButtonStyle.Secondary)
+    );
+  } else {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`meet_rsvp_yes_${meetingId}`)
+        .setLabel('Joining')
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`meet_rsvp_maybe_${meetingId}`)
+        .setLabel('Maybe')
+        .setStyle(ButtonStyle.Secondary)
+    );
   }
-  const order = RSVP_STATUSES.filter((st) => buckets[st]?.length);
-  if (!order.length) return '';
-  const lines = order.map(
-    (st) => `${RSVP_EMOJI[st]} **${RSVP_LABEL[st]} — ${buckets[st].length}**  ${buckets[st].map((u) => `<@${u}>`).join(' ')}`
-  );
-  return `### Responses\n${lines.join('\n')}`;
+  return row;
 }
 
 /** Builds the Components V2 payload for a meeting card (exported for tests). */
@@ -341,6 +454,11 @@ async function resolveAttendees(guild, attendees) {
   const ids = new Set();
   let everyone = false;
   const list = Array.isArray(attendees) ? attendees : [attendees];
+
+  if (guild?.members?.fetch) {
+    await guild.members.fetch().catch(() => null);
+  }
+
   for (const raw of list) {
     const value = String(raw ?? '').trim();
     if (!value) continue;
@@ -348,19 +466,94 @@ async function resolveAttendees(guild, attendees) {
       everyone = true;
       continue;
     }
-    const uid = value.match(/\d{17,20}/)?.[0];
-    if (uid) ids.add(uid);
+
+    // Role mention: <@&id>
+    const roleMention = value.match(/<@&([^\s>]+)>/);
+    if (roleMention) {
+      const roleId = roleMention[1];
+      if (guild) {
+        const role = (guild.roles?.cache instanceof Map ? guild.roles.cache.get(roleId) : guild.roles?.cache?.get?.(roleId)) || (await guild.roles?.fetch?.(roleId).catch(() => null));
+        if (role) {
+          const membersList = role.members?.values ? [...role.members.values()] : (role.members ? Object.values(role.members) : []);
+          for (const member of membersList) {
+            if (!member.user?.bot) ids.add(member.id);
+          }
+          continue;
+        }
+      }
+    }
+
+    // Direct role lookup (by id or name)
+    if (guild?.roles?.cache) {
+      const role = (guild.roles.cache instanceof Map ? guild.roles.cache.get(value) : guild.roles.cache.get?.(value));
+      if (role) {
+        const membersList = role.members?.values ? [...role.members.values()] : (role.members ? Object.values(role.members) : []);
+        for (const member of membersList) {
+          if (!member.user?.bot) ids.add(member.id);
+        }
+        continue;
+      }
+    }
+
+    // User mention: <@123...> or <@!123...>
+    const userMention = value.match(/<@!?([^\s>]+)>/);
+    if (userMention) {
+      ids.add(userMention[1]);
+      continue;
+    }
+
+    // Bare snowflake: could be a role or a user!
+    const snowflake = value.match(/\b\d{17,20}\b/)?.[0] || value;
+    if (snowflake) {
+      if (guild) {
+        const role = (guild.roles?.cache instanceof Map ? guild.roles.cache.get(snowflake) : guild.roles?.cache?.get?.(snowflake)) || (await guild.roles?.fetch?.(snowflake).catch(() => null));
+        if (role) {
+          const membersList = role.members?.values ? [...role.members.values()] : (role.members ? Object.values(role.members) : []);
+          for (const member of membersList) {
+            if (!member.user?.bot) ids.add(member.id);
+          }
+          continue;
+        }
+      }
+      // If not a role in the guild, it is a user ID
+      ids.add(snowflake);
+      continue;
+    }
+
+    // Role by name (e.g. "Staff Team", "High Rank", "Trial Mod")
+    if (guild?.roles?.cache) {
+      let role = null;
+      if (typeof guild.roles.cache.find === 'function') {
+        role = guild.roles.cache.find((r) => r.name?.toLowerCase() === value.toLowerCase());
+      } else if (guild.roles.cache.values) {
+        for (const r of guild.roles.cache.values()) {
+          if (r.name?.toLowerCase() === value.toLowerCase()) {
+            role = r;
+            break;
+          }
+        }
+      }
+      if (role) {
+        const membersList = role.members?.values ? [...role.members.values()] : (role.members ? Object.values(role.members) : []);
+        for (const member of membersList) {
+          if (!member.user?.bot) ids.add(member.id);
+        }
+        continue;
+      }
+    }
   }
   return { ids, everyone };
 }
 
 /** Expands "staff" into every member wearing the Staff Team role. */
 async function staffMemberIds(guild, staffRoleId) {
-  await guild.members.fetch().catch(() => null);
+  if (guild?.members?.fetch) await guild.members.fetch().catch(() => null);
   const ids = [];
-  for (const member of guild.members.cache.values()) {
-    if (member.user?.bot) continue;
-    if (staffRoleId && member.roles.cache.has(staffRoleId)) ids.push(member.id);
+  if (guild?.members?.cache) {
+    for (const member of guild.members.cache.values()) {
+      if (member.user?.bot) continue;
+      if (staffRoleId && member.roles.cache.has(staffRoleId)) ids.push(member.id);
+    }
   }
   return ids;
 }
@@ -405,14 +598,16 @@ export function armAll() {
     if (meeting.status !== 'scheduled') continue;
     const now = Date.now();
     if (meeting.reminders) {
-      const weekAt = meeting.startTs - 7 * DAY;
-      if (!meeting.sentWeek && weekAt > now) arm(meeting.id, 'week', weekAt);
-      const morningAt = morningOf(meeting.startTs);
-      if (!meeting.sentMorning && morningAt > now) arm(meeting.id, 'morning', morningAt);
+      // 30 minutes before the meeting starts
+      const thirtyMinAt = meeting.startTs - 30 * 60_000;
+      if (!meeting.sentThirtyMin && thirtyMinAt > now) {
+        arm(meeting.id, 'thirty_min', thirtyMinAt);
+      }
     }
     if (!meeting.sentStart && meeting.startTs > now) arm(meeting.id, 'start', meeting.startTs);
   }
 }
+
 /** Fires a reminder / start ping. Edits the existing DM where possible. */
 async function fireReminder(id, kind) {
   const meeting = meetings.get(id);
@@ -422,32 +617,53 @@ async function fireReminder(id, kind) {
     meeting.status = 'started';
     meeting.sentStart = true;
     saveMeetings();
-    // Everyone sees ONE panel flip to "Meeting Starting Now" — edited in place,
-    // no new messages, no pings. Legacy DM cards (old builds) are edited too.
+
     const startCard = cardPayload(meeting, 'start');
     await editAnnouncement(meeting, startCard).catch(() => null);
+
     for (const uid of meeting.attendees || []) {
       const entry = meeting.rsvp?.[uid];
+      let edited = false;
       if (entry?.dmMessageId) {
-        await editDm(uid, entry.dmMessageId, startCard).catch(() => null);
+        edited = await editDm(uid, entry.dmMessageId, cardPayload(meeting, 'start', uid)).catch(() => false);
+      }
+      // Notify with the "Join Meeting" button for attendees who haven't declined
+      if (!edited || entry?.status === 'yes' || !entry?.status) {
+        await sendDm(uid, {
+          content: `**${meeting.title} is starting now.**`,
+          ...cardPayload(meeting, 'start', uid)
+        }).catch(() => null);
       }
     }
     saveMeetings();
     return;
   }
 
-  const variant = 'reminder';
-  // Shared panel: reminders edit the ONE announcement card in place. Nobody is
-  // pinged (Discord never notifies on edits), which is exactly the intent.
-  await editAnnouncement(meeting, cardPayload(meeting, variant)).catch(() => null);
-  for (const uid of meeting.attendees || []) {
-    const mine = meeting.rsvp?.[uid];
-    // Legacy DM cards from older builds still get edited in place if they exist.
-    await editDm(uid, mine?.dmMessageId, cardPayload(meeting, variant, uid)).catch(() => null);
+  if (kind === 'thirty_min') {
+    meeting.sentThirtyMin = true;
+    saveMeetings();
+
+    const reminderPayload = cardPayload(meeting, 'reminder');
+    await editAnnouncement(meeting, reminderPayload).catch(() => null);
+
+    for (const uid of meeting.attendees || []) {
+      const entry = meeting.rsvp?.[uid];
+      if (entry?.status === 'busy' || entry?.status === 'no') continue;
+
+      const userCard = cardPayload(meeting, 'reminder', uid);
+      let edited = false;
+      if (entry?.dmMessageId) {
+        edited = await editDm(uid, entry.dmMessageId, userCard).catch(() => false);
+      }
+      // Send a clean DM alert 30 minutes ahead so attendees get a fresh reminder notification
+      await sendDm(uid, {
+        content: `Reminder: **${meeting.title}** starts in 30 minutes.`,
+        ...userCard
+      }).catch(() => null);
+    }
+    saveMeetings();
+    return;
   }
-  if (kind === 'week') meeting.sentWeek = true;
-  if (kind === 'morning') meeting.sentMorning = true;
-  saveMeetings();
 }
 
 // ── Public AI-facing operations ──────────────────────────────────────────────
@@ -470,7 +686,7 @@ export async function scheduleMeeting({ guild, channel, title, start, location, 
   if (!when) {
     return {
       ok: false,
-      message: '❌ I could not read that time. Try "in 2 hours", "tomorrow at 7pm" or 2026-03-14T19:00.'
+      message: '❌ I could not read that time. Try "in 2 hours", "tomorrow at 7pm", "Wednesday, Oct 21 at 6:00 PM EST" or 2026-10-21T18:00.'
     };
   }
   if (when - Date.now() < 60_000) {
@@ -524,6 +740,7 @@ export async function scheduleMeeting({ guild, channel, title, start, location, 
           : `https://discord.com/channels/${guild.id}/${ch.id}`;
       } else {
         locationLabel = loc;
+        locationUrl = `https://discord.com/channels/${guild.id}/${channelId}`;
       }
     } else if (isLink(loc)) {
       locationLabel = loc;
@@ -548,8 +765,7 @@ export async function scheduleMeeting({ guild, channel, title, start, location, 
     rsvp: {},
     status: 'scheduled',
     reminders: reminders !== false,
-    sentWeek: false,
-    sentMorning: false,
+    sentThirtyMin: false,
     sentStart: false,
     postponedCount: 0,
     lastPostponeReason: null,
@@ -559,19 +775,17 @@ export async function scheduleMeeting({ guild, channel, title, start, location, 
     createdAt: Date.now()
   };
 
-  // ONE shared V2 panel in the invoking channel — no DMs. Everyone RSVPs on
-  // this single card; its id is stored so postpone/cancel/reminders/start edit
-  // it in place (editAnnouncement) instead of pinging anyone twice.
-  let annMsg = null;
-  if (channel && typeof channel.send === 'function') {
-    try {
-      annMsg = await channel.send(cardPayload(meeting, 'invite'));
-    } catch (err) {
-      console.warn('[meetings] Could not post the invitation panel:', err.message);
+  // DM each attendee an invite card with RSVP buttons. Each message id is
+  // remembered so postpone, cancel, or start edits it in place.
+  let delivered = 0;
+  for (const uid of meeting.attendees) {
+    const msg = await sendDm(uid, cardPayload(meeting, 'invite', uid));
+    if (msg) {
+      delivered++;
+      meeting.rsvp[uid] = meeting.rsvp[uid] || { status: null, dmMessageId: null };
+      meeting.rsvp[uid].dmMessageId = msg.id;
     }
   }
-  meeting.channelId = annMsg ? channel.id : null;
-  meeting.messageId = annMsg?.id ?? null;
 
   meetings.set(id, meeting);
   saveMeetings();
@@ -580,37 +794,37 @@ export async function scheduleMeeting({ guild, channel, title, start, location, 
   return {
     ok: true,
     message:
-      `✅ **${meeting.title}** scheduled for <t:${Math.floor(when / 1000)}:F> (<t:${Math.floor(when / 1000)}:R>).\n` +
-      `> **Panel:** ${meeting.messageId ? `posted in <#${meeting.channelId}> — everyone RSVPs there` : 'could not post to that channel (missing Send Messages?)'}\n` +
-      `> **Invited:** ${meeting.attendees.length} staff (no DMs — one shared card)\n` +
-      `${locationUrl ? `> **Join button:** ${locationLabel}` : `> **Where:** ${locationLabel || 'not set — add a voice channel or link'}`}\n` +
-      `> **Reminders:** ${meeting.reminders ? 'panel edits itself 7 days prior + the morning of' : 'off'}`
+      `**${meeting.title}** scheduled for <t:${Math.floor(when / 1000)}:F> (<t:${Math.floor(when / 1000)}:R>).\n` +
+      `> **Invitation sent:** ${delivered}/${meeting.attendees.length} by DM\n` +
+      `${locationUrl ? `> **Join link:** ${locationLabel}\n` : (locationLabel ? `> **Where:** ${locationLabel}\n` : '')}` +
+      `> **Reminder:** ${meeting.reminders ? '30 minutes before start time' : 'off'}`
   };
 }
+
 /** `-ai postpone the meeting by <duration>` */
 export async function postponeMeeting({ guild, by, reason, user }) {
-  const meeting = [...meetings.values()]
-    .filter((m) => m.status === 'scheduled' && (!m.guildId || m.guildId === guild?.id))
-    .sort((a, b) => a.startTs - b.startTs)[0];
-  if (!meeting) return { ok: false, message: '❌ There is no scheduled meeting to postpone.' };
+  loadMeetings();
+  const now = Date.now();
+  const scheduled = [...meetings.values()].filter(
+    (m) => m.status === 'scheduled' && (!m.guildId || m.guildId === guild?.id)
+  );
+  const upcoming = scheduled.filter((m) => m.startTs >= now - 30 * 60_000).sort((a, b) => a.startTs - b.startTs);
+  const meeting = upcoming[0] || scheduled.sort((a, b) => (b.createdAt || b.startTs) - (a.createdAt || a.startTs))[0];
+  if (!meeting) return { ok: false, message: 'There is no scheduled meeting to postpone.' };
 
   const delta = parseDurationMs(by);
-  if (!delta) return { ok: false, message: `❌ I could not read the duration "${by}". Try "1 hour" or "3 days".` };
+  if (!delta) return { ok: false, message: `I could not read the duration "${by}". Try "1 hour" or "3 days".` };
 
   meeting.startTs += delta;
   meeting.postponedCount = (meeting.postponedCount || 0) + 1;
   meeting.lastPostponeReason = reason || null;
-  meeting.sentWeek = false;
-  meeting.sentMorning = false;
+  meeting.sentThirtyMin = false;
   meeting.sentStart = false;
   saveMeetings();
 
   const when = `<t:${Math.floor(meeting.startTs / 1000)}:F> (<t:${Math.floor(meeting.startTs / 1000)}:R>)`;
   await editAnnouncement(meeting, cardPayload(meeting, 'postponed')).catch(() => null);
 
-  // The shared panel flips to "postponed" in place — zero pings. Legacy DM
-  // cards are edited too when they exist.
-  const panelUpdated = await editAnnouncement(meeting, cardPayload(meeting, 'postponed')).catch(() => false);
   let edited = 0;
   for (const uid of meeting.attendees) {
     const entry = meeting.rsvp?.[uid];
@@ -621,19 +835,22 @@ export async function postponeMeeting({ guild, by, reason, user }) {
   return {
     ok: true,
     message:
-      `🕒 **${meeting.title}** postponed to ${when}.\n` +
-      `> **Panel updated in place:** ${panelUpdated ? 'yes (no new messages, no pings)' : 'panel not found (may have been deleted)'}` +
-      (edited ? ` · ${edited} legacy DM card(s) also updated` : '') + '\n' +
+      `**${meeting.title}** postponed to ${when}.\n` +
+      `> **Cards updated in place:** ${edited}/${meeting.attendees.length} (no double pings)\n` +
       (reason ? `> **Reason:** ${reason}\n` : '')
   };
 }
 
 /** `-ai cancel the meeting` */
 export async function cancelMeeting({ guild, reason, user }) {
-  const meeting = [...meetings.values()]
-    .filter((m) => m.status === 'scheduled' && (!m.guildId || m.guildId === guild?.id))
-    .sort((a, b) => a.startTs - b.startTs)[0];
-  if (!meeting) return { ok: false, message: '❌ There is no scheduled meeting to cancel.' };
+  loadMeetings();
+  const now = Date.now();
+  const scheduled = [...meetings.values()].filter(
+    (m) => m.status === 'scheduled' && (!m.guildId || m.guildId === guild?.id)
+  );
+  const upcoming = scheduled.filter((m) => m.startTs >= now - 30 * 60_000).sort((a, b) => a.startTs - b.startTs);
+  const meeting = upcoming[0] || scheduled.sort((a, b) => (b.createdAt || b.startTs) - (a.createdAt || a.startTs))[0];
+  if (!meeting) return { ok: false, message: 'There is no scheduled meeting to cancel.' };
 
   meeting.status = 'cancelled';
   meeting.cancelReason = reason || null;
@@ -641,35 +858,29 @@ export async function cancelMeeting({ guild, reason, user }) {
   clearTimers();
   armAll();
 
-  const panelUpdated = await editAnnouncement(meeting, cardPayload(meeting, 'cancelled')).catch(() => false);
+  await editAnnouncement(meeting, cardPayload(meeting, 'cancelled')).catch(() => null);
   let notified = 0;
   for (const uid of meeting.attendees) {
     const entry = meeting.rsvp?.[uid];
     if (await editDm(uid, entry?.dmMessageId, cardPayload(meeting, 'cancelled', uid))) notified++;
   }
 
-  return {
-    ok: true,
-    message:
-      `🚫 **${meeting.title}** cancelled.` +
-      ` ${panelUpdated ? 'Panel updated in place.' : 'Panel not found (may have been deleted).'} ` +
-      `${notified} legacy DM card(s) updated.`
-  };
+  return { ok: true, message: `**${meeting.title}** cancelled. ${notified} attendee(s) notified.` };
 }
 
 /** `-ai list meetings` */
-export async function listMeetings({ guild }) {
+export async function listMeetings({ guild } = {}) {
   const rows = [...meetings.values()]
-    .filter((m) => !m.guildId || m.guildId === guild?.id)
+    .filter((m) => !guild?.id || !m.guildId || m.guildId === guild?.id)
     .sort((a, b) => a.startTs - b.startTs);
-  if (!rows.length) return { ok: true, message: '📭 There are no meetings scheduled.' };
+  if (!rows.length) return { ok: true, message: 'There are no meetings scheduled.' };
 
   const lines = rows.map((m, i) => {
     const status = m.status === 'scheduled' ? '' : ` **(${m.status})**`;
     return (
       `${i + 1}. **${m.title}**${status} — <t:${Math.floor(m.startTs / 1000)}:F> (<t:${Math.floor(m.startTs / 1000)}:R>)\n` +
       `> Where: ${m.location || 'Not set'} · Host: <@${m.hostId}>\n` +
-      `> Invited: ${(m.attendees || []).length} · Shared panel${m.channelId && m.messageId ? ` in <#${m.channelId}>` : ''}` +
+      `> Invited: ${(m.attendees || []).length} · Invited by DM` +
       (m.postponedCount ? ` · Postponed ${m.postponedCount} time(s)` : '')
     );
   });
@@ -677,15 +888,28 @@ export async function listMeetings({ guild }) {
 }
 
 /**
- * `-ai who accepted the meetings` / `who is busy` — an RSVP roll-call for the
- * next scheduled meeting: who is joining, who is busy, who hasn't replied.
- * @returns {Promise<{ok: boolean, message: string}>}
+ * `-ai who accepted the meetings` / `who is busy` / `whos joining the meeting and who isnt`
+ * RSVP roll-call for the next upcoming scheduled meeting.
+ * Renders a clean Components V2 card without pinging users and with zero emojis.
+ * @returns {Promise<{ok: boolean, components: object[], flags: number, message: string}>}
  */
-export async function meetingRsvp({ guild }) {
-  const next = [...meetings.values()]
-    .filter((m) => m.status === 'scheduled' && (!m.guildId || m.guildId === guild?.id))
-    .sort((a, b) => a.startTs - b.startTs)[0];
-  if (!next) return { ok: false, message: '📭 There is no scheduled meeting to roll-call.' };
+export async function meetingRsvp({ guild, meetingId = null } = {}) {
+  loadMeetings();
+  const now = Date.now();
+  const scheduled = [...meetings.values()].filter(
+    (m) => m.status === 'scheduled' && (!guild?.id || !m.guildId || m.guildId === guild?.id)
+  );
+
+  // Prioritize upcoming meetings (future start time or within last 30 minutes)
+  const upcoming = scheduled
+    .filter((m) => m.startTs >= now - 30 * 60_000)
+    .sort((a, b) => a.startTs - b.startTs);
+
+  const next = (meetingId ? meetings.get(meetingId) : null) ||
+    upcoming[0] ||
+    scheduled.sort((a, b) => (b.createdAt || b.startTs) - (a.createdAt || a.startTs))[0];
+
+  if (!next) return { ok: true, message: 'There is no scheduled meeting to roll-call.' };
 
   const rsvp = next.rsvp || {};
   const buckets = { yes: [], maybe: [], busy: [], no: [], pending: [] };
@@ -695,19 +919,97 @@ export async function meetingRsvp({ guild }) {
     else buckets.pending.push(uid);
   }
 
-  const names = (ids) => (ids.length ? ids.map((u) => `<@${u}>`).join(' ') : '*nobody*');
+  // Resolves a user's display name or username cleanly without ever mentioning <@id>
+  const resolveName = async (uid) => {
+    try {
+      if (guild) {
+        const member = guild.members.cache.get(uid) || (await guild.members.fetch?.(uid).catch(() => null));
+        if (member) return member.displayName || member.user?.username || uid;
+      }
+      const user = cfg.client?.users?.cache?.get(uid) || (await cfg.client?.users?.fetch?.(uid).catch(() => null));
+      return user?.globalName || user?.username || uid;
+    } catch {
+      return uid;
+    }
+  };
+
+  const [yesNames, busyNames, noNames, maybeNames, pendingNames] = await Promise.all([
+    Promise.all(buckets.yes.map(resolveName)),
+    Promise.all(buckets.busy.map(resolveName)),
+    Promise.all(buckets.no.map(resolveName)),
+    Promise.all(buckets.maybe.map(resolveName)),
+    Promise.all(buckets.pending.map(resolveName))
+  ]);
+
+  const cannotNames = [...busyNames, ...noNames];
+  const cannotCount = buckets.busy.length + buckets.no.length;
+
+  const formatList = (names) => (names.length ? names.map((n) => `• \`${n}\``).join('\n') : '*None*');
+
+  const container = new ContainerBuilder();
   const secs = Math.floor(next.startTs / 1000);
-  const rows = [
-    `## 🗳️ RSVP Roll-Call — ${next.title}`,
-    `> **When:** <t:${secs}:F> · <t:${secs}:R>`,
-    ``,
-    `✅ **Joining (${buckets.yes.length}):** ${names(buckets.yes)}`,
-    `❔ **Maybe (${buckets.maybe.length}):** ${names(buckets.maybe)}`,
-    `🚫 **Busy / can't make it (${buckets.busy.length}):** ${names(buckets.busy)}`,
-    `❌ **Not going (${buckets.no.length}):** ${names(buckets.no)}`,
-    `⏳ **No reply yet (${buckets.pending.length}):** ${names(buckets.pending)}`
+
+  // Header: Clean V2 panel title
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `## Meeting Attendance\n` +
+      `### **${next.title}**`
+    )
+  );
+
+  container.addSeparatorComponents(divider());
+
+  // Meeting metadata
+  const meta = [
+    `**When**  <t:${secs}:F>  ·  <t:${secs}:R>`,
+    `**Where**  ${next.location || 'To be announced'}`,
+    `**Host**  <@${next.hostId}>`
   ];
-  return { ok: true, message: rows.join('\n') };
+  if (next.agenda) meta.push(`**Agenda**  ${next.agenda}`);
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(meta.join('\n')));
+
+  container.addSeparatorComponents(divider());
+
+  // Attendance breakdown
+  const sections = [];
+  sections.push(`**Can Join — ${buckets.yes.length}**\n${formatList(yesNames)}`);
+  if (buckets.maybe.length) {
+    sections.push(`**Maybe — ${buckets.maybe.length}**\n${formatList(maybeNames)}`);
+  }
+  if (cannotCount) {
+    sections.push(`**Cannot Join — ${cannotCount}**\n${formatList(cannotNames)}`);
+  }
+  sections.push(`**Awaiting Response — ${buckets.pending.length}**\n${formatList(pendingNames)}`);
+
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(sections.join('\n\n'))
+  );
+
+  container.addSeparatorComponents(divider());
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `-# Total: ${next.attendees?.length || 0} invited · ${buckets.yes.length} confirmed attending.`
+    )
+  );
+
+  // Fallback plain-text representation (clean usernames, no pings, no emojis)
+  const plainFallback = [
+    `## Meeting Attendance — ${next.title}`,
+    `> **When:** <t:${secs}:F> (<t:${secs}:R>)`,
+    `> **Where:** ${next.location || 'To be announced'} · **Host:** <@${next.hostId}>`,
+    ``,
+    `**Attending (${buckets.yes.length}):** ${yesNames.length ? yesNames.map((n) => `\`${n}\``).join(', ') : '*None*'}`,
+    buckets.maybe.length ? `**Tentative (${buckets.maybe.length}):** ${maybeNames.map((n) => `\`${n}\``).join(', ')}` : '',
+    cannotCount ? `**Unable to Attend (${cannotCount}):** ${cannotNames.map((n) => `\`${n}\``).join(', ')}` : '',
+    `**Awaiting Response (${buckets.pending.length}):** ${pendingNames.length ? pendingNames.map((n) => `\`${n}\``).join(', ') : '*None*'}`
+  ].filter(Boolean).join('\n');
+
+  return {
+    ok: true,
+    components: [container.toJSON()],
+    flags: MessageFlags.IsComponentsV2,
+    message: plainFallback
+  };
 }
 // ── Buttons ──────────────────────────────────────────────────────────────────
 
@@ -789,8 +1091,16 @@ export async function handleMeetingButton(interaction) {
 
   const label = RSVP_LABEL[status] || 'No response yet';
   const suffix = previous && previous !== status ? ` (was ${RSVP_LABEL[previous] || previous})` : '';
+  let followUpContent = `Your response has been saved: **${label}**${suffix}.`;
+  if (status === 'yes') {
+    followUpContent = 'Attendance confirmed. You will receive a reminder 30 minutes before the meeting.';
+    const url = meeting.locationUrl || (isLink(meeting.location) ? String(meeting.location).trim() : null);
+    if (url) {
+      followUpContent += `\n> Link: ${url}`;
+    }
+  }
   await interaction
-    .followUp({ content: `Your reply is **${label}**${suffix}.`, flags: MessageFlags.Ephemeral })
+    .followUp({ content: followUpContent, flags: MessageFlags.Ephemeral })
     .catch(() => null);
   return true;
 }

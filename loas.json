@@ -19,5 +19,33 @@
     "originalNickname": "Susugoated1",
     "approvedBy": "523693281541095424",
     "approvedAt": 1791691159684
+  },
+  "1559695749501952040": {
+    "key": "1559695749501952040",
+    "userId": "1402788584833945761",
+    "userTag": "anthony_2234567",
+    "guildId": "1232495211490443284",
+    "logChannelId": "1232495214162214922",
+    "logMessageId": "1559695749501952040",
+    "actionMessageId": "1559695836605194390",
+    "roblox": "Meyden222",
+    "rank": "Trial Internal Affairs",
+    "start": "2026-13-10",
+    "end": "2026-31-10",
+    "reason": "Family Vacation.",
+    "endsAt": 1343368799000,
+    "status": "concluded",
+    "createdAt": 1791930845790,
+    "removedRoleIds": [
+      "1557908002399592498",
+      "1341932342343897269",
+      "1345160526011039865"
+    ],
+    "originalNickname": "𝐓𝐈𝐀 | meyden222",
+    "approvedBy": "885315812011958313",
+    "approvedAt": 1791930866562,
+    "decisionDmSent": true,
+    "concludedAt": 1791930874640,
+    "concludedReason": "end date had already passed"
   }
 }

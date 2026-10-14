@@ -13,11 +13,13 @@ import {
   postponeMeeting,
   cancelMeeting,
   listMeetings,
+  meetingRsvp,
   handleMeetingButton,
   parseWhen,
   listScheduledMeetings,
   cardPayload
 } from './src/meetings.js';
+import { parseLocally } from './src/ai.js';
 
 const store = path.join(os.tmpdir(), `meetings-test-${Date.now()}.json`);
 
@@ -71,13 +73,30 @@ const guild = {
       return { id, name: 'staff-voice', isVoiceBased: () => true };
     }
   },
+  roles: {
+    cache: new Map([
+      ['role_mod', {
+        id: 'role_mod',
+        name: 'Moderator',
+        members: new Map([
+          ['u1', { user: { bot: false }, id: 'u1' }],
+          ['u2', { user: { bot: false }, id: 'u2' }]
+        ])
+      }]
+    ])
+  },
   members: {
     async fetch() {},
     cache: {
+      get(id) {
+        if (id === 'u1') return { id: 'u1', displayName: 'Sulman', user: { username: 'sulman', bot: false } };
+        if (id === 'u2') return { id: 'u2', displayName: 'Alex', user: { username: 'alex', bot: false } };
+        return null;
+      },
       values() {
         return [
-          { user: { bot: false }, id: 'u1', roles: { cache: { has: () => true } } },
-          { user: { bot: false }, id: 'u2', roles: { cache: { has: () => true } } },
+          { user: { bot: false }, id: 'u1', displayName: 'Sulman', roles: { cache: { has: () => true } } },
+          { user: { bot: false }, id: 'u2', displayName: 'Alex', roles: { cache: { has: () => true } } },
           { user: { bot: true }, id: 'bot', roles: { cache: { has: () => true } } }
         ][Symbol.iterator]();
       }
@@ -203,33 +222,105 @@ const tonight = parseWhen('tonight');
 assert.ok(tonight && tonight > Date.now(), 'tonight is in the future');
 console.log('tonight is future:', 'ok');
 
-// 11. Card design: V2 panel with an RSVP row (Joining / Maybe / Can't make it /
-//     Not going) and a live response tally. Optional join link when a URL exists.
-const cardPayloadOut = cardPayload(listScheduledMeetings()[0], 'invite', 'u1');
-const cardJson = cardPayloadOut.components[0];
-const text = cardJson.components.filter((c) => c.type === 10).map((c) => c.content).join('\n');
-const labels = JSON.stringify(cardJson).match(/"label":"([^"]+)"/g) || [];
+// 11. Card design: borderless V2 panel with only Joining & Maybe buttons.
+//     Live roll-call tally is NOT on the card (only shown via -ai).
+//     Join button only appears once the user accepts ('yes') or meeting starts.
+const m0 = listScheduledMeetings()[0];
+m0.locationUrl = 'https://discord.gg/example';
+m0.rsvp = {};
+const cardBeforeAccept = cardPayload(m0, 'invite', 'u1');
+const cardBeforeJson = cardBeforeAccept.components[0];
+const textBefore = cardBeforeJson.components.filter((c) => c.type === 10).map((c) => c.content).join('\n');
+const labelsBefore = JSON.stringify(cardBeforeJson).match(/"label":"([^"]+)"/g) || [];
 
-assert.strictEqual(cardPayloadOut.flags, 1 << 15, 'card must carry the IsComponentsV2 flag');
-// Container type is 17 in this discord.js build (18 in newer ones).
-assert.ok([17, 18].includes(cardJson.type), 'card is a Components V2 container');
-// RSVP buttons present with the new labels.
-assert.ok(labels.some((l) => /Joining/.test(l)), 'has a Joining button');
-assert.ok(labels.some((l) => /Maybe/.test(l)), 'has a Maybe button');
-assert.ok(labels.some((l) => /Can't make it/.test(l)), "has a Can't make it button");
-assert.ok(labels.some((l) => /Not going/.test(l)), 'has a Not going button');
-// Per-viewer reply line for the supplied viewer.
-assert.ok(/Your reply/.test(text), 'shows the viewer their own reply line');
-console.log('card: V2 / RSVP row / per-viewer reply:', 'ok');
-console.log('rsvp buttons:', labels.join(', '));
+assert.strictEqual(cardBeforeAccept.flags, 1 << 15, 'card must carry the IsComponentsV2 flag');
+assert.ok([17, 18].includes(cardBeforeJson.type), 'card is a Components V2 container');
+assert.strictEqual(cardBeforeJson.accent_color, undefined, 'card has no accent color (borderless V2 panel)');
 
-// 12. Without a location there is no JOIN LINK, but the RSVP row is still shown
-//     so people can always respond (Joining / Maybe / Can't make it / Not going).
-const noPlace = cardPayload({ ...listScheduledMeetings()[0], location: null, locationUrl: null }, 'invite', 'u1');
-const noPlaceLabels = JSON.stringify(noPlace.components[0]).match(/"label":"([^"]+)"/g) || [];
-assert.ok(!noPlaceLabels.some((l) => /Join the meeting/.test(l)), 'no join link without a place');
-assert.ok(noPlaceLabels.some((l) => /Joining/.test(l)), 'RSVP row still present without a place');
-console.log('no location -> no join link but RSVP row stays:', 'ok');
+// RSVP buttons present: ONLY Joining & Maybe
+assert.ok(labelsBefore.some((l) => /Joining/.test(l)), 'has a Joining button');
+assert.ok(labelsBefore.some((l) => /Maybe/.test(l)), 'has a Maybe button');
+assert.ok(!labelsBefore.some((l) => /Not going/.test(l)), 'no Not going button');
+assert.ok(!labelsBefore.some((l) => /Can't make it/.test(l)), 'no Can\'t make it button');
+
+// Join button hidden before accept
+assert.ok(!labelsBefore.some((l) => /Join Meeting/.test(l)), 'Join button hidden until accepted');
+
+// No live response tally on the card
+assert.ok(!textBefore.includes('### Responses'), 'no live responses tally on the card');
+
+// Join button appears once user accepts ('yes')
+m0.rsvp = { u1: { status: 'yes', at: Date.now() } };
+const cardAfterAccept = cardPayload(m0, 'invite', 'u1');
+const labelsAfter = JSON.stringify(cardAfterAccept.components[0]).match(/"label":"([^"]+)"/g) || [];
+assert.ok(labelsAfter.some((l) => /Join Meeting/.test(l)), 'Join button unlocked after accepting');
+
+console.log('card: borderless V2 / Joining & Maybe only (gray) / Join unlocked on accept / no tally:', 'ok');
+
+// 13. Natural full date with weekday, month, time, and timezone.
+const userPrompt = 'We will be holding a mandatory Staff Meeting this upcoming Wednesday, October 21st at 6:00 PM EST.';
+const parsedUserDate = parseWhen(userPrompt);
+assert.ok(parsedUserDate && parsedUserDate > Date.now(), 'user natural prompt parsed to future timestamp');
+console.log('user natural prompt parsed date:', 'ok', '->', new Date(parsedUserDate).toUTCString());
+
+// 14. Intent parser matches schedule with title and start intact.
+const schedIntent = parseLocally(`-ai ${userPrompt}`);
+assert.strictEqual(schedIntent.action, 'meeting_schedule', 'matches meeting_schedule intent');
+assert.strictEqual(schedIntent.args.title, 'Mandatory Staff Meeting', 'title extracted as Mandatory Staff Meeting');
+assert.ok(schedIntent.args.start, 'start time extracted');
+console.log('parseLocally on user meeting request:', 'ok', schedIntent.action, schedIntent.args.title);
+
+// 15. Role ID attendee expansion -> DMs every member of that role.
+dms.clear();
+const roleSched = await scheduleMeeting({
+  guild,
+  channel,
+  title: 'Role Scheduled Meeting',
+  start: 'in 3 hours',
+  location: '<#123456789012345678>',
+  attendees: ['<@&role_mod>'],
+  agenda: 'Role sync',
+  reminders: true,
+  by
+});
+assert.strictEqual(roleSched.ok, true, 'role schedule ok');
+assert.strictEqual(dms.get('u1')?.length, 1, 'u1 (in role_mod) received DM');
+assert.strictEqual(dms.get('u2')?.length, 1, 'u2 (in role_mod) received DM');
+console.log('role ID expanded to all role members and DM sent:', 'ok');
+
+// 16. Attendance roll-call ("whos joining the meeting and who isnt"):
+//     - Intent matches meeting_rsvp
+//     - Returns Components V2 container
+//     - Never mentions <@id> (zero pings)
+//     - Shows display names of attendees
+const rsvpIntent = parseLocally('-ai whos joining the meeting and who isnt');
+assert.strictEqual(rsvpIntent.action, 'meeting_rsvp', 'whos joining matched meeting_rsvp');
+
+// RSVP interaction: u1 joins, u2 is busy (can't make it)
+const latestMeeting = listScheduledMeetings().filter((m) => m.title === 'Role Scheduled Meeting')[0];
+await handleMeetingButton({
+  customId: `meet_rsvp_yes_${latestMeeting.id}`,
+  user: { id: 'u1' },
+  message: makeMessage('dm_u1', dms.get('u1')[0].payload),
+  async followUp() {},
+  async reply() {}
+});
+await handleMeetingButton({
+  customId: `meet_rsvp_busy_${latestMeeting.id}`,
+  user: { id: 'u2' },
+  message: makeMessage('dm_u2', dms.get('u2')[0].payload),
+  async followUp() {},
+  async reply() {}
+});
+
+const rollcall = await meetingRsvp({ guild, meetingId: latestMeeting.id });
+assert.strictEqual(rollcall.ok, true, 'rollcall ok');
+assert.strictEqual(rollcall.flags, 1 << 15, 'rollcall has Components V2 flag');
+const rollJson = JSON.stringify(rollcall.components);
+assert.ok(!rollJson.includes('<@u1>') && !rollJson.includes('<@u2>'), 'rollcall does NOT ping with <@id>');
+assert.ok(rollJson.includes('Sulman') && rollJson.includes('Alex'), 'shows member display names');
+assert.ok(rollJson.includes('Can Join') && rollJson.includes('Cannot Join'), 'shows Can Join and Cannot Join sections');
+console.log('meetingRsvp: V2 container / no pings / display names:', 'ok');
 
 fs.unlinkSync(store);
 console.log('\nALL MEETING TESTS PASSED');

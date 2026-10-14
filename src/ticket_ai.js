@@ -342,15 +342,16 @@ function buildTicketSystemPrompt(category) {
     '- Be professional, direct, and concise. Do NOT be overly chatty, fluffy, or write walls of unnecessary text. Give the exact helpful information directly.',
     '- Whenever referring a user to a channel, always mention the channel directly using <#id> so they can click it instantly.',
     '- Read the user\'s inquiry and prior conversation history carefully. Maintain conversation context and remember what was previously discussed.',
-    '- Never repeat the exact same canned response or greeting if the user already acknowledged it or replied to it.',
-    '- Do NOT make up or hallucinate button names or actions (such as "[Click Here to Proceed]").',
-    '- If the user mentions that a button is not working or asks how/where to open a partnership or other ticket, explain that they can use the button attached below or select the category on the ticket desk (<#1360798150910021735>).',
+    '- CRITICAL: The user is ALREADY inside their active private ticket channel. NEVER tell the user to visit the ticket desk (<#1360798150910021735>) or use a ticket desk button to request support, assistance, or an agent. They are already here!',
+    '- If the user asks for a human, staff member, support agent, or asks to be redirected, transferred, or unclaimed, escalate immediately with JSON: {"action": "escalate", "answer": "I have stepped aside and notified our staff team to assist you directly."}.',
+    '- If the user mentions that a button is not working or asks how to open a partnership or report ticket, let them know they can use the quick-action button attached below.',
+    '- If a staff member mentions wanting to retire, resign, or step down, ask them for: (1) Current rank, (2) Reason for retirement (optional), (3) Any final remarks or messages for the community, and let them know the request will be escalated to Senior High Rank for review.',
     '- If their request requires staff action (e.g. assigning roles, reviewing proof/applications, in-game ban appeals), acknowledge their request, let them know what details/screenshots to post, and reassure them staff has been notified.',
     '- If the user says they are done or asks to close, let them know you are happy to help and closing the ticket.',
     '- NEVER use the robot emoji (🤖) anywhere in your response.',
     '- Format your message cleanly using Discord Markdown (bolding, lists).',
     '- Keep your reply under 700 characters.',
-    '- Reply with RAW JSON ONLY: {"action": "answer", "answer": "<your response to user>"}',
+    '- Reply with RAW JSON ONLY: {"action": "answer", "answer": "<your response to user>"} or {"action": "escalate", "answer": "<hand-off message>"}',
     '',
     'CONFIRMED SERVER FACTS (may be empty):',
     '__FACTS__'
@@ -397,7 +398,7 @@ async function aiGenerate({ question, category, facts, history = [] }) {
   }
 
   if (parsed && typeof parsed.answer === 'string' && parsed.answer.trim()) {
-    return { action: 'answer', answer: parsed.answer.trim(), provider, model };
+    return { action: parsed.action || 'answer', answer: parsed.answer.trim(), provider, model };
   }
 
   // Could not parse JSON envelope — treat the raw text as an answer.
@@ -504,7 +505,11 @@ export async function answerTicket({ question, category, history = [], ticketId 
   try {
     const related = searchKnowledge(cleanQ, 3).filter((r) => r.confidence > 0.15);
     const facts = related.map((r) => r.record);
-    const { answer, provider, model } = await aiGenerate({ question: cleanQ, category, facts, history });
+    const { action, answer, provider, model } = await aiGenerate({ question: cleanQ, category, facts, history });
+
+    if (action === 'escalate') {
+      return { text: answer || 'I have stepped aside and notified our staff team to assist you directly.', source: 'ai', escalated: true, meta: { provider, model } };
+    }
 
     if (answer && answer.trim()) {
       captureAiCandidate({ question: cleanQ, answer, category, ticketId, userId });

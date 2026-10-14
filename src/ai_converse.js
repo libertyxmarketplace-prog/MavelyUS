@@ -80,10 +80,22 @@ function userIdsFrom(answer, message) {
 const coerceUserId = (value, message) =>
   userIdsFrom(value, message)[0] ?? extractUserId(value) ?? null;
 
-/** Meeting invitees: mentions win, then "staff"/"everyone", then a bare id. */
+/** Meeting invitees: mentions win, then role mentions/IDs, then "staff"/"everyone", then a bare id. */
 function coerceAttendees(value, message) {
-  const ids = userIdsFrom(value, message);
+  const ids = [];
+  if (message?.mentions?.roles) {
+    for (const id of message.mentions.roles.keys()) ids.push(id);
+  }
+  if (message?.mentions?.users) {
+    for (const id of message.mentions.users.keys()) ids.push(id);
+  }
+  for (const m of String(value ?? '').matchAll(/<@&?(\d{17,20})>/g)) {
+    if (!ids.includes(m[1])) ids.push(m[1]);
+  }
+  const bare = String(value ?? '').match(/\b\d{17,20}\b/);
+  if (bare && !ids.includes(bare[0])) ids.push(bare[0]);
   if (ids.length) return ids;
+
   const t = String(value ?? '').trim().toLowerCase();
   if (/\b(everyone|everybody|all|server|@everyone)\b/.test(t)) return ['everyone'];
   if (/\b(staff|team|mods?|moderators?)\b/.test(t)) return ['staff'];
@@ -182,22 +194,22 @@ const slot = (key, question, opts = {}) => ({ key, question, required: false, ..
 
 export const AI_SLOTS = {
   meeting_schedule: [
-    slot('start', '📅 **When should the meeting be?**\n> e.g. `in 2 hours` · `tomorrow at 7pm` · `2026-10-26T19:00`', {
+    slot('start', '📅 **When should the meeting be?**\n> e.g. `in 2 hours` · `Wednesday at 6pm` · `tomorrow at 7pm` · `October 21st at 6:00 PM EST`', {
       required: true,
       validate: (v) => !!parseWhen(v),
       coerce: asText(120),
-      invalid: '❌ I could not read that time. Try `in 2 hours` or `tomorrow at 7pm`.'
+      invalid: '❌ I could not read that time. Try `in 2 hours`, `tomorrow at 7pm` or `Wednesday, Oct 21 at 6:00 PM EST`.'
     }),
     slot('title', '📝 **What should I call the meeting?**\n> or say `skip` for “Staff Meeting”.', {
       skipValue: 'Staff Meeting',
       validate: (v) => v.trim().length > 0,
       coerce: asText(120)
     }),
-    slot('attendees', '👥 **Who is invited?**\n> Mention them, say `staff` / `everyone`, or say `skip` for the Staff Team.', {
+    slot('attendees', '👥 **Who is invited?**\n> Mention users, mention a role (or paste a role ID), say `staff` / `everyone`, or say `skip` for the Staff Team.', {
       skipValue: ['staff'],
       validate: (v, m) => !!coerceAttendees(v, m),
       coerce: coerceAttendees,
-      invalid: '❌ Mention someone, or say `staff` / `everyone` / `skip`.'
+      invalid: '❌ Mention users or a role, paste a role ID, or say `staff` / `everyone` / `skip`.'
     }),
     slot('location', '📍 **Where is it?**\n> A voice-channel mention, an invite link, or say `skip`.', {
       validate: (v) => v.trim().length > 0,

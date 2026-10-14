@@ -84,20 +84,38 @@
     "aiActive": false,
     "aiStopped": false
   },
-  "1559113389022650468": {
-    "channelId": "1559113389022650468",
+  "1559691003273809992": {
+    "channelId": "1559691003273809992",
     "guildId": "1232495211490443284",
-    "authorId": "523693281541095424",
-    "authorTag": "kims3166",
-    "authorUsername": "kims3166",
+    "authorId": "1398109076692537344",
+    "authorTag": "someone_u_shouldnt",
+    "authorUsername": "someone_u_shouldnt",
     "categoryKey": "general",
     "categoryName": "Alabama General Support",
-    "reason": "i wanna know where is the alabama police department server",
-    "createdAt": 1791792000,
-    "lastActivityAt": 1791792088938,
+    "reason": "I need like a department head or something its about fast passes its not letting me join the server of the state troopers.",
+    "createdAt": 1791929714,
+    "lastActivityAt": 1791939354757,
     "claimedBy": null,
-    "aiActive": true,
+    "aiActive": false,
     "aiStopped": false,
-    "controlMessageId": "1559113405716103239"
+    "controlMessageId": "1559691011217956954"
+  },
+  "1559715992383258658": {
+    "channelId": "1559715992383258658",
+    "guildId": "1232495211490443284",
+    "authorId": "1543776560585244805",
+    "authorTag": "erlcfan8272827",
+    "authorUsername": "erlcfan8272827",
+    "categoryKey": "partnership",
+    "categoryName": "Alabama Partnership Operations",
+    "reason": "Partnership.",
+    "createdAt": 1791935672,
+    "lastActivityAt": 1791935672403,
+    "claimedBy": "1402908543488626729",
+    "aiActive": false,
+    "aiStopped": false,
+    "controlMessageId": "1559715999199006761",
+    "partnershipStep": "awaiting_ad",
+    "partnershipType": "regular"
   }
 }

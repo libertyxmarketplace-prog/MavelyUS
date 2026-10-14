@@ -26,5 +26,103 @@
         "timestamp": 1789444155
       }
     ]
+  },
+  "lanixhq": {
+    "username": "LanixHQ",
+    "strikes": 1,
+    "lastStrikeTs": 1791935596593,
+    "history": [
+      {
+        "strike": 1,
+        "reason": "Safe Zone Kill Incident (Staff Activity)",
+        "victim": "Abijot_gaming",
+        "moderator": "Automated Safe Zone Defense",
+        "timestamp": 1791935596
+      }
+    ]
+  },
+  "willrobert21654": {
+    "username": "willRobert21654",
+    "strikes": 2,
+    "lastStrikeTs": 1791936395458,
+    "history": [
+      {
+        "strike": 1,
+        "reason": "Safe Zone Kill Incident (Staff Activity)",
+        "victim": "LanixHQ",
+        "moderator": "Automated Safe Zone Defense",
+        "timestamp": 1791935597
+      },
+      {
+        "strike": 2,
+        "reason": "Safe Zone Kill Incident (Staff Activity)",
+        "victim": "bearpaw1000",
+        "moderator": "Automated Safe Zone Defense",
+        "timestamp": 1791936395
+      }
+    ]
+  },
+  "bearpaw1000": {
+    "username": "bearpaw1000",
+    "strikes": 3,
+    "lastStrikeTs": 1791940989231,
+    "history": [
+      {
+        "strike": 1,
+        "reason": "Safe Zone Kill Incident (Staff Activity)",
+        "victim": "potbell2",
+        "moderator": "Automated Safe Zone Defense",
+        "timestamp": 1791936113
+      },
+      {
+        "strike": 2,
+        "reason": "Safe Zone Kill Incident (Staff Activity)",
+        "victim": "willRobert21654",
+        "moderator": "Automated Safe Zone Defense",
+        "timestamp": 1791936539
+      },
+      {
+        "strike": 3,
+        "reason": "Safe Zone Kill Incident (Staff Activity)",
+        "victim": "JAReifel2013",
+        "moderator": "Automated Safe Zone Defense",
+        "timestamp": 1791940989
+      }
+    ]
+  },
+  "abijot_gaming": {
+    "username": "Abijot_gaming",
+    "strikes": 2,
+    "lastStrikeTs": 1791940009984,
+    "history": [
+      {
+        "strike": 1,
+        "reason": "Safe Zone Shooting / Kill Incident",
+        "victim": "bearpaw1000",
+        "moderator": "Automated Safe Zone Defense",
+        "timestamp": 1791936222
+      },
+      {
+        "strike": 2,
+        "reason": "Safe Zone Kill Incident (Staff Activity)",
+        "victim": "bearpaw1000",
+        "moderator": "Automated Safe Zone Defense",
+        "timestamp": 1791940009
+      }
+    ]
+  },
+  "blakelybr3": {
+    "username": "blakelybr3",
+    "strikes": 1,
+    "lastStrikeTs": 1791940118046,
+    "history": [
+      {
+        "strike": 1,
+        "reason": "Safe Zone Kill Incident (Staff Activity)",
+        "victim": "Abijot_gaming",
+        "moderator": "Automated Safe Zone Defense",
+        "timestamp": 1791940118
+      }
+    ]
   }
 }

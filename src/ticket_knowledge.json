@@ -3,7 +3,7 @@
   "meta": {
     "name": "Alabama State Roleplay Ticket Knowledge Base",
     "note": "Editable knowledge base. approved:true entries are served with zero API cost. Staff can add/edit/remove entries via /kb without editing bot source.",
-    "updatedAt": 1791795272
+    "updatedAt": 1791939236
   },
   "faqs": [
     {
@@ -25,6 +25,26 @@
         "enlist"
       ],
       "answer": "To join the **Alabama Police Department (APD)** or another department, submit an application in <#1360792977181769768>.\n\n• **Requirements:** Listed inside each department application in <#1360792977181769768>.\n• **Results:** Once submitted, wait for results to be posted in <#1360793057930252539>.\n• **Status:** Do not DM department leadership asking to check your application.",
+      "source": "server-material",
+      "approved": true,
+      "createdAt": 1791775704,
+      "updatedAt": 1791775704
+    },
+    {
+      "id": "kb_staff_retirement",
+      "category": "general",
+      "question": "How do I retire from staff?",
+      "keywords": [
+        "retire",
+        "retirement",
+        "resign",
+        "resignation",
+        "step down",
+        "stepping down",
+        "retire from staff",
+        "staff retirement"
+      ],
+      "answer": "To process your retirement, please provide the following details in your ticket:\n\n• **Your current rank**\n• **Reason for retirement** *(optional)*\n• **Any final remarks or messages for the community** *(optional)*\n\nOnce you provide this information, your request will be escalated to Senior High Rank for review and announcement.",
       "source": "server-material",
       "approved": true,
       "createdAt": 1791775704,
@@ -617,39 +637,6 @@
       "updatedAt": 1791790133
     },
     {
-      "id": "ln_mv4xmsw4_skry",
-      "question": "uncliam my ticket",
-      "answer": "To unclaim your ticket, please provide the details of the ticket you want to unclaim, and I will notify the staff team to assist you with that.",
-      "category": "general",
-      "keywords": [
-        "uncliam",
-        "ticket"
-      ],
-      "approved": false,
-      "origin": "ai",
-      "sourceTicketId": "1559105200382550068",
-      "suppliedBy": null,
-      "createdAt": 1791790218,
-      "updatedAt": 1791790218
-    },
-    {
-      "id": "ln_mv4xn8ly_ryxk",
-      "question": "im a staff unclaim it",
-      "answer": "Thank you for the information. Since you're a staff member, I will notify the staff team to unclaim this ticket for you. If you need anything else, feel free to ask!",
-      "category": "general",
-      "keywords": [
-        "im",
-        "staff",
-        "unclaim"
-      ],
-      "approved": false,
-      "origin": "ai",
-      "sourceTicketId": "1559105200382550068",
-      "suppliedBy": null,
-      "createdAt": 1791790238,
-      "updatedAt": 1791790238
-    },
-    {
       "id": "ln_mv4xoxq0_bf6c",
       "question": "close my ticket",
       "answer": "I can help with that! Since you want to close your ticket, I'll go ahead and close it for you. If you need assistance in the future, feel free to open a new ticket. Have a great day!",
@@ -795,6 +782,67 @@
       "suppliedBy": null,
       "createdAt": 1791792090,
       "updatedAt": 1791792090
+    },
+    {
+      "id": "ln_mv77q2au_pf2w",
+      "question": "I wont be able to make meeting I am on family vacation.",
+      "answer": "# Who cannot make the meeting\n\nMeyden\nmeme",
+      "category": "general",
+      "keywords": [
+        "wont",
+        "able",
+        "make",
+        "meeting",
+        "family",
+        "vacation."
+      ],
+      "approved": true,
+      "origin": "staff",
+      "sourceTicketId": "1559684098312904755",
+      "suppliedBy": "1235121963295313941",
+      "createdAt": 1791928099,
+      "updatedAt": 1791928123
+    },
+    {
+      "id": "ln_mv78pfqa_9r57",
+      "question": "I need like a department head or something its about fast passes its not letting me join the server of the state troopers.",
+      "answer": "Sure join Hr lounge",
+      "category": "general",
+      "keywords": [
+        "like",
+        "department",
+        "head",
+        "something",
+        "its",
+        "fast",
+        "passes",
+        "not",
+        "letting",
+        "join",
+        "server",
+        "state"
+      ],
+      "approved": true,
+      "origin": "staff",
+      "sourceTicketId": "1559691003273809992",
+      "suppliedBy": "1097151196625633361",
+      "createdAt": 1791929749,
+      "updatedAt": 1791939236
+    },
+    {
+      "id": "ln_mv78u061_00o1",
+      "question": "Report",
+      "answer": "<@885315812011958313> <@1097151196625633361>",
+      "category": "ia",
+      "keywords": [
+        "report"
+      ],
+      "approved": true,
+      "origin": "staff",
+      "sourceTicketId": "1559691923919347732",
+      "suppliedBy": "1100907704807063724",
+      "createdAt": 1791929962,
+      "updatedAt": 1791930176
     }
   ],
   "pending": [],
