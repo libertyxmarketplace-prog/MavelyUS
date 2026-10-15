@@ -1,15 +1,18 @@
 @echo off
-cd /d "C:\Users\sulma\Downloads\ERLCAI"
+title Alabama Bot 24/7 Supervisor
+cd /d "%~dp0"
+echo ==============================================
+echo   ALABAMA STATE ROLEPLAY - 24/7 BOT SUPERVISOR
+echo ==============================================
+echo.
+echo Stopping any lingering bot processes...
 taskkill /F /IM node.exe >nul 2>&1
 timeout /t 2 /nobreak >nul
-del bot.log bot-err.log >nul 2>&1
-start /b node src/index.js >bot.log 2>&1
-timeout /t 15 /nobreak >nul
-echo === BOT LOG ===
-type bot.log
+
+:loop
+echo [%date% %time%] Starting 24/7 Supervisor...
+node run.js
 echo.
-echo === ERR LOG ===
-type bot-err.log 2>nul || echo (clean)
-echo.
-echo === NODE PROCESSES ===
-wmic process where "name='node.exe'" get processid,commandline /format:list
+echo [%date% %time%] WARNING: Supervisor process stopped! Restarting in 2 seconds...
+timeout /t 2 /nobreak >nul
+goto loop

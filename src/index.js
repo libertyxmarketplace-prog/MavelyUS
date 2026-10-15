@@ -3,16 +3,27 @@ import axios from 'axios';
 import fs from 'node:fs';
 import net from 'node:net';
 
-// ── Single-instance lock to prevent duplicate bot processes running on this machine ──
+// ── Global crash prevention – keep process alive through unhandled errors ──
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Uncaught Exception — bot kept alive:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[CRITICAL] Unhandled Promise Rejection — bot kept alive:', reason);
+});
+
+// ── Single-instance socket monitor (non-fatal on TIME_WAIT restarts) ──
 const SINGLETON_PORT = 49811;
 const singletonServer = net.createServer();
 singletonServer.once('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`[Process] Another instance of Alabama Bot is already running on this machine (port ${SINGLETON_PORT} in use). Exiting.`);
-    process.exit(0);
+    console.warn(`[Process] Port ${SINGLETON_PORT} is in use (socket recycling or another process). Bot will continue running.`);
+  } else {
+    console.warn(`[Process] Singleton server warning: ${err.message}`);
   }
 });
-singletonServer.listen(SINGLETON_PORT, '127.0.0.1');
+singletonServer.listen(SINGLETON_PORT, '127.0.0.1', () => {
+  singletonServer.unref();
+});
 import {
   ActionRowBuilder,
   ActivityType,
@@ -91,7 +102,8 @@ import {
   providerStatus,
   providerSummary,
   resolveIntent,
-  sharedAiChatAnswer
+  sharedAiChatAnswer,
+  callAIProvider
 } from './ai.js';
 import {
   AI_CONVERSATION_TTL_MS,
@@ -496,8 +508,8 @@ const LOA_STAFF_ROLE_NAME =
 // Renders as: 𝑳𝑶𝑨┃
 const LOA_NICK_PREFIX = '\u{1D473}\u{1D476}\u{1D468}\u2503';
 // Banner is uploaded from our own assets so it can never expire.
-const LOA_BANNER_PATH = fileURLToPath(new URL('./assets/loa_banner.webp', import.meta.url));
-const LOA_BANNER_FALLBACK_PATH = fileURLToPath(new URL('./assets/vote_banner.png', import.meta.url));
+const LOA_BANNER_PATH = fileURLToPath(new URL('./assets/loa_banner.png', import.meta.url));
+const LOA_BANNER_FALLBACK_PATH = fileURLToPath(new URL('../assets/loa_banner.png', import.meta.url));
 const LOA_BANNER_URL = 'https://i.ibb.co/5gf3LYvD/content.webp';
 const LOA_FILE = fileURLToPath(new URL('../loas.json', import.meta.url));
 // /media — only this role may post media drops, and only in the media channel.
@@ -1130,6 +1142,9 @@ async function fetchServerStats() {
       axios.get(`${base}/server`, {
         headers,
         timeout: 10000
+      }).catch((err) => {
+        console.warn(`[ERLC] /server fetch warning: ${err.message}`);
+        return null;
       }),
       // Player list is the SOURCE OF TRUTH for the in-game count -
       // /server alone can report 0 / stale CurrentPlayers.
@@ -1153,9 +1168,13 @@ async function fetchServerStats() {
         .catch(() => ({ data: [] }))
     ]);
 
+    if (!serverRes && !playersRes?.data && lastGoodStats) {
+      return { ...lastGoodStats, updatedAt: nowTs };
+    }
+
     // Some ERLC responses wrap in { data: {...} } - unwrap once.
     const unwrap = (v) => (v && typeof v === 'object' && 'data' in v && v.data && typeof v.data === 'object' && !Array.isArray(v.data) && ('Name' in v.data || 'name' in v.data || 'CurrentPlayers' in v.data || 'currentPlayers' in v.data) ? v.data : v);
-    const server = unwrap(serverRes.data) ?? {};
+    const server = unwrap(serverRes?.data) ?? {};
     const unwrapList = (v) => {
       if (Array.isArray(v)) return v;
       if (v && typeof v === 'object' && Array.isArray(v.data)) return v.data;
@@ -1164,9 +1183,9 @@ async function fetchServerStats() {
       if (v && typeof v === 'object' && Array.isArray(v.staff)) return v.staff;
       return v;
     };
-    const playersList = unwrapList(playersRes.data);
-    const queueList = unwrapList(queueRes.data);
-    const staffList = unwrapList(staffRes.data);
+    const playersList = unwrapList(playersRes?.data);
+    const queueList = unwrapList(queueRes?.data);
+    const staffList = unwrapList(staffRes?.data);
 
     const pickNum = (...vals) => {
       for (const v of vals) {
@@ -1176,41 +1195,41 @@ async function fetchServerStats() {
       return null;
     };
 
-    // Players: prefer the live /players array length (never stuck at 0
-    // when you're actually in-game), then any CurrentPlayers-style field.
+    // Players: check live /players list and server.CurrentPlayers
     let current = null;
     if (Array.isArray(playersList)) {
       current = playersList.length;
     }
-    if (current === null || current === 0) {
-      const fromField = pickNum(
-        server.CurrentPlayers,
-        server.currentPlayers,
-        server.PlayerCount,
-        server.playerCount,
-        server.PlayersCount,
-        server.playersCount,
-        server.Count,
-        server.count,
-        Array.isArray(server.Players) ? server.Players.length : null,
-        Array.isArray(server.players) ? server.players.length : null,
-        server.players,
-        server.Players
-      );
-      if (fromField !== null && !(current > 0)) current = fromField;
-      if (current === null) current = 0;
+    const fromField = pickNum(
+      server?.CurrentPlayers,
+      server?.currentPlayers,
+      server?.PlayerCount,
+      server?.playerCount,
+      server?.PlayersCount,
+      server?.playersCount,
+      server?.Count,
+      server?.count,
+      Array.isArray(server?.Players) ? server.Players.length : null,
+      Array.isArray(server?.players) ? server.players.length : null,
+      server?.players,
+      server?.Players
+    );
+    if (fromField !== null) {
+      if (current === null || fromField > current) current = fromField;
     }
+    if (current === null) current = 0;
+
     const max =
       pickNum(
-        server.MaxPlayers,
-        server.maxPlayers,
-        server.Max,
-        server.max,
+        server?.MaxPlayers,
+        server?.maxPlayers,
+        server?.Max,
+        server?.max,
         fallback.maxPlayers
       ) ?? 50;
     const queue = Array.isArray(queueList)
       ? queueList.length
-      : (typeof queueList === 'number' ? queueList : (pickNum(server.Queue, server.queue, server.QueueCount, fallback.queue) ?? 0));
+      : (typeof queueList === 'number' ? queueList : (pickNum(server?.Queue, server?.queue, server?.QueueCount, fallback.queue) ?? 0));
 
     // In-game staff: count players currently in the server whose Permission is staff
     let inGameStaffCount = 0;
@@ -1223,26 +1242,71 @@ async function fetchServerStats() {
     } else if (Array.isArray(staffList)) {
       inGameStaffCount = staffList.length;
     } else {
-      inGameStaffCount = pickNum(server.Staff, server.staff, server.StaffCount, fallback.staff) ?? 0;
+      inGameStaffCount = pickNum(server?.Staff, server?.staff, server?.StaffCount, fallback.staff) ?? 0;
     }
-    const staff = inGameStaffCount;
-    const players = Number(current) || 0;
 
-    // Server is "online" when the API answers successfully - NOT only when
-    // a player happens to be inside. Fixes "stuck on Server Offline".
-    const joinKey = server.JoinKey || server.joinKey || server.JoinCode || null;
+    // ── On-Duty Staff with role 1342676208671785050 ──
+    const ON_DUTY_ROLE_ID = '1342676208671785050';
+    let onDutyMembers = [];
+    try {
+      if (typeof client !== 'undefined' && client?.guilds?.cache) {
+        for (const g of client.guilds.cache.values()) {
+          const matched = g.members?.cache?.filter((m) => m.roles?.cache?.has(ON_DUTY_ROLE_ID));
+          if (matched && matched.size > 0) {
+            onDutyMembers.push(...matched.values());
+          }
+        }
+      }
+    } catch {}
+
+    const inGamePlayerNames = (Array.isArray(playersList) ? playersList : []).map((p) => {
+      const raw = typeof p === 'string' ? p : (p?.Player || p?.name || p?.username || '');
+      return String(raw).split(':')[0].trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    }).filter(Boolean);
+
+    let onDutyStaffInGameCount = 0;
+    if (onDutyMembers.length > 0 && inGamePlayerNames.length > 0) {
+      for (const m of onDutyMembers) {
+        const dUser = (m.user?.username || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const dGlobal = (m.user?.globalName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const rawNick = (m.nickname || '').toLowerCase();
+        const dNick = rawNick.replace(/[^a-z0-9]/g, '');
+        const nickParts = rawNick
+          .split(/[|┃I/\\()_ \-\[\]]/)
+          .map((s) => s.trim().toLowerCase().replace(/[^a-z0-9]/g, ''))
+          .filter(Boolean);
+
+        const match = inGamePlayerNames.some((ign) =>
+          ign === dUser || ign === dGlobal || ign === dNick || nickParts.includes(ign) || dNick.includes(ign)
+        );
+        if (match) onDutyStaffInGameCount++;
+      }
+    }
+
+    // Has staff on duty in game with role 1342676208671785050
+    const hasStaffOnDuty = onDutyStaffInGameCount > 0 || (onDutyMembers.length > 0 && (inGamePlayerNames.length > 0 || inGameStaffCount > 0));
+
+    let staff = Math.max(inGameStaffCount, onDutyStaffInGameCount);
+    let players = Number(current) || 0;
+    if (onDutyStaffInGameCount > 0 && players < onDutyStaffInGameCount) {
+      players = onDutyStaffInGameCount;
+    }
+
+    // Server is "online" when the API answers successfully or staff on duty are active
+    const joinKey = server?.JoinKey || server?.joinKey || server?.JoinCode || null;
     const stats = {
-      serverName: server.Name || server.name || fallback.serverName,
+      serverName: server?.Name || server?.name || fallback.serverName,
       ownerName:
-        server.OwnerUsername ||
-        server.Owner ||
-        server.owner ||
+        server?.OwnerUsername ||
+        server?.Owner ||
+        server?.owner ||
         fallback.ownerName,
       players,
       maxPlayers: max,
       queue: Number(queue) || 0,
       staff: Number(staff) || 0,
       online: true,
+      hasStaffOnDuty,
       joinKey,
       updatedAt: Math.floor(Date.now() / 1000)
     };
@@ -1293,8 +1357,8 @@ function joinUrl() {
 }
 
 function playersText(stats) {
-  const cur = typeof stats.players === 'number' ? stats.players : 0;
-  const max = stats.maxPlayers ?? 40;
+  const cur = typeof stats?.players === 'number' ? stats.players : 0;
+  const max = stats?.maxPlayers ?? 50;
   const isFull = cur >= max && max > 0;
   return isFull ? `${cur}/${max} (Full)` : `${cur}/${max}`;
 }
@@ -1302,7 +1366,7 @@ function playersText(stats) {
 function queueText(stats) {
   const q = Number(stats?.queue) || 0;
   const cur = typeof stats?.players === 'number' ? stats.players : 0;
-  const max = stats?.maxPlayers ?? 40;
+  const max = stats?.maxPlayers ?? 50;
   const isFull = cur >= max && max > 0;
   if (q > 0) return `${q} waiting`;
   if (isFull) return 'Full (0 in queue)';
@@ -1311,15 +1375,21 @@ function queueText(stats) {
 
 /**
  * Population status used for the /session status pill + session alerts.
- *  offline (API down or 0 players) → Server Offline (red)
- *  online + full                   → Server Full    (red)
- *  online + 1..max                 → Server Online  (green)
+ *  staff on duty with role 1342676208671785050 in-game → Server Online (green)
+ *  online + full                                      → Server Full    (red)
+ *  offline (API down or 0 players and no on-duty staff) → Server Offline (red)
+ *  online + 1..max                                    → Server Online  (green)
  */
 function serverStatus(stats) {
   const players = Number(stats?.players) || 0;
+  const max = Number(stats?.maxPlayers) || 50;
+  const isFull = players >= max && max > 0;
+  if (stats?.hasStaffOnDuty) {
+    if (isFull) return { label: 'Server Full', style: ButtonStyle.Danger };
+    return { label: 'Server Online', style: ButtonStyle.Success };
+  }
   if (!stats?.online || players <= 0) return { label: 'Server Offline', style: ButtonStyle.Danger };
-  const max = Number(stats.maxPlayers) || 40;
-  if (players >= max) return { label: 'Server Full', style: ButtonStyle.Danger };
+  if (isFull) return { label: 'Server Full', style: ButtonStyle.Danger };
   return { label: 'Server Online', style: ButtonStyle.Success };
 }
 
@@ -1390,7 +1460,7 @@ function buildContainer(stats, opts = {}) {
     : serverStatus(stats);
   const live = !isShutdown && !!opts.sessionLive; // vote started → force orange "session on"
   const curPlayers = Number(stats?.players) || 0;
-  const maxPlayers = Number(stats?.maxPlayers) || 40;
+  const maxPlayers = Number(stats?.maxPlayers) || 50;
   const isFull = curPlayers >= maxPlayers && maxPlayers > 0;
   const container = new ContainerBuilder();
   if (opts.pingMention) {
@@ -1562,7 +1632,8 @@ function stopLive(key) {
 function startLiveRefresh(key, message, channelId) {
   stopLive(key);
   let busy = false;
-  const timer = setInterval(async () => {
+
+  const tick = async () => {
     if (busy) return;
     busy = true;
     try {
@@ -1590,7 +1661,12 @@ function startLiveRefresh(key, message, channelId) {
     } finally {
       busy = false;
     }
-  }, REFRESH_EVERY_MS);
+  };
+
+  // Run immediately so "Last updated" updates to now right away
+  tick().catch(() => null);
+
+  const timer = setInterval(tick, REFRESH_EVERY_MS);
   liveSessions.set(key, timer);
 }
 
@@ -1608,6 +1684,20 @@ const client = new Client({
   // Idle = visible in the member list, but never a green "Online" dot.
   // (invisible would hide it from the list entirely, 'online' shows Online)
   presence: { status: 'idle' }
+});
+
+// ── Gateway & Shard resilience listeners ──
+client.on(Events.Error, (err) => {
+  console.error('[Discord Client Error]', err?.message || err);
+});
+client.on(Events.ShardError, (err, shardId) => {
+  console.error(`[Discord Shard ${shardId} Error]`, err?.message || err);
+});
+client.on(Events.ShardDisconnect, (event, shardId) => {
+  console.warn(`[Discord Shard ${shardId} Disconnected]`, event);
+});
+client.rest.on('rateLimited', (info) => {
+  console.warn('[Discord REST RateLimited]', info?.route, `retryAfter=${info?.timeToReset}ms`);
 });
 
 // ═══════════════════════ /suggestion - Community Suggestions Engine ═══════════════════════
@@ -1628,7 +1718,9 @@ function saveSuggestions() {
 function loadSuggestions() {
   try {
     if (!fs.existsSync(SUGGESTIONS_FILE)) return;
-    const raw = JSON.parse(fs.readFileSync(SUGGESTIONS_FILE, 'utf8'));
+    const content = fs.readFileSync(SUGGESTIONS_FILE, 'utf8').trim();
+    if (!content) return;
+    const raw = JSON.parse(content);
     if (Array.isArray(raw)) {
       for (const s of raw) {
         if (s && s.id) activeSuggestions.set(String(s.id), s);
@@ -1637,6 +1729,146 @@ function loadSuggestions() {
     console.log(`Restored ${activeSuggestions.size} suggestion(s) from suggestions.json.`);
   } catch (err) {
     console.error('Failed to load suggestions.json:', err.message);
+  }
+}
+
+function collectAllMessageText(message) {
+  if (!message) return '';
+  let text = message.content || '';
+  if (Array.isArray(message.embeds)) {
+    for (const e of message.embeds) {
+      if (e.title) text += ' ' + e.title;
+      if (e.description) text += ' ' + e.description;
+      if (e.author?.name) text += ' ' + e.author.name;
+      if (Array.isArray(e.fields)) {
+        for (const f of e.fields) text += ' ' + f.name + ' ' + f.value;
+      }
+    }
+  }
+  const walkComponents = (comps) => {
+    if (!Array.isArray(comps)) return;
+    for (const c of comps) {
+      if (c.data?.content) text += ' ' + c.data.content;
+      if (c.content) text += ' ' + c.content;
+      if (c.data?.text?.content) text += ' ' + c.data.text.content;
+      if (Array.isArray(c.components)) walkComponents(c.components);
+      if (Array.isArray(c.data?.components)) walkComponents(c.data.components);
+    }
+  };
+  walkComponents(message.components);
+  return text;
+}
+
+function recoverSuggestion(sugId, message) {
+  if (!sugId && !message) return null;
+  const allText = collectAllMessageText(message);
+
+  let resolvedId = String(sugId || '').trim();
+  if (!resolvedId) {
+    const idMatch = allText.match(/(?:Suggestion\s+#)(\d+)/i);
+    if (idMatch) resolvedId = idMatch[1];
+    else resolvedId = String(activeSuggestions.size + 1);
+  }
+
+  // Author ID from <@123456789>
+  let authorId = null;
+  const authorMatch = allText.match(/(?:Submitted\s+by:?\s*<@!?(\d+)>|<@!?(\d+)>)/i);
+  if (authorMatch) {
+    authorId = authorMatch[1] || authorMatch[2];
+  }
+
+  // Suggestion Text
+  let text = 'Community Suggestion #' + resolvedId;
+  const textMatch = allText.match(/###\s*([^\r\n]+)/) || allText.match(/\*\*Suggestion\*\*\s*[\r\n]+###?\s*([^\r\n]+)/i);
+  if (textMatch && textMatch[1]) {
+    text = textMatch[1].trim();
+  }
+
+  const sug = {
+    id: String(resolvedId),
+    guildId: message?.guildId || null,
+    channelId: message?.channelId || null,
+    messageId: message?.id || null,
+    authorId: authorId || message?.author?.id || 'Unknown',
+    authorAvatar: null,
+    text,
+    upvoters: [],
+    downvoters: [],
+    createdAt: message?.createdTimestamp || Date.now()
+  };
+
+  return sug;
+}
+
+function getOrRecoverSuggestion(sugId, message) {
+  const cleanId = String(sugId || '').trim();
+  if (cleanId && activeSuggestions.has(cleanId)) {
+    return activeSuggestions.get(cleanId);
+  }
+
+  for (const [k, v] of activeSuggestions) {
+    if (String(k) === cleanId || String(v?.id) === cleanId) return v;
+  }
+
+  if (message?.id) {
+    for (const v of activeSuggestions.values()) {
+      if (v?.messageId === message.id) return v;
+    }
+  }
+
+  if (message) {
+    const recovered = recoverSuggestion(cleanId, message);
+    if (recovered) {
+      activeSuggestions.set(String(recovered.id), recovered);
+      saveSuggestions();
+      console.log(`[suggestions] Auto-recovered legacy suggestion #${recovered.id} from message ${message.id}`);
+      return recovered;
+    }
+  }
+
+  return null;
+}
+
+async function syncSuggestionsFromChannel(discordClient) {
+  try {
+    const ch = await discordClient.channels.fetch(SUGGESTION_CHANNEL_ID).catch(() => null);
+    if (!ch) return;
+    const msgs = await ch.messages.fetch({ limit: 100 }).catch(() => null);
+    if (!msgs) return;
+    let recoveredCount = 0;
+    for (const m of msgs.values()) {
+      const allText = collectAllMessageText(m);
+      let sugId = null;
+      const findId = (comps) => {
+        for (const c of comps || []) {
+          const cid = c.customId || c.data?.custom_id || '';
+          if (cid.startsWith('sug_up_')) {
+            sugId = cid.replace('sug_up_', '');
+            return;
+          }
+          if (Array.isArray(c.components)) findId(c.components);
+          if (Array.isArray(c.data?.components)) findId(c.data.components);
+        }
+      };
+      findId(m.components);
+      if (!sugId) {
+        const match = allText.match(/Suggestion\s+#(\d+)/i);
+        if (match) sugId = match[1];
+      }
+      if (sugId && !activeSuggestions.has(String(sugId))) {
+        const sug = recoverSuggestion(sugId, m);
+        if (sug) {
+          activeSuggestions.set(String(sug.id), sug);
+          recoveredCount++;
+        }
+      }
+    }
+    if (recoveredCount > 0) {
+      saveSuggestions();
+      console.log(`[suggestions] Synced and recovered ${recoveredCount} suggestion(s) from channel ${SUGGESTION_CHANNEL_ID}.`);
+    }
+  } catch (err) {
+    console.warn('[suggestions] Channel sync notice:', err.message);
   }
 }
 
@@ -1673,12 +1905,12 @@ function buildSuggestionContainer(sug, discordClient = null) {
       .setCustomId(`sug_up_${sug.id}`)
       .setStyle(ButtonStyle.Success)
       .setLabel(String(sug.upvoters.length))
-      .setEmoji('<:checkmark:1549230329418485832>'),
+      .setEmoji('<:checkmark:1549993561871618060>'),
     new ButtonBuilder()
       .setCustomId(`sug_down_${sug.id}`)
       .setStyle(ButtonStyle.Danger)
       .setLabel(String(sug.downvoters.length))
-      .setEmoji('<:wrong:1549230458070507552>'),
+      .setEmoji('<:wrong:1549993610550714381>'),
     new ButtonBuilder()
       .setCustomId(`sug_voters_${sug.id}`)
       .setStyle(ButtonStyle.Secondary)
@@ -1727,9 +1959,9 @@ function loadVotes() {
   } catch (err) {
     console.error('Failed to load votes.json:', err.message);
   }
-  // Panels: their refresh timers died with the last restart - persist the
-  // newest panel per channel so boot can re-attach them (fixes the frozen
-  // "Last updated: X minutes ago" card).
+}
+
+function loadPanels() {
   try {
     if (!fs.existsSync(PANELS_FILE)) return;
     const raw = JSON.parse(fs.readFileSync(PANELS_FILE, 'utf8'));
@@ -2394,6 +2626,47 @@ async function handleInfractionCommand(interaction) {
   }
 }
 
+async function cleanRetirementNickname(member) {
+  if (!member) return;
+  try {
+    const nick = member.nickname;
+    if (!nick) return;
+    let cleaned = nick;
+
+    // Check for delimiter like |, •, », :, -, ~
+    if (cleaned.includes('|')) {
+      const parts = cleaned.split('|');
+      cleaned = parts.slice(1).join('|').trim();
+    } else if (cleaned.includes('•')) {
+      cleaned = cleaned.split('•').slice(1).join('•').trim();
+    } else if (cleaned.includes('»')) {
+      cleaned = cleaned.split('»').slice(1).join('»').trim();
+    } else if (/^\[[^\]]+\]\s*/.test(cleaned)) {
+      cleaned = cleaned.replace(/^\[[^\]]+\]\s*/, '').trim();
+    } else if (/^\([^\)]+\)\s*/.test(cleaned)) {
+      cleaned = cleaned.replace(/^\([^\)]+\)\s*/, '').trim();
+    } else if (/^\{[^\}]+\}\s*/.test(cleaned)) {
+      cleaned = cleaned.replace(/^\{[^\}]+\}\s*/, '').trim();
+    }
+
+    // Strip any leading symbols or leftover delimiters
+    cleaned = cleaned.replace(/^[|•»:\-~/\s]+/, '').trim();
+
+    // If cleaned is empty or matches username, reset nickname to default
+    if (!cleaned || cleaned.toLowerCase() === (member.user?.username || '').toLowerCase()) {
+      await member.setNickname(null, 'Staff Retirement - Removed rank prefix').catch((e) =>
+        console.warn(`[retirement] Could not reset nickname for ${member.id}: ${e.message}`)
+      );
+    } else if (cleaned !== nick) {
+      await member.setNickname(cleaned, 'Staff Retirement - Removed rank prefix').catch((e) =>
+        console.warn(`[retirement] Could not set nickname for ${member.id}: ${e.message}`)
+      );
+    }
+  } catch (err) {
+    console.warn(`[retirement] Nickname cleanup error for ${member?.id}: ${err.message}`);
+  }
+}
+
 async function handleRetirementCommand(interaction) {
   // 1. Defer IMMEDIATELY to prevent Discord 3-second timeout ("The application did not respond")
   await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => null);
@@ -2419,6 +2692,8 @@ async function handleRetirementCommand(interaction) {
   const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
   let roleChanges = [];
 
+  const RETIRED_STAFF_ROLE_ID = '1546249576598741012';
+
   if (targetMember) {
     const rolesToRemove = new Set();
     if (removeRole) rolesToRemove.add(removeRole.id);
@@ -2426,13 +2701,30 @@ async function handleRetirementCommand(interaction) {
     if (removeRole3) rolesToRemove.add(removeRole3.id);
 
     // If removeAllStaff is true, detect any staff roles currently on member
+    // Do NOT remove community / general member roles (Key Card, OG Member, Community Member, Verified, Booster, etc.)
     if (removeAllStaff) {
       for (const r of targetMember.roles.cache.values()) {
         if (r.id === interaction.guild.id) continue;
+        if (r.id === RETIRED_STAFF_ROLE_ID) continue;
         if (giveRole && r.id === giveRole.id) continue;
+
+        const rName = r.name.toLowerCase();
+        if (
+          rName.includes('key card') ||
+          rName.includes('keycard') ||
+          rName.includes('og member') ||
+          rName.includes('community member') ||
+          rName.includes('verified') ||
+          rName.includes('booster') ||
+          rName.includes('supporter') ||
+          rName.includes('retired staff')
+        ) {
+          continue;
+        }
+
         if (
           ERLC_ENFORCER_CONFIG.staffRoleIds.includes(r.id) ||
-          /(staff|admin|mod\b|moderator|supervisor|director|executive|management|trainee|junior\s*mod|senior\s*mod|trial\s*mod|head\s*admin|co-owner|owner)/i.test(r.name)
+          /(staff|admin|mod\b|moderator|supervisor|director|executive|management|trainee|junior\s*mod|senior\s*mod|trial\s*mod|head\s*admin|ia\b|internal\s*affairs|high\s*rank|\bshr\b|\bhr\b|operations|co-owner|owner)/i.test(r.name)
         ) {
           rolesToRemove.add(r.id);
         }
@@ -2451,14 +2743,20 @@ async function handleRetirementCommand(interaction) {
       }
     }
 
-    if (giveRole && !targetMember.roles.cache.has(giveRole.id)) {
+    // Assign Retired Staff role: 1546249576598741012 (or custom specified giveRole)
+    const roleToAssign = giveRole ? giveRole.id : RETIRED_STAFF_ROLE_ID;
+    if (roleToAssign && !targetMember.roles.cache.has(roleToAssign)) {
       try {
-        await targetMember.roles.add(giveRole.id);
-        roleChanges.push(`Assigned role: **@${giveRole.name}**`);
+        await targetMember.roles.add(roleToAssign);
+        const assignedObj = targetMember.guild.roles.cache.get(roleToAssign);
+        roleChanges.push(`Assigned role: **@${assignedObj?.name || 'Retired Staff'}**`);
       } catch (err) {
-        console.warn(`Could not assign role ${giveRole.name}: ${err.message}`);
+        console.warn(`Could not assign role ${roleToAssign}: ${err.message}`);
       }
     }
+
+    // Remove rank prefix from nickname (e.g. "𝐇𝐨𝐒 | Sulman" -> "Sulman")
+    await cleanRetirementNickname(targetMember);
   }
 
   // Official retirement channel requested by user: 1344860625742073856
@@ -5890,7 +6188,9 @@ const appGateState = { ingame: true, discord: true };
 function loadAppGateState() {
   try {
     if (!fs.existsSync(APP_GATE_FILE)) return;
-    const raw = JSON.parse(fs.readFileSync(APP_GATE_FILE, 'utf8'));
+    const content = fs.readFileSync(APP_GATE_FILE, 'utf8').trim();
+    if (!content) return;
+    const raw = JSON.parse(content);
     appGateState.ingame = raw.ingame ?? true;
     appGateState.discord = raw.discord ?? true;
   } catch (err) {
@@ -6190,10 +6490,11 @@ async function syncCountingWithChannel() {
   try {
     const ch = await client.channels.fetch(COUNTING_CHANNEL_ID).catch(() => null);
     if (!ch || !ch.isTextBased()) return;
-    const msgs = await ch.messages.fetch({ limit: 15 }).catch(() => null);
+    const msgs = await ch.messages.fetch({ limit: 50 }).catch(() => null);
     if (!msgs || msgs.size === 0) return;
 
-    for (const msg of msgs.values()) {
+    const list = Array.from(msgs.values()).reverse();
+    for (const msg of list) {
       if (msg.author.bot) continue;
       const raw = (msg.content || '').trim().replace(/,/g, '');
       if (/^\d+$/.test(raw)) {
@@ -6207,7 +6508,6 @@ async function syncCountingWithChannel() {
             await msg.react('✅').catch(() => {});
           }
           console.log(`[counting] Synchronized with channel: count=${num} by ${msg.author.tag}`);
-          break;
         }
       }
     }
@@ -6223,13 +6523,37 @@ let countingQueue = Promise.resolve();
 async function handleCountingMessage(message) {
   if (message.author.bot) return;
 
-  countingQueue = countingQueue.then(async () => {
+  countingQueue = countingQueue.catch(() => {}).then(async () => {
     try {
       const raw = (message.content || '').trim();
       const cleaned = raw.replace(/,/g, '').trim();
       const isNumber = /^\d+$/.test(cleaned);
       const parsed = isNumber ? parseInt(cleaned, 10) : null;
-      const expected = countingState.currentCount + 1;
+      let expected = countingState.currentCount + 1;
+
+      // Self-heal: If parsed is a number but doesn't match expected, inspect the previous message in channel
+      if (isNumber && parsed !== expected) {
+        try {
+          const recent = await message.channel.messages.fetch({ limit: 4 }).catch(() => null);
+          if (recent && recent.size > 1) {
+            const list = Array.from(recent.values()).filter((m) => m.id !== message.id && !m.author.bot);
+            const prev = list[0];
+            if (prev) {
+              const prevClean = (prev.content || '').trim().replace(/,/g, '');
+              if (/^\d+$/.test(prevClean)) {
+                const prevNum = parseInt(prevClean, 10);
+                if (prevNum === parsed - 1) {
+                  countingState.currentCount = prevNum;
+                  countingState.lastUserId = prev.author.id;
+                  expected = parsed;
+                  const hasPrevCheck = prev.reactions.cache.some((r) => r.emoji.name === '✅' && r.me);
+                  if (!hasPrevCheck) prev.react('✅').catch(() => {});
+                }
+              }
+            }
+          }
+        } catch {}
+      }
 
       if (isNumber && parsed === expected) {
         countingState.currentCount = expected;
@@ -6506,7 +6830,9 @@ async function refreshAllTicketPanels(discordClient, fallbackChannel = null) {
 function loadTickets() {
   try {
     if (!fs.existsSync(TICKETS_FILE)) return;
-    const raw = JSON.parse(fs.readFileSync(TICKETS_FILE, 'utf8'));
+    const content = fs.readFileSync(TICKETS_FILE, 'utf8').trim();
+    if (!content) return;
+    const raw = JSON.parse(content);
     for (const [chanId, t] of Object.entries(raw)) {
       // Backfill AI state for tickets created before the assistant existed so
       // existing open tickets start responding immediately. Only AI-enabled,
@@ -6668,15 +6994,21 @@ function buildTicketControlContainer(ticket, bannerOverride) {
     )
   );
 
+  const isEscalated = !isClaimed && !!ticket.escalated;
+  const statusSubtitle = isEscalated
+    ? '🟠 Escalated — Needs staff assistance / attention.'
+    : (isAiClaimed
+      ? 'Claimed and automated by AI Assistant.'
+      : (isClaimed ? `Claimed and handled by <@${ticket.claimedBy}>.` : 'Awaiting an available staff member to claim.'));
+  const statusBadge = isEscalated ? '🟠 Escalated' : (isAiClaimed ? 'AI Active' : (isClaimed ? 'Claimed' : 'Unclaimed'));
+
   container.addSectionComponents(
     sectionRow(
       'Status',
-      isAiClaimed
-        ? 'Claimed and automated by AI Assistant.'
-        : (isClaimed ? `Claimed and handled by <@${ticket.claimedBy}>.` : 'Awaiting an available staff member to claim.'),
-      isAiClaimed ? 'AI Active' : (isClaimed ? 'Claimed' : 'Unclaimed'),
+      statusSubtitle,
+      statusBadge,
       'info_ticket_status',
-      ButtonStyle.Secondary
+      isEscalated ? ButtonStyle.Primary : ButtonStyle.Secondary
     )
   );
 
@@ -9231,7 +9563,7 @@ function saveLoas() {
 /** Uploads the banner from our own assets so it can never expire. */
 function loaBanner() {
   if (fs.existsSync(LOA_BANNER_PATH)) {
-    return { path: LOA_BANNER_PATH, name: 'loa_banner.webp', url: 'attachment://loa_banner.webp' };
+    return { path: LOA_BANNER_PATH, name: 'loa_banner.png', url: 'attachment://loa_banner.png' };
   }
   if (fs.existsSync(LOA_BANNER_FALLBACK_PATH)) {
     return { path: LOA_BANNER_FALLBACK_PATH, name: 'loa_banner.png', url: 'attachment://loa_banner.png' };
@@ -9274,13 +9606,6 @@ function buildLoaActionCard(opts) {
   );
   card.addSeparatorComponents(thinLine());
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent(loaFieldBlock(opts)));
-  card.addSeparatorComponents(thinLine());
-  card.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      `> **Approve** — takes their staff roles away until the leave is over.\n` +
-      `> **Deny** — nothing happens, they stay fully active.`
-    )
-  );
   card.addSeparatorComponents(thinLine());
   card.addActionRowComponents(
     new ActionRowBuilder().addComponents(
@@ -10724,11 +11049,12 @@ async function maintainLeaderLock(discordClient) {
       return;
     }
 
-    // If our boot time is OLDER than the lock's boot time, we are an old container that should gracefully exit!
+    // If our boot time is OLDER than the lock's boot time, enter standby instead of terminating
     if (INSTANCE_BOOT_TIME < lockBootTime - 1000) {
-      console.log(`[LeaderElection] Older deployment detected (${INSTANCE_BOOT_TIME} < ${lockBootTime}). Shutting down container to eliminate duplicates.`);
+      if (isLeader) {
+        console.log(`[LeaderElection] Newer deployment detected (${INSTANCE_BOOT_TIME} < ${lockBootTime}). ${INSTANCE_ID} entering Standby mode.`);
+      }
       isLeader = false;
-      setTimeout(() => process.exit(0), 1000);
       return;
     }
 
@@ -10819,9 +11145,11 @@ client.once(Events.ClientReady, async (readyClient) => {
     loadVerifyPanels();
     loadInfoPanels();
     loadEconPanels();
+    loadPanels();
     loadAppGateState();
     loadSafeZoneStrikes();
     loadSuggestions();
+    syncSuggestionsFromChannel(readyClient || client).catch(() => null);
     loadApplications();
     loadDeptApplications();
     loadAppeals();
@@ -11576,6 +11904,15 @@ async function closeTicketChannel(client, channel, ticket, closedByTag, closedBy
   }, waitMs);
 }
 
+/** Formats a clean ticket channel name without stacking emojis (e.g. 🔴・🟢・). */
+function formatTicketChannelName(statusEmoji, rawName) {
+  const base = String(rawName || '')
+    .replace(/^([🔴🟢🔵🟠🟡]\s*[・\-_|]?\s*)+/gu, '')
+    .replace(/^ticket[-_]?/i, '')
+    .trim() || 'member';
+  return `${statusEmoji}・${base}`.slice(0, 100);
+}
+
 function getActiveTicket(channel) {
   if (!channel) return null;
   const channelId = typeof channel === 'string' ? channel : channel.id;
@@ -11598,6 +11935,7 @@ function getActiveTicket(channel) {
       name.startsWith('🔴・') ||
       name.startsWith('🟢・') ||
       name.startsWith('🔵・') ||
+      name.startsWith('🟠・') ||
       name.includes('ticket') ||
       name.includes('partner') ||
       matchedCatKey !== null
@@ -11611,7 +11949,10 @@ function getActiveTicket(channel) {
     if (isTicketNamed || channel.topic?.includes('ticket')) {
       const catKey = matchedCatKey || (name.includes('partner') ? 'partnership' : 'general');
       const cat = TICKET_CONFIG.categories[catKey] || TICKET_CONFIG.categories.general;
-      const cleanUsername = name.replace(/^[🔴🟢🔵]・/, '').replace(/^ticket-/, '') || 'member';
+      const cleanUsername = String(name || '')
+        .replace(/^([🔴🟢🔵🟠🟡]\s*[・\-_|]?\s*)+/gu, '')
+        .replace(/^ticket[-_]?/i, '')
+        .trim() || 'member';
       let detectedAuthorId = channel.topic?.match(/\d{17,20}/)?.[0] || null;
       if (!detectedAuthorId && channel.permissionOverwrites?.cache) {
         for (const [poId, po] of channel.permissionOverwrites.cache) {
@@ -11802,19 +12143,49 @@ function ticketAiStaffAuthor(member) {
 }
 
 /**
- * Detects a user asking the assistant to stop talking. Kept intentionally
- * conservative so a normal question that merely contains "stop" (e.g. "how do I
- * stop a car") is not treated as a stop command.
+/**
+ * Strips mentions and bot name references from a command string to isolate verbs.
+ */
+function cleanAiCommandText(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/<@!?\d+>/g, '')
+    .replace(/\b(alabama utuils|alabama utils|alabama utilities|alabama bot|alabama|utuils|utils|utilities|bot|ai)\b/gi, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const STOP_PATTERN = /^(please\s+)?(stop|pause|freeze|shut\s*off|turn\s*off|disable|shut\s*up|be\s*quiet|quiet|stop\s*talking|stop\s*responding|stop\s*replying|go\s*away|leave\s*me\s*alone|enough|hush|silence|step\s*aside)(\s+(please|now|here|talking|responding|replying|ai|bot|for\s+now))?$/i;
+
+const CONTINUE_PATTERN = /^(please\s+)?(continue|resume|start|talk|wake\s*up|unpause|turn\s*on|enable|re\s*enable|speak|assist|answer)(\s+(please|now|here|talking|responding|replying|ai|bot|to\s+me|with\s+us))?$/i;
+
+/**
+ * Detects a user or staff member asking the ticket assistant to stop / pause.
  */
 function isAiStopRequest(text) {
   if (!text) return false;
-  const t = String(text)
-    .toLowerCase()
-    .replace(/[^a-z\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!t || t.length > 60) return false;
-  return /\b(stop|stopplease|shut ?up|be quiet|quiet|stop talking|stop responding|stop replying|go away|leave me alone|enough|hush|silence)\b/.test(t);
+  const raw = String(text).toLowerCase();
+  if (/\b(shut off|turn off|disable|kill|stop)\b.*\b(all category|all categories|all|every category)\b/.test(raw)) {
+    return false; // handled by global handler
+  }
+  const t = cleanAiCommandText(text);
+  if (!t || t.length > 70) return false;
+  return STOP_PATTERN.test(t);
+}
+
+/**
+ * Detects a user or staff member asking the ticket assistant to resume / continue / wake up.
+ */
+function isAiContinueRequest(text) {
+  if (!text) return false;
+  const raw = String(text).toLowerCase();
+  if (/\b(turn on|enable|start|resume)\b.*\b(all category|all categories|all|every category)\b/.test(raw)) {
+    return false; // handled by global handler
+  }
+  const t = cleanAiCommandText(text);
+  if (!t || t.length > 70) return false;
+  return CONTINUE_PATTERN.test(t);
 }
 
 /**
@@ -11828,10 +12199,14 @@ function isAiStopRequest(text) {
  */
 async function refreshTicketAiState(channel, ticket) {
   if (!channel || !ticket) return;
-  const prefix = ticket.aiActive || ticket.claimedBy ? '🟢' : '🔴';
+  const isEscalated = !ticket.claimedBy && !!ticket.escalated;
+  const prefix = isEscalated ? '🟠' : (ticket.aiActive || ticket.claimedBy ? '🟢' : '🔴');
   try {
-    if (channel.setName && channel.name && !channel.name.startsWith(prefix)) {
-      await channel.setName(`${prefix}・${ticket.authorUsername}`).catch(() => null);
+    if (channel.setName && channel.name) {
+      const targetName = formatTicketChannelName(prefix, ticket.authorUsername);
+      if (channel.name !== targetName) {
+        await channel.setName(targetName).catch(() => null);
+      }
     }
   } catch {
     /* rename is cosmetic — ignore */
@@ -11862,6 +12237,50 @@ const TICKET_ESCALATION_ROLES = {
   ia: '1341932342343897269',
   deptreport: '1346603583432425502'
 };
+
+/**
+ * Builds a clean, professional Components V2 Container card displaying the
+ * documented statement / incident report for a ticket.
+ *
+ * @param {object} ticket
+ * @param {{ isBriefing?: boolean }} [options]
+ * @returns {ContainerBuilder}
+ */
+function buildTicketStatementCard(ticket, options = {}) {
+  const card = new ContainerBuilder().setAccentColor(0xed4245);
+  const st = ticket.statement || {};
+  const isBriefing = options.isBriefing || false;
+  const header = isBriefing ? '## 📋 Case Briefing & Statement' : '## 📋 Official Case Statement Documented';
+  card.addTextDisplayComponents(new TextDisplayBuilder().setContent(header));
+  card.addSeparatorComponents(thinLine());
+
+  const userMention = st.authorId ? `<@${st.authorId}>` : (ticket.authorId ? `<@${ticket.authorId}>` : 'Unknown');
+  const userTag = st.authorTag || ticket.authorUsername || 'Ticket Author';
+  const cat = st.category || ticket.categoryName || ticket.categoryKey || 'General Support';
+  const timeSec = Math.floor((st.submittedAt || (ticket.createdAt ? ticket.createdAt * 1000 : Date.now())) / 1000);
+  const statementBody = st.summary || st.content || ticket.reason || 'No statement details recorded.';
+
+  let evidenceStr = 'None attached';
+  if (Array.isArray(st.attachments) && st.attachments.length) {
+    evidenceStr = st.attachments.map((url, idx) => `[Evidence Link ${idx + 1}](${url})`).join(' • ');
+  } else if (st.evidence) {
+    evidenceStr = st.evidence;
+  }
+
+  const desc =
+    `• **Submitted By:** ${userMention} (\`${userTag}\`)\n` +
+    `• **Category:** ${cat}\n` +
+    `• **Documented:** <t:${timeSec}:f> (<t:${timeSec}:R>)\n` +
+    `• **Status:** 🔴 Awaiting Staff Review\n\n` +
+    `### 📝 Documented Statement / Case Overview:\n` +
+    `> ${statementBody.split('\n').filter(Boolean).join('\n> ')}\n\n` +
+    `• **Evidence Attached:** ${evidenceStr}`;
+
+  card.addTextDisplayComponents(new TextDisplayBuilder().setContent(desc.slice(0, 3900)));
+  card.addSeparatorComponents(thinLine());
+
+  return card;
+}
 
 /**
  * Generates interactive quick-action buttons when a user mentions that a button
@@ -12015,11 +12434,12 @@ function isSeniorHighRank(member) {
 async function processRetirementApproval(channel, ticket, approver, guild) {
   if (!ticket.retirementData) return;
   const DEFAULT_RETIREMENT_CHANNEL_ID = '1344860625742073856';
+  const RETIRED_STAFF_ROLE_ID = '1546249576598741012';
   const targetUserId = ticket.retirementData.userId;
   const targetMember = guild ? await guild.members.fetch(targetUserId).catch(() => null) : null;
   const targetUser = targetMember?.user || (await client.users.fetch(targetUserId).catch(() => null)) || { id: targetUserId, username: ticket.retirementData.userTag || 'Staff Member' };
 
-  // 1. Post to official retirement announcement channel
+  // 1. Post to official retirement announcement channel (1344860625742073856)
   const retChannel = guild ? await guild.channels.fetch(DEFAULT_RETIREMENT_CHANNEL_ID).catch(() => null) : null;
   if (retChannel) {
     const hasBannerFile = fs.existsSync(RETIREMENT_BANNER_PATH);
@@ -12039,20 +12459,45 @@ async function processRetirementApproval(channel, ticket, approver, guild) {
     }).catch((err) => console.error('[retirement] Failed to send announcement:', err.message));
   }
 
-  // 2. Remove staff roles from member
+  // 2. Remove ONLY staff/admin roles from member (preserving Key Card, OG Member, Community Member, Verified, Booster, etc.)
   if (targetMember) {
     for (const r of targetMember.roles.cache.values()) {
       if (r.id === guild.id) continue;
+      if (r.id === RETIRED_STAFF_ROLE_ID) continue;
+
+      const rName = r.name.toLowerCase();
+      // Protected community / perk / verified roles
+      if (
+        rName.includes('key card') ||
+        rName.includes('keycard') ||
+        rName.includes('og member') ||
+        rName.includes('community member') ||
+        rName.includes('verified') ||
+        rName.includes('booster') ||
+        rName.includes('supporter') ||
+        rName.includes('retired staff')
+      ) {
+        continue;
+      }
+
       if (
         ERLC_ENFORCER_CONFIG.staffRoleIds.includes(r.id) ||
-        /(staff|admin|mod\b|moderator|supervisor|director|executive|management|trainee|junior\s*mod|senior\s*mod|trial\s*mod|head\s*admin)/i.test(r.name)
+        /(staff|admin|mod\b|moderator|supervisor|director|executive|management|trainee|junior\s*mod|senior\s*mod|trial\s*mod|head\s*admin|ia\b|internal\s*affairs|high\s*rank|\bshr\b|\bhr\b|operations|co-owner|owner)/i.test(r.name)
       ) {
-        await targetMember.roles.remove(r.id).catch(() => {});
+        await targetMember.roles.remove(r.id, 'Staff Retirement processed').catch(() => {});
       }
     }
+
+    // 3. Assign Retired Staff role: 1546249576598741012
+    await targetMember.roles.add(RETIRED_STAFF_ROLE_ID, 'Staff Retirement processed').catch((e) =>
+      console.warn(`[retirement] Could not assign retired staff role: ${e.message}`)
+    );
+
+    // 4. Strip rank prefix from nickname (e.g. "𝐇𝐨𝐒 | Sulman" -> "Sulman")
+    await cleanRetirementNickname(targetMember);
   }
 
-  // 3. Mark ticket state and confirm in channel
+  // 5. Mark ticket state and confirm in channel
   ticket.retirementState = 'completed';
   saveTickets();
 
@@ -12062,7 +12507,7 @@ async function processRetirementApproval(channel, ticket, approver, guild) {
       `> **Approved By:** <@${approver.id}>\n` +
       `> **Staff Member:** <@${targetUserId}>\n` +
       `> The official staff retirement announcement has been posted in <#${DEFAULT_RETIREMENT_CHANNEL_ID}>.\n\n` +
-      `Staff roles have been removed. Thank you for your dedication, service, and leadership in Alabama State Roleplay!`
+      `Staff roles removed, <@&${RETIRED_STAFF_ROLE_ID}> assigned, and nickname prefix cleaned. Thank you for your dedication, service, and leadership in Alabama State Roleplay!`
   }).catch(() => {});
 }
 
@@ -12091,6 +12536,18 @@ function sendTicketAiOpening(channel, ticketData) {
   const reason = ticketData.reason;
 
   if (reason && /\b(retire|retirement|resign|resigning|resignation|step down|stepping down)\b/i.test(reason)) {
+    // Only High Rank Support or Internal Affairs allow retirement workflows
+    if (category !== 'highrank' && category !== 'ia') {
+      channel.send({
+        content:
+          `**Alabama Support Assistant**\n\n` +
+          `⚠️ **Staff Retirements** are handled exclusively in **High Rank Support** or **Internal Affairs** tickets.\n\n` +
+          `Please open a ticket under **High Rank Support** or **Internal Affairs** to proceed with your staff retirement.`,
+        allowedMentions: { parse: [] }
+      }).catch((e) => console.warn(`[ticket-ai] Could not post opening general retirement reply: ${e.message}`));
+      return;
+    }
+
     ticketData.retirementState = 'collecting_info';
     saveTickets();
     channel.send({
@@ -12120,6 +12577,45 @@ function sendTicketAiOpening(channel, ticketData) {
     .then((res) => {
       if (!res || !res.text) return; // disabled/no-answer → nothing to post
       const cleanText = res.text.replace(/🤖/g, '').trim();
+      const isStatementOrEscalation = res.escalated === true ||
+        /\b(statement.*(?:documented|filed)|escalated to (?:the )?staff|needs staff attention|staff attention required|stepping aside for staff|handing (?:this )?off to staff)\b/i.test(cleanText);
+
+      if (isStatementOrEscalation) {
+        ticketData.statement = {
+          authorId: ticketData.authorId,
+          authorTag: ticketData.authorUsername,
+          content: reason,
+          summary: res.statement || (reason && reason.length > 10 ? reason : cleanText),
+          category: ticketData.categoryName || ticketData.categoryKey,
+          submittedAt: Date.now(),
+          attachments: []
+        };
+        ticketData.claimedBy = null;
+        ticketData.escalated = true;
+        ticketData.aiActive = false;
+        ticketData.aiStopped = true;
+        saveTickets();
+        try {
+          channel.setName(formatTicketChannelName('🟠', ticketData.authorUsername)).catch(() => null);
+        } catch {}
+        if (ticketData.controlMessageId) {
+          channel.messages.fetch(ticketData.controlMessageId).then((ctrl) => {
+            return ctrl.edit({
+              components: [buildTicketControlContainer(ticketData).toJSON()],
+              flags: MessageFlags.IsComponentsV2
+            });
+          }).catch(() => {});
+        }
+        const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+        const stCard = buildTicketStatementCard(ticketData);
+        return channel.send({
+          content: `🔔 <@&${roleId}> **Official Statement Documented — Staff Attention Required**\n\n**Alabama Support Assistant**\n${cleanText}`,
+          components: [stCard.toJSON()],
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { roles: [roleId] }
+        }).catch((e) => console.warn(`[ticket-ai] Could not post opening statement card: ${e.message}`));
+      }
+
       const components = buildQuickActionButtons(`${reason} ${cleanText}`, ticketData);
       return channel.send({
         content: `**Alabama Support Assistant**\n\n${cleanText}`,
@@ -12157,10 +12653,128 @@ async function handleTicketAiMessage(message, ticket) {
   const content = (message.content || '').trim();
   const botId = client.user?.id;
   const botPinged = !!botId && (message.mentions?.users?.has(botId) || content.includes(`<@${botId}>`));
+  const botNameCalled = /\b(alabama utuils|alabama utils|alabama utilities|alabama bot)\b/i.test(content);
+  const isDirectlyPrompted = botPinged || botNameCalled;
 
   // Update activity timestamp on any interaction for 15-minute inactivity tracking
   ticket.lastActivityAt = Date.now();
   saveTickets();
+
+  // 0.01. Universal Stop / Pause request (from staff, author, or anyone in the ticket)
+  if (isAiStopRequest(content)) {
+    ticket.aiActive = false;
+    ticket.aiStopped = true;
+    saveTickets();
+    refreshTicketAiState(message.channel, ticket).catch(() => {});
+    await message.reply({
+      content: '⏸️ **Ticket AI has been paused.** Automated responses are now stopped in this channel so staff can assist directly.',
+      allowedMentions: { repliedUser: false }
+    }).catch(() => {});
+    return;
+  }
+
+  // 0.02. Universal Continue / Resume request (from staff, author, or anyone in the ticket)
+  if (isAiContinueRequest(content)) {
+    ticket.aiActive = true;
+    ticket.aiStopped = false;
+    ticket.claimedBy = null;
+    saveTickets();
+    refreshTicketAiState(message.channel, ticket).catch(() => {});
+    await message.reply({
+      content: '▶️ **Ticket AI has resumed.** Automated responses are now active in this channel.',
+      allowedMentions: { repliedUser: false }
+    }).catch(() => {});
+
+    // If this was purely a resume command with no extra question, return
+    const extraWords = cleanAiCommandText(content)
+      .replace(/\b(continue|resume|start|talk|wake ?up|unpause|turn ?on|enable|re-?enable|speak|assist|answer|please|now)\b/g, '')
+      .trim();
+    if (!extraWords || extraWords.length < 3) {
+      return;
+    }
+  }
+
+  // 0.025. Case briefing / "what happened" explanation request
+  const isAskingWhatHappened = isDirectlyPrompted && /\b(what happened|what'?s (?:the )?(?:story|case|issue|situation|happened|going on)|explain|summary|summarize|give (?:me )?(?:a |the )?(?:summary|statement|briefing|update)|what is this (?:ticket |case )?about|brief me|statement|case statement|details|recap)\b/i.test(content);
+  const isJustCallingBot = isDirectlyPrompted && cleanAiCommandText(content).length < 5;
+
+  if (isAskingWhatHappened || (isJustCallingBot && ticket.statement)) {
+    if (ticket.statement) {
+      const card = buildTicketStatementCard(ticket, { isBriefing: true });
+      await message.reply({
+        content: `📋 **Alabama Case Briefing**\nHere is the documented statement and case overview for this ticket:`,
+        components: [card.toJSON()],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { repliedUser: false }
+      }).catch(() => {});
+      return;
+    }
+
+    // If no formal statement saved yet, generate one from ticket inquiry and channel history
+    try { message.channel.sendTyping().catch(() => {}); } catch {}
+    let historySnippet = [];
+    try {
+      const fetched = await message.channel.messages.fetch({ limit: 30 }).catch(() => null);
+      if (fetched) {
+        const sorted = [...fetched.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+        for (const m of sorted) {
+          if (m.id === message.id) continue;
+          const text = (m.cleanContent || m.content || '').trim();
+          if (!text) continue;
+          if (m.author.id === ticket.authorId) {
+            historySnippet.push(`[Author ${m.author.username}]: ${text}`);
+          } else if (!m.author.bot) {
+            historySnippet.push(`[Staff/User ${m.author.username}]: ${text}`);
+          }
+        }
+      }
+    } catch {}
+
+    const firstReason = (ticket.reason && ticket.reason !== 'Not specified' && ticket.reason !== 'No reason provided') ? ticket.reason : '';
+    let briefingSummary = firstReason;
+
+    try {
+      const { text } = await callAIProvider([
+        { role: 'system', content: 'You are the Alabama Support Assistant. Synthesize a professional, concise 2-3 sentence executive case briefing summarizing what happened in this ticket, who is involved, and what the user is reporting or asking for. Reply with the briefing text only.' },
+        { role: 'user', content: `Ticket Category: ${ticket.categoryName || ticket.categoryKey}\nInitial Reason: ${firstReason || 'None'}\n\nChat Log:\n${historySnippet.slice(-15).join('\n')}` }
+      ], { timeout: 8000, maxTokens: 250 });
+      if (text && text.trim()) {
+        briefingSummary = text.trim();
+      }
+    } catch {}
+
+    if (!briefingSummary) {
+      briefingSummary = historySnippet.slice(-3).join('\n') || 'Inquiry details pending staff review.';
+    }
+
+    ticket.statement = {
+      authorId: ticket.authorId,
+      authorTag: ticket.authorUsername,
+      content: briefingSummary,
+      summary: briefingSummary,
+      category: ticket.categoryName || ticket.categoryKey,
+      submittedAt: ticket.createdAt ? ticket.createdAt * 1000 : Date.now(),
+      attachments: []
+    };
+    saveTickets();
+
+    const card = buildTicketStatementCard(ticket, { isBriefing: true });
+    await message.reply({
+      content: `📋 **Alabama Case Briefing**\nHere is the case overview and statement based on the ticket details:`,
+      components: [card.toJSON()],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: { repliedUser: false }
+    }).catch(() => {});
+    return;
+  }
+
+  // 0.03. Wake up if directly pinged or prompted
+  if (isDirectlyPrompted) {
+    ticket.aiActive = true;
+    ticket.aiStopped = false;
+    saveTickets();
+    refreshTicketAiState(message.channel, ticket).catch(() => {});
+  }
 
   const member = message.member ||
     (ticket.guildId ? message.guild?.members?.cache?.get(message.author.id) : null);
@@ -12188,7 +12802,7 @@ async function handleTicketAiMessage(message, ticket) {
   }
 
   // 0.2. Staff Retirement Workflow: User submitting answers
-  if (ticket.retirementState === 'collecting_info' && (isAuthor || authorIsStaff)) {
+  if (ticket.retirementState === 'collecting_info' && isAuthor) {
     let rank = 'Staff Member';
     let reason = 'Personal reasons';
     let remarks = content;
@@ -12254,7 +12868,18 @@ async function handleTicketAiMessage(message, ticket) {
 
   // 0.3. Staff Retirement Workflow: User requesting to retire
   const isRetireMention = /\b(retire|retirement|retiring|resign|resigning|resignation|step down|stepping down)\b/i.test(content);
-  if (isRetireMention && (!ticket.retirementState || ticket.retirementState === 'none')) {
+  if (isAuthor && isRetireMention && (!ticket.retirementState || ticket.retirementState === 'none')) {
+    if (category !== 'highrank' && category !== 'ia') {
+      await message.reply({
+        content:
+          `**Alabama Support Assistant**\n\n` +
+          `⚠️ **Staff Retirements** are handled exclusively in **High Rank Support** or **Internal Affairs** tickets.\n\n` +
+          `Please create a ticket under **High Rank Support** or **Internal Affairs** to proceed with your staff retirement.`,
+        allowedMentions: { repliedUser: false }
+      }).catch(() => {});
+      return;
+    }
+
     ticket.retirementState = 'collecting_info';
     saveTickets();
     await message.reply({
@@ -12277,11 +12902,12 @@ async function handleTicketAiMessage(message, ticket) {
     // Staff unclaims the ticket
     if (/\bunclaim\b/i.test(cleanStaffCmd) || /\bunclaim\b/i.test(content)) {
       ticket.claimedBy = null;
-      ticket.aiActive = false;
-      ticket.aiStopped = true;
+      ticket.escalated = false;
+      ticket.aiActive = isCategoryEnabled(category);
+      ticket.aiStopped = false;
       saveTickets();
       try {
-        await message.channel.setName(`🔴・${ticket.authorUsername}`).catch(() => null);
+        await message.channel.setName(formatTicketChannelName('🔴', ticket.authorUsername)).catch(() => null);
       } catch {}
       if (ticket.controlMessageId) {
         try {
@@ -12303,11 +12929,12 @@ async function handleTicketAiMessage(message, ticket) {
     // Staff claims the ticket
     if (/\b(claim|claim\s+(?:the\s+|this\s+)?ticket|claim\s+it)\b/i.test(cleanStaffCmd)) {
       ticket.claimedBy = message.author.id;
+      ticket.escalated = false;
       ticket.aiActive = false;
       ticket.aiStopped = true;
       saveTickets();
       try {
-        await message.channel.setName(`🟢・${ticket.authorUsername}`).catch(() => null);
+        await message.channel.setName(formatTicketChannelName('🟢', ticket.authorUsername)).catch(() => null);
       } catch {}
       if (ticket.controlMessageId) {
         try {
@@ -12366,41 +12993,6 @@ async function handleTicketAiMessage(message, ticket) {
       return;
     }
 
-    if (
-      cleanStaffCmd === 'stop' ||
-      cleanStaffCmd === 'pause' ||
-      cleanStaffCmd === 'ai stop' ||
-      cleanStaffCmd === 'freeze' ||
-      cleanStaffCmd === 'shut off ai' ||
-      cleanStaffCmd === 'shut off the ai' ||
-      cleanStaffCmd === 'turn off ai' ||
-      cleanStaffCmd === 'turn off the ai' ||
-      cleanStaffCmd === 'disable ai'
-    ) {
-      ticket.aiActive = false;
-      ticket.aiStopped = true;
-      saveTickets();
-      refreshTicketAiState(message.channel, ticket).catch(() => {});
-      message.reply({
-        content: '⏸️ **Ticket AI has been paused by staff.** Channel status updated to 🔴 so staff can assist.',
-        allowedMentions: { repliedUser: false }
-      }).catch(() => {});
-      return;
-    }
-
-    if (cleanStaffCmd === 'continue' || cleanStaffCmd === 'resume' || cleanStaffCmd === 'ai continue' || cleanStaffCmd === 'start') {
-      ticket.aiActive = true;
-      ticket.aiStopped = false;
-      ticket.claimedBy = null;
-      saveTickets();
-      refreshTicketAiState(message.channel, ticket).catch(() => {});
-      message.reply({
-        content: '▶️ Ticket AI has been resumed by staff. Channel status updated to 🟢.',
-        allowedMentions: { repliedUser: false }
-      }).catch(() => {});
-      return;
-    }
-
     const staffCloseRegex = /\b(i am done|i'm done|im done|close (?:my |this |the )?ticket|close it|close ticket)\b/i;
     if (staffCloseRegex.test(content)) {
       message.reply({
@@ -12415,8 +13007,7 @@ async function handleTicketAiMessage(message, ticket) {
       return;
     }
 
-    // If this staff member is NOT the ticket author, they are intervening to assist the user.
-    // Auto-capture their answer for knowledge base and step back so humans handle the conversation.
+    // If this staff member is NOT the ticket author, check if they are prompting the bot or talking directly
     if (!isAuthor) {
       if (content.length > 10) {
         const q = (ticket.reason && ticket.reason !== 'Not specified' && ticket.reason !== 'No reason provided')
@@ -12436,75 +13027,29 @@ async function handleTicketAiMessage(message, ticket) {
         }
       }
 
-      // The moment a human staff member replies, the assistant steps back until resumed
-      if (ticket.aiActive) {
-        ticket.aiActive = false;
-        saveTickets();
-        refreshTicketAiState(message.channel, ticket).catch(() => {});
+      // If staff did NOT ping or mention the bot, they are talking to the user — assistant steps back for this message
+      if (!isDirectlyPrompted) {
+        return; // staff talking directly without calling bot steps back
       }
-      return; // staff messages never trigger an AI reply
+      // If isDirectlyPrompted is true, staff explicitly asked the bot to speak/assist!
     }
   }
 
-  // ---- Ticket author's messages ----
-  if (message.author.id !== ticket.authorId) return; // ignore third-party messages
-
-  // 1. A ping wakes the assistant back up after a stop / staff takeover / escalation
-  if (botPinged && !isAiStopRequest(content)) {
-    ticket.aiActive = true;
-    ticket.aiStopped = false;
-    saveTickets();
-    refreshTicketAiState(message.channel, ticket).catch(() => {});
+  // ---- Author / Participant Gate ----
+  // Allow the ticket author, staff, or anyone who directly pings/prompts the bot
+  if (message.author.id !== ticket.authorId && !authorIsStaff && !isDirectlyPrompted) {
+    return; // ignore unprompted third-party messages
   }
 
-  // 1.5. Unclaim request
-  if (/\bunclaim\b/i.test(content)) {
-    ticket.claimedBy = null;
+  // 2. User explicitly requests to stop AI or requests human only
+  const humanRequestRegex = /\b(stop ai|no ai|don'?t want ai|dont want ai|i don'?t wanna chat with ai|i dont wanna chat with ai|stop talking to ai|talk to a human only|speak with a real person only|human only)\b/i;
+  if (isAuthor && humanRequestRegex.test(content)) {
     ticket.aiActive = false;
     ticket.aiStopped = true;
     saveTickets();
-    try {
-      await message.channel.setName(`🔴・${ticket.authorUsername}`).catch(() => null);
-    } catch {}
-    if (ticket.controlMessageId) {
-      try {
-        const ctrl = await message.channel.messages.fetch(ticket.controlMessageId);
-        await ctrl.edit({
-          components: [buildTicketControlContainer(ticket).toJSON()],
-          flags: MessageFlags.IsComponentsV2
-        });
-      } catch {}
-    }
-    const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
-    await message.reply({
-      content: `> 🔓 **Unclaimed** — Ticket is open for any staff member to claim.\n\n<@&${roleId}>`,
-      allowedMentions: { roles: [roleId], repliedUser: false }
-    }).catch(() => {});
-    return;
-  }
-
-  // 2. User requests human/staff support or expresses opt-out or asks to redirect/transfer to agent
-  const humanRequestRegex = /\b(no ai|don'?t want ai|dont want ai|human|real person|talk to (?:a )?(?:human|staff|person|agent|support agent|support)|speak (?:to|with) (?:a )?(?:human|staff|person|agent|support agent|support)|i don'?t wanna chat with ai|i dont wanna chat with ai|stop talking to ai|redirect(?: me)? to (?:a )?(?:support agent|support|staff|human|agent)|transfer(?: me)? to (?:a )?(?:support agent|support|staff|human|agent)|connect(?: me)? (?:to|with) (?:a )?(?:support agent|support|staff|human|agent)|(?:need|want|get|call|ping) (?:a )?(?:support agent|staff|human agent|human|agent|representative)|support agent|live agent|representative)\b/i;
-  if (humanRequestRegex.test(content)) {
-    ticket.claimedBy = null;
-    ticket.aiActive = false;
-    ticket.aiStopped = true;
-    saveTickets();
-    try {
-      await message.channel.setName(`🔴・${ticket.authorUsername}`).catch(() => null);
-    } catch {}
-    if (ticket.controlMessageId) {
-      try {
-        const ctrl = await message.channel.messages.fetch(ticket.controlMessageId);
-        await ctrl.edit({
-          components: [buildTicketControlContainer(ticket).toJSON()],
-          flags: MessageFlags.IsComponentsV2
-        });
-      } catch {}
-    }
     const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
     message.reply({
-      content: `> 👤 **Support Agent Requested** — I have stepped aside and notified our staff team to assist you directly.\n\n<@&${roleId}>`,
+      content: `> 👤 **Human Support Requested** — I have stepped aside. Our staff team will assist you directly.\n\n<@&${roleId}>`,
       allowedMentions: { roles: [roleId], repliedUser: false }
     }).catch(() => {});
     return;
@@ -12525,45 +13070,46 @@ async function handleTicketAiMessage(message, ticket) {
     return;
   }
 
-  // 4. User asks the assistant to stop
-  if (!botPinged && isAiStopRequest(content)) {
-    ticket.aiActive = false;
-    ticket.aiStopped = true;
-    saveTickets();
-    refreshTicketAiState(message.channel, ticket).catch(() => {});
-    message.reply({
-      content: "Understood — I'll step aside. A staff member can still assist, and you can ping me anytime if you'd like me to assist again.",
-      allowedMentions: { repliedUser: false }
-    }).catch(() => {});
-    return;
-  }
-
-  // 5. Gate: AI only replies while active, not paused, and no human has claimed it
+  // 4. Gate: AI only replies while active, not paused, and no human has claimed it (unless directly pinged/prompted)
   const humanClaimed = ticket.claimedBy && ticket.claimedBy !== botId;
-  if (!ticket.aiActive || ticket.aiStopped || humanClaimed) return;
+  if (!isDirectlyPrompted && (!ticket.aiActive || ticket.aiStopped || humanClaimed)) return;
   if (!content) return; // image-only / empty
 
   try { message.channel.sendTyping().catch(() => {}); } catch {}
 
+  // 5. Build rich channel conversation memory from the top of the ticket (up to 40 messages)
   const history = [];
   try {
-    const fetched = await message.channel.messages.fetch({ limit: 15 }).catch(() => null);
+    const fetched = await message.channel.messages.fetch({ limit: 40 }).catch(() => null);
     if (fetched) {
       const sorted = [...fetched.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
       for (const m of sorted) {
         if (m.id === message.id) continue;
+        const raw = m.cleanContent || m.content || '';
+        if (!raw || !raw.trim()) continue;
+
         if (m.author.id === botId) {
-          let text = m.cleanContent || m.content || '';
+          let text = raw.trim();
           if (text.startsWith('**Alabama Support Assistant**')) {
             text = text.replace(/^\*\*Alabama Support Assistant\*\*\s*/i, '').trim();
           }
+          if (text.includes('Senior High Rank Review') || text.includes('Ticket Inactivity') || text.includes('Closing ticket in')) {
+            continue;
+          }
           if (text) {
-            history.push({ role: 'assistant', content: text });
+            history.push({ role: 'assistant', content: text.slice(0, 1000) });
           }
         } else if (m.author.id === ticket.authorId) {
-          const text = m.cleanContent || m.content || '';
-          if (text) {
-            history.push({ role: 'user', content: text });
+          const text = raw.trim();
+          if (text && !isAiStopRequest(text) && !isAiContinueRequest(text)) {
+            history.push({ role: 'user', content: text.slice(0, 1000) });
+          }
+        } else if (!m.author.bot) {
+          // Staff member or other participant in channel
+          const text = raw.trim();
+          if (text && !isAiStopRequest(text) && !isAiContinueRequest(text)) {
+            const sender = m.member?.displayName || m.author.username || 'Staff';
+            history.push({ role: 'user', content: `[Staff/Participant ${sender}]: ${text.slice(0, 1000)}` });
           }
         }
       }
@@ -12579,9 +13125,17 @@ async function handleTicketAiMessage(message, ticket) {
     }
   }
 
+  // Clean the live question
+  let cleanQ = content.replace(/<@!?\d+>/g, '').trim();
+  const strippedVerbs = cleanAiCommandText(cleanQ);
+  if (!cleanQ || strippedVerbs === 'continue' || strippedVerbs === 'resume' || strippedVerbs === 'talk' || strippedVerbs === 'speak' || strippedVerbs === 'answer' || strippedVerbs === 'help') {
+    const lastUserMsg = [...history].reverse().find((h) => h.role === 'user');
+    cleanQ = lastUserMsg ? lastUserMsg.content : (ticket.reason || 'Assistance requested');
+  }
+
   Promise.resolve()
     .then(() => answerTicket({
-      question: content,
+      question: cleanQ,
       category,
       history,
       ticketId: ticket.channelId,
@@ -12590,14 +13144,39 @@ async function handleTicketAiMessage(message, ticket) {
     }))
     .then((res) => {
       if (!res || !res.text) return;
-      if (res.escalated) {
-        ticket.claimedBy = null;
+      const cleanText = res.text.replace(/🤖/g, '').trim();
+      const isStatementOrEscalation = res.escalated === true ||
+        /\b(statement.*(?:documented|filed)|escalated to (?:the )?staff|needs staff attention|staff attention required|stepping aside for staff|handing (?:this )?off to staff)\b/i.test(cleanText);
+
+      if (isStatementOrEscalation) {
+        const userAttachments = [];
+        if (message.attachments?.size) {
+          message.attachments.forEach((att) => {
+            if (att.url) userAttachments.push(att.url);
+          });
+        }
+
+        const derivedSummary = res.statement || (cleanQ && cleanQ.length > 15 ? cleanQ : (ticket.reason || cleanText));
+
+        ticket.statement = {
+          authorId: message.author.id,
+          authorTag: message.author.tag || message.author.username,
+          content: cleanQ || ticket.reason || 'Statement submitted in ticket.',
+          summary: derivedSummary.slice(0, 1500),
+          category: ticket.categoryName || ticket.categoryKey,
+          submittedAt: Date.now(),
+          attachments: userAttachments.length ? userAttachments : (ticket.statement?.attachments || [])
+        };
+
+        ticket.escalated = true;
         ticket.aiActive = false;
         ticket.aiStopped = true;
         saveTickets();
+
         try {
-          message.channel.setName(`🔴・${ticket.authorUsername}`).catch(() => null);
+          message.channel.setName(formatTicketChannelName('🟠', ticket.authorUsername)).catch(() => null);
         } catch {}
+
         if (ticket.controlMessageId) {
           message.channel.messages.fetch(ticket.controlMessageId).then((ctrl) => {
             return ctrl.edit({
@@ -12607,12 +13186,16 @@ async function handleTicketAiMessage(message, ticket) {
           }).catch(() => {});
         }
         const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+        const stCard = buildTicketStatementCard(ticket);
+
         return message.reply({
-          content: `> 👤 **Support Agent Requested** — ${res.text.replace(/🤖/g, '').trim()}\n\n<@&${roleId}>`,
+          content: `🔔 <@&${roleId}> **Official Statement Documented — Staff Attention Required**\n\n**Alabama Support Assistant**\n${cleanText}`,
+          components: [stCard.toJSON()],
+          flags: MessageFlags.IsComponentsV2,
           allowedMentions: { roles: [roleId], repliedUser: false }
-        }).catch(() => {});
+        }).catch((e) => console.warn(`[ticket-ai] Could not post statement card reply: ${e.message}`));
       }
-      const cleanText = res.text.replace(/🤖/g, '').trim();
+
       const components = buildQuickActionButtons(`${content} ${cleanText}`, ticket);
       return message.reply({
         content: `**Alabama Support Assistant**\n\n${cleanText}`,
@@ -12929,7 +13512,7 @@ async function createTicketForUser(client, interaction, catKey, reason) {
         // If ticket is AI-managed and AI hasn't responded to reason yet, trigger response now
         if (isCategoryEnabled(catKey) && catKey !== 'partnership' && catKey !== 'staff_partnership') {
           if (existingGuildCh.name.startsWith('🔴・')) {
-            existingGuildCh.setName(`🟢・${sanitizedUsername}`).catch(() => null);
+            existingGuildCh.setName(formatTicketChannelName('🟢', sanitizedUsername)).catch(() => null);
           }
           if (!existingTicket.aiOpeningSent) {
             existingTicket.aiOpeningSent = true;
@@ -15134,50 +15717,54 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId === 'ticket_claim') {
       const ticket = getActiveTicket(interaction.channel);
       if (!ticket) {
-        await interaction.reply({ content: 'This channel is not an active ticket in my database.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'This channel is not an active ticket in my database.', flags: MessageFlags.Ephemeral }).catch(() => {});
         return;
       }
       if (ticket.claimedBy) {
-        await interaction.reply({ content: `This ticket is already claimed by <@${ticket.claimedBy}>.`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: `This ticket is already claimed by <@${ticket.claimedBy}>.`, flags: MessageFlags.Ephemeral }).catch(() => {});
         return;
       }
+
+      // 1. Reply to interaction IMMEDIATELY so Discord satisfies the 3-second window instantly
+      await interaction.reply({
+        content: `> 🔒 **Claimed** by <@${interaction.user.id}>. They will now be assisting with this inquiry.`
+      }).catch(() => {});
+
       ticket.claimedBy = interaction.user.id;
+      ticket.escalated = false;
+      ticket.aiActive = false;
+      ticket.aiStopped = true;
       saveTickets();
 
-      try {
-        await interaction.channel.setName(`🟢・${ticket.authorUsername}`);
-      } catch (err) {
+      // 2. Perform slow operations in background without blocking interaction response
+      interaction.channel.setName(formatTicketChannelName('🟢', ticket.authorUsername)).catch((err) => {
         console.warn(`Could not rename ticket channel: ${err.message}`);
-      }
+      });
 
       if (ticket.controlMessageId) {
-        try {
-          const msg = await interaction.channel.messages.fetch(ticket.controlMessageId);
-          await msg.edit({
+        interaction.channel.messages.fetch(ticket.controlMessageId).then((msg) => {
+          return msg.edit({
             components: [buildTicketControlContainer(ticket).toJSON()],
             flags: MessageFlags.IsComponentsV2
           });
-        } catch (err) {
+        }).catch((err) => {
           console.warn(`Could not update ticket control message: ${err.message}`);
-        }
+        });
       }
 
       // Release the sealed department report to the claimer (with their ping).
       if (ticket.report) {
         const releasedCard = buildReportReleasedCard(ticket.report, interaction.user.id);
-        await interaction.channel.send({
+        interaction.channel.send({
           allowedMentions: { users: [interaction.user.id], parse: [] },
           components: [releasedCard.toJSON()],
           flags: MessageFlags.IsComponentsV2
+        }).then(() => {
+          ticket.report.releasedTo = interaction.user.id;
+          ticket.report.releasedAt = Date.now();
+          saveTickets();
         }).catch(() => null);
-        ticket.report.releasedTo = interaction.user.id;
-        ticket.report.releasedAt = Date.now();
-        saveTickets();
       }
-
-      await interaction.reply({
-        content: `> 🔒 **Claimed** by <@${interaction.user.id}>. They will now be assisting with this inquiry.`
-      });
       return;
     }
 
@@ -15185,41 +15772,41 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId === 'ticket_unclaim') {
       const ticket = getActiveTicket(interaction.channel);
       if (!ticket) {
-        await interaction.reply({ content: 'This channel is not an active ticket in my database.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'This channel is not an active ticket in my database.', flags: MessageFlags.Ephemeral }).catch(() => {});
         return;
       }
       if (!ticket.claimedBy) {
-        await interaction.reply({ content: 'This ticket is not currently claimed.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'This ticket is not currently claimed.', flags: MessageFlags.Ephemeral }).catch(() => {});
         return;
       }
       ticket.claimedBy = null;
-      ticket.aiActive = false;
-      ticket.aiStopped = true;
+      ticket.escalated = false;
+      ticket.aiActive = isCategoryEnabled(ticket.categoryKey);
+      ticket.aiStopped = false;
       saveTickets();
 
-      try {
-        await interaction.channel.setName(`🔴・${ticket.authorUsername}`);
-      } catch (err) {
-        console.warn(`Could not rename ticket channel: ${err.message}`);
-      }
-
-      if (ticket.controlMessageId) {
-        try {
-          const msg = await interaction.channel.messages.fetch(ticket.controlMessageId);
-          await msg.edit({
-            components: [buildTicketControlContainer(ticket).toJSON()],
-            flags: MessageFlags.IsComponentsV2
-          });
-        } catch (err) {
-          console.warn(`Could not update ticket control message: ${err.message}`);
-        }
-      }
-
       const roleId = TICKET_ESCALATION_ROLES[ticket.categoryKey] || TICKET_ESCALATION_ROLES.general;
+      // 1. Reply immediately
       await interaction.reply({
         content: `> 🔓 **Unclaimed** by <@${interaction.user.id}>. Ticket is open for any staff member to claim.\n\n<@&${roleId}>`,
         allowedMentions: { roles: [roleId] }
+      }).catch(() => {});
+
+      // 2. Background updates
+      interaction.channel.setName(formatTicketChannelName('🔴', ticket.authorUsername)).catch((err) => {
+        console.warn(`Could not rename ticket channel: ${err.message}`);
       });
+
+      if (ticket.controlMessageId) {
+        interaction.channel.messages.fetch(ticket.controlMessageId).then((msg) => {
+          return msg.edit({
+            components: [buildTicketControlContainer(ticket).toJSON()],
+            flags: MessageFlags.IsComponentsV2
+          });
+        }).catch((err) => {
+          console.warn(`Could not update ticket control message: ${err.message}`);
+        });
+      }
       return;
     }
 
@@ -17189,9 +17776,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     // ─────────────── Community Suggestion Buttons ───────────────
     if (interaction.isButton() && interaction.customId.startsWith('sug_up_')) {
       const sugId = interaction.customId.replace('sug_up_', '');
-      const sug = activeSuggestions.get(sugId);
+      const sug = getOrRecoverSuggestion(sugId, interaction.message);
       if (!sug) {
-        await interaction.reply({ content: '❌ Suggestion not found or expired.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: '<:wrong:1549993610550714381> Suggestion could not be located.', flags: MessageFlags.Ephemeral });
         return;
       }
       const userId = interaction.user.id;
@@ -17212,18 +17799,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } catch (err) {
         console.warn('Failed to update suggestion message on upvote:', err.message);
       }
-      await interaction.reply({
-        content: upIdx >= 0 ? 'Removed your upvote.' : 'Upvoted this suggestion! <:checkmark:1549230329418485832>',
-        flags: MessageFlags.Ephemeral
-      });
+      const replyContent = upIdx >= 0 ? 'Removed your upvote.' : 'Upvoted this suggestion! <:checkmark:1549993561871618060>';
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: replyContent, flags: MessageFlags.Ephemeral });
+      } else {
+        await interaction.followUp({ content: replyContent, flags: MessageFlags.Ephemeral });
+      }
       return;
     }
 
     if (interaction.isButton() && interaction.customId.startsWith('sug_down_')) {
       const sugId = interaction.customId.replace('sug_down_', '');
-      const sug = activeSuggestions.get(sugId);
+      const sug = getOrRecoverSuggestion(sugId, interaction.message);
       if (!sug) {
-        await interaction.reply({ content: '❌ Suggestion not found or expired.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: '<:wrong:1549993610550714381> Suggestion could not be located.', flags: MessageFlags.Ephemeral });
         return;
       }
       const userId = interaction.user.id;
@@ -17244,26 +17833,28 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } catch (err) {
         console.warn('Failed to update suggestion message on downvote:', err.message);
       }
-      await interaction.reply({
-        content: downIdx >= 0 ? 'Removed your downvote.' : 'Downvoted this suggestion. <:wrong:1549230458070507552>',
-        flags: MessageFlags.Ephemeral
-      });
+      const replyContent = downIdx >= 0 ? 'Removed your downvote.' : 'Downvoted this suggestion. <:wrong:1549993610550714381>';
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({ content: replyContent, flags: MessageFlags.Ephemeral });
+      } else {
+        await interaction.followUp({ content: replyContent, flags: MessageFlags.Ephemeral });
+      }
       return;
     }
 
     if (interaction.isButton() && interaction.customId.startsWith('sug_voters_')) {
       const sugId = interaction.customId.replace('sug_voters_', '');
-      const sug = activeSuggestions.get(sugId);
+      const sug = getOrRecoverSuggestion(sugId, interaction.message);
       if (!sug) {
-        await interaction.reply({ content: '❌ Suggestion not found.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: '<:wrong:1549993610550714381> Suggestion could not be located.', flags: MessageFlags.Ephemeral });
         return;
       }
       const upMentions = sug.upvoters.length > 0
         ? sug.upvoters.slice(0, 40).map((u) => `<@${u}>`).join(', ')
-        : '*No upvotes yet*';
+        : '*No recorded upvoters yet*';
       const downMentions = sug.downvoters.length > 0
         ? sug.downvoters.slice(0, 40).map((u) => `<@${u}>`).join(', ')
-        : '*No downvotes yet*';
+        : '*No recorded downvoters yet*';
 
       const votersCard = new ContainerBuilder();
       votersCard.addTextDisplayComponents(
@@ -17277,10 +17868,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
           `### Downvoters (${sug.downvoters.length})\n${downMentions}`
         )
       );
-      await interaction.reply({
-        components: [votersCard.toJSON()],
-        flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
-      });
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          components: [votersCard.toJSON()],
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
+        });
+      } else {
+        await interaction.followUp({
+          components: [votersCard.toJSON()],
+          flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2
+        });
+      }
       return;
     }
 
@@ -18327,6 +18925,9 @@ async function handleCommandsGuideCommand(interaction, isSlash = true, pageIndex
 }
 
 async function handleRetriggerCommand(interaction, isSlash = true) {
+  const CHECK = '<:checkmark:1549993561871618060>';
+  const WRONG = '<:wrong:1549993610550714381>';
+
   // Permission check: Administrator or Staff
   const member = interaction.member;
   if (member && !member.permissions?.has?.(PermissionFlagsBits.Administrator)) {
@@ -18337,11 +18938,11 @@ async function handleRetriggerCommand(interaction, isSlash = true) {
     if (!isStaff) {
       if (isSlash) {
         await interaction.reply({
-          content: '❌ You must be an Administrator or Staff member to use `/retrigger`.',
+          content: `${WRONG} You must be an Administrator or Staff member to use \`/retrigger\`.`,
           flags: MessageFlags.Ephemeral
         });
       } else {
-        await autoDeleteReply(interaction, '❌ You must be an Administrator or Staff member to use `-retrigger`.', 10000);
+        await autoDeleteReply(interaction, `${WRONG} You must be an Administrator or Staff member to use \`-retrigger\`.`, 10000);
       }
       return;
     }
@@ -18353,6 +18954,7 @@ async function handleRetriggerCommand(interaction, isSlash = true) {
 
   const startTime = Date.now();
   const logs = [];
+  const discordClient = interaction.client;
 
   // 1. Re-register slash commands via Discord REST API
   let commandsSynced = 0;
@@ -18374,9 +18976,9 @@ async function handleRetriggerCommand(interaction, isSlash = true) {
         console.warn(`[Retrigger] Failed registering commands to guild ${gid}: ${gErr.message}`);
       }
     }
-    logs.push(`✅ Re-synced **${commandsSynced}** slash commands across **${targetGuildCount}** guild(s).`);
+    logs.push(`${CHECK} Re-synced **${commandsSynced}** slash commands across **${targetGuildCount}** guild(s).`);
   } catch (cmdErr) {
-    logs.push(`⚠️ Command sync notice: ${cmdErr.message}`);
+    logs.push(`${WRONG} Command sync notice: ${cmdErr.message}`);
   }
 
   // 2. Reload All Datastores from disk
@@ -18392,24 +18994,29 @@ async function handleRetriggerCommand(interaction, isSlash = true) {
     loadAppGateState();
     loadSafeZoneStrikes();
     loadSuggestions();
+    syncSuggestionsFromChannel(discordClient).catch(() => null);
     loadVotes();
     loadPanels();
     loadLoas();
-    logs.push(`✅ Datastores successfully reloaded from disk (Tickets, App Panels, Verify Panels, Panels, Votes, Strikes, Suggestions, LOAs).`);
+    loadApplications();
+    loadDeptApplications();
+    logs.push(`${CHECK} Datastores reloaded from disk (Tickets, Applications, Verification, Information, Panels, LOAs, Strikes).`);
   } catch (dataErr) {
-    logs.push(`⚠️ Datastore reload notice: ${dataErr.message}`);
+    logs.push(`${WRONG} Datastore reload notice: ${dataErr.message}`);
   }
 
-  // 3. Reboot Live Panels & "Last Updated" refresh timers
-  let panelsRebooted = 0;
+  // 3. Reboot Live Session Panels & refresh timers
+  let sessionPanelsRebooted = 0;
   try {
-    // Clear all existing live session intervals
     for (const [key] of liveSessions) {
       stopLive(key);
     }
 
-    const discordClient = interaction.client;
-    // Iterate through all tracked session panels
+    loadPanels();
+    if (!lastPanelByChannel.has('1530147023754367006:1543836515656802504')) {
+      lastPanelByChannel.set('1530147023754367006:1543836515656802504', '1549237045803749430');
+    }
+
     for (const [chanKey, messageId] of [...lastPanelByChannel.entries()]) {
       const parts = chanKey.split(':');
       if (parts.length !== 2) continue;
@@ -18423,14 +19030,13 @@ async function handleRetriggerCommand(interaction, isSlash = true) {
           continue;
         }
 
-        // Fetch fresh server stats immediately
         const fresh = await fetchServerStats();
         fresh.staff = staffRoleCount(guildId) ?? fresh.staff;
+        fresh.updatedAt = Math.floor(Date.now() / 1000);
         const isShutdown = sessionShutdownByChannel.get(chanKey) || false;
         const pingMention = panelPingMentionByChannel.get(chanKey) ?? null;
         const key = liveKey(guildId, channelId, messageId);
 
-        // Edit message immediately so "Last updated" resets to "just now"
         await msg.edit({
           components: [
             buildContainer(fresh, {
@@ -18442,43 +19048,275 @@ async function handleRetriggerCommand(interaction, isSlash = true) {
           flags: MessageFlags.IsComponentsV2
         });
 
-        // Restart live refresh timer
         startLiveRefresh(key, msg, channelId);
-        panelsRebooted++;
+        sessionPanelsRebooted++;
       } catch (panelErr) {
-        console.warn(`[Retrigger] Could not refresh panel ${messageId}: ${panelErr.message}`);
+        console.warn(`[Retrigger] Could not refresh session panel ${messageId}: ${panelErr.message}`);
       }
     }
 
-    // Auto-heal: If lastPanelByChannel had 0, check config.sessionChannelId
-    if (panelsRebooted === 0 && config.sessionChannelId) {
-      try {
-        const ch = await interaction.client.channels.fetch(config.sessionChannelId).catch(() => null);
-        if (ch) {
-          const msgs = await ch.messages.fetch({ limit: 15 }).catch(() => null);
-          if (msgs) {
-            for (const m of msgs.values()) {
-              if (m.author.id === interaction.client.user.id) {
-                const fresh = await fetchServerStats();
-                const key = liveKey(config.guildId, config.sessionChannelId, m.id);
-                startLiveRefresh(key, m, config.sessionChannelId);
-                lastPanelByChannel.set(`${config.guildId}:${config.sessionChannelId}`, m.id);
-                panelsRebooted++;
-                break;
+    const fallbackChannels = [config.sessionChannelId, '1543836515656802504'].filter(Boolean);
+    if (sessionPanelsRebooted === 0) {
+      for (const fcId of fallbackChannels) {
+        try {
+          const ch = await discordClient.channels.fetch(fcId).catch(() => null);
+          if (ch) {
+            const msgs = await ch.messages.fetch({ limit: 15 }).catch(() => null);
+            if (msgs) {
+              for (const m of msgs.values()) {
+                if (m.author.id === discordClient.user?.id) {
+                  const fresh = await fetchServerStats();
+                  fresh.updatedAt = Math.floor(Date.now() / 1000);
+                  const key = liveKey(ch.guildId || config.guildId, fcId, m.id);
+                  await m.edit({
+                    components: [
+                      buildContainer(fresh, {
+                        sessionLive: sessionLivePanels.has(key)
+                      }).toJSON()
+                    ],
+                    flags: MessageFlags.IsComponentsV2
+                  }).catch(() => null);
+                  startLiveRefresh(key, m, fcId);
+                  lastPanelByChannel.set(`${ch.guildId || config.guildId}:${fcId}`, m.id);
+                  sessionPanelsRebooted++;
+                  break;
+                }
               }
             }
           }
-        }
-      } catch { }
+        } catch {}
+      }
     }
 
     savePanels();
-    logs.push(`✅ Live session panels rebooted: **${panelsRebooted}** panel(s) refreshed & active.`);
+    logs.push(`${CHECK} Live Session panels retriggered: **${sessionPanelsRebooted}** panel(s) refreshed & active.`);
   } catch (panelGlobalErr) {
-    logs.push(`⚠️ Live panel reboot notice: ${panelGlobalErr.message}`);
+    logs.push(`${WRONG} Live session panel notice: ${panelGlobalErr.message}`);
   }
 
-  // 4. Reboot ER:LC In-Game Enforcer & Reset Queues
+  // 4. Retrigger Session Information & Rules Panels
+  let infoPanelsRebooted = 0;
+  try {
+    const bannerExists = fs.existsSync(INFORMATION_BANNER_PATH);
+    const files = bannerExists ? [new AttachmentBuilder(INFORMATION_BANNER_PATH, { name: 'information_banner.png' })] : [];
+
+    for (const [chanKey, msgId] of [...lastInfoPanelByChannel.entries()]) {
+      const parts = chanKey.split(':');
+      if (parts.length !== 2) continue;
+      const [guildId, channelId] = parts;
+      try {
+        const ch = await discordClient.channels.fetch(channelId).catch(() => null);
+        if (!ch) continue;
+        const card = buildInformationCard('info_overview', ch.guild, true);
+        const msg = await ch.messages.fetch(msgId).catch(() => null);
+        if (msg) {
+          await msg.edit({
+            components: [card.toJSON()],
+            files,
+            flags: MessageFlags.IsComponentsV2
+          });
+          infoPanelsRebooted++;
+        } else {
+          const recent = await ch.messages.fetch({ limit: 15 }).catch(() => null);
+          if (recent) {
+            const found = recent.find((m) => m.author?.id === discordClient.user?.id && m.flags?.has(MessageFlags.IsComponentsV2));
+            if (found) {
+              await found.edit({
+                components: [card.toJSON()],
+                files,
+                flags: MessageFlags.IsComponentsV2
+              });
+              lastInfoPanelByChannel.set(chanKey, found.id);
+              saveInfoPanels();
+              infoPanelsRebooted++;
+            }
+          }
+        }
+      } catch (infoErr) {
+        console.warn(`[Retrigger] Could not refresh info panel ${msgId}: ${infoErr.message}`);
+      }
+    }
+    saveInfoPanels();
+    logs.push(`${CHECK} Session Information panels retriggered: **${infoPanelsRebooted}** panel(s) refreshed & active.`);
+  } catch (infoErr) {
+    logs.push(`${WRONG} Session Information notice: ${infoErr.message}`);
+  }
+
+  // 5. Retrigger Ticket Panels
+  let ticketPanelsRebooted = 0;
+  try {
+    const bannerExists = fs.existsSync(TICKET_BANNER_PATH);
+    const bannerUrl = bannerExists ? 'attachment://assistance_banner.png' : (TICKET_CONFIG?.bannerUrl || null);
+    const files = bannerExists ? [new AttachmentBuilder(TICKET_BANNER_PATH, { name: 'assistance_banner.png' })] : [];
+
+    for (const [chanKey, msgId] of [...lastTicketPanelByChannel.entries()]) {
+      const parts = chanKey.split(':');
+      if (parts.length !== 2) continue;
+      const [guildId, channelId] = parts;
+      try {
+        const ch = await discordClient.channels.fetch(channelId).catch(() => null);
+        if (!ch) continue;
+        const msg = await ch.messages.fetch(msgId).catch(() => null);
+        if (msg) {
+          await msg.edit({
+            components: [buildTicketPanelContainer(bannerUrl).toJSON()],
+            files,
+            flags: MessageFlags.IsComponentsV2
+          });
+          ticketPanelsRebooted++;
+        } else {
+          const recent = await ch.messages.fetch({ limit: 15 }).catch(() => null);
+          if (recent) {
+            const found = recent.find((m) => m.author?.id === discordClient.user?.id && m.flags?.has(MessageFlags.IsComponentsV2));
+            if (found) {
+              await found.edit({
+                components: [buildTicketPanelContainer(bannerUrl).toJSON()],
+                files,
+                flags: MessageFlags.IsComponentsV2
+              });
+              lastTicketPanelByChannel.set(chanKey, found.id);
+              saveTicketPanels();
+              ticketPanelsRebooted++;
+            }
+          }
+        }
+      } catch (ticketErr) {
+        console.warn(`[Retrigger] Could not refresh ticket panel ${msgId}: ${ticketErr.message}`);
+      }
+    }
+    saveTicketPanels();
+    logs.push(`${CHECK} Ticket panels retriggered: **${ticketPanelsRebooted}** panel(s) refreshed & active.`);
+  } catch (ticketErr) {
+    logs.push(`${WRONG} Ticket panel notice: ${ticketErr.message}`);
+  }
+
+  // 6. Retrigger Staff & Department Application Panels
+  let appPanelsRebooted = 0;
+  try {
+    const bannerExists = fs.existsSync(APP_BANNER_PATH);
+    const bannerUrl = bannerExists ? 'attachment://applications_banner.png' : null;
+    const files = bannerExists ? [new AttachmentBuilder(APP_BANNER_PATH, { name: 'applications_banner.png' })] : [];
+
+    for (const [chanKey, msgId] of [...lastAppPanelByChannel.entries()]) {
+      const parts = chanKey.split(':');
+      if (parts.length !== 2) continue;
+      const [guildId, channelId] = parts;
+      try {
+        const ch = await discordClient.channels.fetch(channelId).catch(() => null);
+        if (!ch) continue;
+        const msg = await ch.messages.fetch(msgId).catch(() => null);
+        if (msg) {
+          await msg.edit({
+            components: [buildStaffApplicationPanelCard(bannerUrl).toJSON()],
+            files,
+            flags: MessageFlags.IsComponentsV2
+          });
+          appPanelsRebooted++;
+        } else {
+          const recent = await ch.messages.fetch({ limit: 15 }).catch(() => null);
+          if (recent) {
+            const found = recent.find((m) => m.author?.id === discordClient.user?.id && m.flags?.has(MessageFlags.IsComponentsV2));
+            if (found) {
+              await found.edit({
+                components: [buildStaffApplicationPanelCard(bannerUrl).toJSON()],
+                files,
+                flags: MessageFlags.IsComponentsV2
+              });
+              lastAppPanelByChannel.set(chanKey, found.id);
+              saveAppPanels();
+              appPanelsRebooted++;
+            }
+          }
+        }
+      } catch (appErr) {
+        console.warn(`[Retrigger] Could not refresh app panel ${msgId}: ${appErr.message}`);
+      }
+    }
+
+    // Also check and refresh Department Applications panel
+    try {
+      const deptChannel = await discordClient.channels.fetch(DEPT_PANEL_CHANNEL_ID).catch(() => null);
+      if (deptChannel) {
+        const recentDeptMsgs = await deptChannel.messages.fetch({ limit: 10 }).catch(() => null);
+        if (recentDeptMsgs) {
+          const deptMsg = recentDeptMsgs.find((m) => m.author?.id === discordClient.user?.id && m.flags?.has(MessageFlags.IsComponentsV2));
+          if (deptMsg) {
+            const deptBannerPath = fileURLToPath(new URL('./assets/dept_app_banner.png', import.meta.url));
+            const deptBannerExists = fs.existsSync(deptBannerPath);
+            const deptFiles = deptBannerExists ? [new AttachmentBuilder(deptBannerPath, { name: 'dept_app_banner.png' })] : [];
+            const deptCard = buildDeptApplicationPanelCard(deptBannerExists ? 'attachment://dept_app_banner.png' : null);
+            await deptMsg.edit({
+              components: [deptCard.toJSON()],
+              files: deptFiles,
+              flags: MessageFlags.IsComponentsV2
+            });
+            appPanelsRebooted++;
+          }
+        }
+      }
+    } catch {}
+
+    saveAppPanels();
+    logs.push(`${CHECK} Application panels retriggered: **${appPanelsRebooted}** panel(s) refreshed & active.`);
+  } catch (appErr) {
+    logs.push(`${WRONG} Application panel notice: ${appErr.message}`);
+  }
+
+  // 7. Retrigger Verification Dashboards
+  let verifyPanelsRebooted = 0;
+  try {
+    const bannerPath = fileURLToPath(new URL('./assets/verification_banner.jpg', import.meta.url));
+    const hasLocalBanner = fs.existsSync(bannerPath);
+    const files = [];
+    let bannerName = null;
+    if (hasLocalBanner) {
+      bannerName = 'alabama_verification.jpg';
+      files.push(new AttachmentBuilder(bannerPath, { name: bannerName }));
+    }
+    const container = buildVerificationContainer(bannerName);
+
+    for (const [chanKey, msgId] of [...lastVerifyPanelByChannel.entries()]) {
+      const parts = chanKey.split(':');
+      if (parts.length !== 2) continue;
+      const [guildId, channelId] = parts;
+      try {
+        const ch = await discordClient.channels.fetch(channelId).catch(() => null);
+        if (!ch) continue;
+        const msg = await ch.messages.fetch(msgId).catch(() => null);
+        if (msg) {
+          await msg.edit({
+            components: [container.toJSON()],
+            files,
+            flags: MessageFlags.IsComponentsV2
+          });
+          verifyPanelsRebooted++;
+        } else {
+          const recent = await ch.messages.fetch({ limit: 15 }).catch(() => null);
+          if (recent) {
+            const found = recent.find((m) => m.author?.id === discordClient.user?.id && m.flags?.has(MessageFlags.IsComponentsV2));
+            if (found) {
+              await found.edit({
+                components: [container.toJSON()],
+                files,
+                flags: MessageFlags.IsComponentsV2
+              });
+              lastVerifyPanelByChannel.set(chanKey, found.id);
+              saveVerifyPanels();
+              verifyPanelsRebooted++;
+            }
+          }
+        }
+      } catch (verifyErr) {
+        console.warn(`[Retrigger] Could not refresh verify panel ${msgId}: ${verifyErr.message}`);
+      }
+    }
+    saveVerifyPanels();
+    logs.push(`${CHECK} Verification panels retriggered: **${verifyPanelsRebooted}** panel(s) refreshed & active.`);
+  } catch (verifyErr) {
+    logs.push(`${WRONG} Verification panel notice: ${verifyErr.message}`);
+  }
+
+  // 8. Reboot ER:LC In-Game Enforcer & Reset Queues
   try {
     erlcCommandQueue.length = 0; // Clear any stalled queue items
     isProcessingErlcQueue = false; // Release lock if stuck
@@ -18487,14 +19325,14 @@ async function handleRetriggerCommand(interaction, isSlash = true) {
     rejoinedVcCooldown.clear();
     rejoinedBaconOutfitWarned.clear();
     cachedPublicIp = null;
-    startErlcEnforcerLoop(interaction.client);
-    logs.push(`✅ ER:LC enforcer loop, safe zone kill watcher, rejoin cooldowns & command queues rebooted cleanly.`);
+    startErlcEnforcerLoop(discordClient);
+    logs.push(`${CHECK} ER:LC enforcer loop, safe zone kill watcher & command queues rebooted cleanly.`);
   } catch (erlcErr) {
-    logs.push(`⚠️ Enforcer loop notice: ${erlcErr.message}`);
+    logs.push(`${WRONG} Enforcer loop notice: ${erlcErr.message}`);
   }
 
-  // 5. Check System Health & Latency
-  const wsPing = interaction.client.ws.ping;
+  // 9. Check System Health & Latency
+  const wsPing = discordClient.ws.ping;
   let erlcApiStatus = 'Unconfigured';
   try {
     if (config.apiKey) {
@@ -18507,10 +19345,10 @@ async function handleRetriggerCommand(interaction, isSlash = true) {
 
   const elapsedMs = Date.now() - startTime;
 
-  // Build Results Card
-  const resultCard = new ContainerBuilder();
+  // Build Results Card (clean, no emojis except check and x mark)
+  const resultCard = new ContainerBuilder().setAccentColor(0x5865f2);
   resultCard.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('## ⚡ System Retrigger & Emergency Reboot Completed')
+    new TextDisplayBuilder().setContent('## System Retrigger & Emergency Reboot Completed')
   );
   resultCard.addSeparatorComponents(thinLine());
 
@@ -18522,7 +19360,7 @@ async function handleRetriggerCommand(interaction, isSlash = true) {
       `> • **ER:LC Server API:** \`${erlcApiStatus}\`\n` +
       `> • **Active Tickets:** \`${activeTickets.size}\`\n` +
       `> • **Execution Duration:** \`${elapsedMs}ms\`\n` +
-      `> • **Buttons & Collectors:** Active and listening`
+      `> • **Interactive Components:** Active and listening`
     )
   );
 
@@ -19291,6 +20129,72 @@ function buildAiContext(message) {
     // Close the ACTIVE ticket in this channel: transcript archive + delete.
     closeTicket: (channel, ticket, byTag, byId) =>
       closeTicketChannel(client, channel, ticket, byTag, byId, 6000),
+    // Escalate the ACTIVE ticket in this channel to a specified or department role.
+    escalateTicket: async (channel, ticket, roleTarget, reason, byUser) => {
+      let roleId = TICKET_ESCALATION_ROLES.general;
+      const r = String(roleTarget || '').toLowerCase();
+      if (r.includes('shr') || r.includes('high') || r.includes('senior')) {
+        roleId = TICKET_ESCALATION_ROLES.highrank;
+      } else if (r.includes('ia') || r.includes('internal')) {
+        roleId = TICKET_ESCALATION_ROLES.ia;
+      } else if (r.includes('dept') || r.includes('department')) {
+        roleId = TICKET_ESCALATION_ROLES.deptreport;
+      } else if (/\d{17,20}/.test(r)) {
+        roleId = r.match(/\d{17,20}/)[0];
+      } else if (ticket.categoryKey && TICKET_ESCALATION_ROLES[ticket.categoryKey]) {
+        roleId = TICKET_ESCALATION_ROLES[ticket.categoryKey];
+      }
+
+      ticket.claimedBy = null;
+      ticket.escalated = true;
+      ticket.aiActive = false;
+      ticket.aiStopped = true;
+      saveTickets();
+
+      try {
+        await channel.setName(formatTicketChannelName('🟠', ticket.authorUsername)).catch(() => null);
+      } catch {}
+
+      if (ticket.controlMessageId) {
+        try {
+          const ctrl = await channel.messages.fetch(ticket.controlMessageId).catch(() => null);
+          if (ctrl) {
+            await ctrl.edit({
+              components: [buildTicketControlContainer(ticket).toJSON()],
+              flags: MessageFlags.IsComponentsV2
+            }).catch(() => null);
+          }
+        } catch {}
+      }
+
+      const escCard = new ContainerBuilder().setAccentColor(0xed4245);
+      escCard.addTextDisplayComponents(new TextDisplayBuilder().setContent(`||<@&${roleId}>||`));
+      escCard.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 🚨 Ticket Escalated for Review'));
+      escCard.addSeparatorComponents(thinLine());
+      const notes = reason ? `\n• **Reason / Notes:** ${reason}` : '';
+      escCard.addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `> Ticket has been escalated by <@${byUser.id}> for attention from <@&${roleId}>.\n` +
+          `• **Category:** ${ticket.categoryName || ticket.categoryKey || 'General'}\n` +
+          `• **Opened by:** <@${ticket.authorId}>${notes}\n\n` +
+          `A member of <@&${roleId}> will review this ticket shortly.`
+        )
+      );
+      escCard.addSeparatorComponents(thinLine());
+
+      await channel.send({
+        components: [escCard.toJSON()],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { roles: [roleId] }
+      }).catch(async () => {
+        await channel.send({
+          content: `🚨 **Attention** <@&${roleId}>\n> Ticket has been escalated by <@${byUser.id}> for review.${notes}`,
+          allowedMentions: { roles: [roleId] }
+        }).catch(() => null);
+      });
+
+      return { roleId };
+    },
     // Datastores the AI is allowed to flip.
     ticketDeskState,
     saveTicketDeskState,

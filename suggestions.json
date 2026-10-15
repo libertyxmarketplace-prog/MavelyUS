@@ -61,5 +61,19 @@
     ],
     "downvoters": [],
     "createdAt": 1789444382277
+  },
+  {
+    "id": "6",
+    "guildId": "1232495211490443284",
+    "channelId": "1343769737439608853",
+    "messageId": "1559308756763025470",
+    "authorId": "885315812011958313",
+    "authorAvatar": null,
+    "text": "Testing **Submitted by:** <@885315812011958313>",
+    "upvoters": [],
+    "downvoters": [
+      "523693281541095424"
+    ],
+    "createdAt": 1791838578168
   }
 ]

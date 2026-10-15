@@ -34,6 +34,72 @@ if (ffmpegPath) {
 }
 
 /**
+ * Strips all local filesystem paths, Windows usernames, drive letters, and process command dumps
+ * to prevent any internal system information from leaking into Discord channels.
+ */
+export function sanitizePublicMessage(input) {
+  if (!input) return '';
+  let str = String(input);
+
+  // 1. Redact Windows drive paths (e.g. C:\Users\..., D:/..., etc.)
+  str = str.replace(/[A-Za-z]:[\\/][^\s'"`<>]+/gi, '[system-path]');
+
+  // 2. Redact Unix/Linux paths (e.g. /home/..., /root/..., /app/...)
+  str = str.replace(/\/(?:home|root|app|var|usr|etc)[\\/][^\s'"`<>]+/gi, '[system-path]');
+
+  // 3. Redact node_modules or binary paths
+  str = str.replace(/node_modules[\\/][^\s'"`<>]+/gi, '[internal-module]');
+  str = str.replace(/yt-dlp(?:\.exe)?[^\s'"`<>]*/gi, 'yt-dlp');
+  str = str.replace(/ffmpeg(?:\.exe)?[^\s'"`<>]*/gi, 'ffmpeg');
+
+  // 4. Redact any local usernames or sensitive keywords
+  str = str.replace(/\bsulma\b/gi, 'user');
+  str = str.replace(/\bsulmanelmiyo\b/gi, 'user');
+
+  // 5. Redact CLI failure prefix dumps: "Command failed with exit code X: ..."
+  str = str.replace(/Command failed with exit code \d+:[^\n]+/gi, 'Process execution failed');
+
+  // 6. Clean up command line flag dumps: --dump-single-json --no-warnings ...
+  str = str.replace(/--[a-z0-9-]+(?:\s+[^\s]+)?/gi, '');
+
+  return str.trim();
+}
+
+/**
+ * Returns a clean, user-friendly error message for music streaming failures,
+ * completely hiding all internal paths, stack traces, and CLI arguments.
+ */
+export function cleanMusicError(err) {
+  if (!err) return 'Audio source error';
+  const raw = String(err.stderr || err.message || err);
+
+  if (/This video is not available|unavailable/i.test(raw)) {
+    return 'This video is unavailable or region-restricted';
+  }
+  if (/Private video/i.test(raw)) {
+    return 'This video is private';
+  }
+  if (/confirm your age|age-restricted/i.test(raw)) {
+    return 'This video is age-restricted and requires verification';
+  }
+  if (/copyright/i.test(raw)) {
+    return 'Blocked due to copyright restrictions';
+  }
+  if (/ETIMEDOUT|ECONNRESET|socket hang up|network/i.test(raw)) {
+    return 'Network connection timeout';
+  }
+  if (/format.*not available|requested format not available/i.test(raw)) {
+    return 'Requested audio format is not available';
+  }
+  if (/All available sources for this track are unavailable/i.test(raw)) {
+    return 'All sources for this track are unavailable or region-restricted';
+  }
+
+  // Generic fallback without any internal leak
+  return 'Could not retrieve playable audio stream';
+}
+
+/**
  * Format seconds into mm:ss or hh:mm:ss
  */
 export function formatDuration(seconds) {
@@ -87,6 +153,7 @@ export class GuildMusicManager {
     this.client = client;
     this.queue = [];
     this.currentTrack = null;
+    this.previousTrack = null;
     this.player = createAudioPlayer();
     this.connection = null;
     this.textChannelId = null;
@@ -152,10 +219,10 @@ export class GuildMusicManager {
     });
 
     this.player.on('error', (error) => {
-      console.error(`[Music] Player error in guild ${this.guildId}:`, error.message);
+      console.error(`[Music] Player error in guild ${this.guildId}:`, cleanMusicError(error));
       this.clearProgressInterval();
       this._cleanupCurrentProcess();
-      this.notifyTextChannel(`⚠️ Audio stream glitch: ${error.message}. Skipping to next track...`);
+      this.notifyTextChannel(`⚠️ Audio stream glitch (${cleanMusicError(error)}). Skipping to next track...`);
       this.handleSongFinish();
     });
   }
@@ -260,6 +327,111 @@ export class GuildMusicManager {
     }
   }
 
+  async _streamTrack(track) {
+    this._clearIdleTimer();
+    this.currentTrack = track;
+    this.previousTrack = track;
+    this.playbackStartTs = 0;
+    this.pausedTs = 0;
+    this.totalPausedDuration = 0;
+
+    let audioUrl = null;
+
+    // 1. Try primary track URL
+    try {
+      const directStreamInfo = await ytdlp(track.url, {
+        dumpSingleJson: true,
+        noWarnings: true,
+        preferFreeFormats: true,
+        noPlaylist: true,
+        format: 'bestaudio/best'
+      });
+      audioUrl = directStreamInfo?.url;
+    } catch (primaryErr) {
+      console.warn(`[Music] Primary URL failed for "${track.title}":`, cleanMusicError(primaryErr));
+    }
+
+    // 2. If primary failed (e.g. video unavailable, region blocked), auto-fallback search
+    if (!audioUrl) {
+      console.log(`[Music] Attempting fallback stream search for "${track.title}"...`);
+      try {
+        const searchQuery = `ytsearch5:${track.artist && track.artist !== 'Unknown Artist' ? `${track.artist} - ` : ''}${track.title} audio`;
+        const searchRes = await ytdlp(searchQuery, {
+          dumpSingleJson: true,
+          noWarnings: true,
+          noPlaylist: true,
+          flatPlaylist: true
+        });
+
+        const candidates = searchRes?.entries || [];
+        for (const cand of candidates) {
+          if (!cand?.id) continue;
+          const candUrl = `https://www.youtube.com/watch?v=${cand.id}`;
+          if (candUrl === track.url) continue;
+          try {
+            const candInfo = await ytdlp(candUrl, {
+              dumpSingleJson: true,
+              noWarnings: true,
+              preferFreeFormats: true,
+              noPlaylist: true,
+              format: 'bestaudio/best'
+            });
+            if (candInfo?.url) {
+              audioUrl = candInfo.url;
+              track.url = candUrl;
+              if (cand.title) track.title = cand.title;
+              console.log(`[Music] Fallback search succeeded with alternative: ${candUrl}`);
+              break;
+            }
+          } catch {}
+        }
+      } catch (searchErr) {
+        console.warn('[Music] Fallback search failed:', cleanMusicError(searchErr));
+      }
+    }
+
+    if (!audioUrl) {
+      throw new Error('All available sources for this track are unavailable or region-restricted.');
+    }
+
+    this._cleanupCurrentProcess();
+
+    // Launch FFmpeg to transcode to raw PCM
+    const ffmpeg = spawn(ffmpegPath, [
+      '-reconnect', '1',
+      '-reconnect_streamed', '1',
+      '-reconnect_delay_max', '5',
+      '-i', audioUrl,
+      '-analyzeduration', '0',
+      '-loglevel', '0',
+      '-f', 's16le',
+      '-ar', '48000',
+      '-ac', '2',
+      'pipe:1'
+    ]);
+
+    this.currentFfmpeg = ffmpeg;
+
+    ffmpeg.on('error', (err) => {
+      console.error('[Music] FFmpeg process error:', cleanMusicError(err));
+    });
+
+    const resource = createAudioResource(ffmpeg.stdout, {
+      inputType: StreamType.Raw,
+      inlineVolume: true
+    });
+
+    if (resource.volume) {
+      resource.volume.setVolumeLogarithmic(this.volume / 100);
+    }
+
+    this.currentResource = resource;
+    this.player.play(resource);
+
+    // Post or update Now Playing Card
+    await this.sendNowPlayingCard();
+  }
+
   async playNext() {
     this.clearProgressInterval();
     if (this.queue.length === 0) {
@@ -268,66 +440,12 @@ export class GuildMusicManager {
       return;
     }
 
-    this._clearIdleTimer();
     const track = this.queue.shift();
-    this.currentTrack = track;
-    this.playbackStartTs = 0;
-    this.pausedTs = 0;
-    this.totalPausedDuration = 0;
-
     try {
-      // Extract direct audio URL via yt-dlp with no-playlist
-      const directStreamInfo = await ytdlp(track.url, {
-        dumpSingleJson: true,
-        noWarnings: true,
-        noCallHome: true,
-        preferFreeFormats: true,
-        youtubeSkipDashManifest: true,
-        noPlaylist: true,
-        format: 'bestaudio/best'
-      });
-
-      const audioUrl = directStreamInfo?.url || track.url;
-
-      this._cleanupCurrentProcess();
-
-      // Launch FFmpeg to transcode to raw PCM
-      const ffmpeg = spawn(ffmpegPath, [
-        '-reconnect', '1',
-        '-reconnect_streamed', '1',
-        '-reconnect_delay_max', '5',
-        '-i', audioUrl,
-        '-analyzeduration', '0',
-        '-loglevel', '0',
-        '-f', 's16le',
-        '-ar', '48000',
-        '-ac', '2',
-        'pipe:1'
-      ]);
-
-      this.currentFfmpeg = ffmpeg;
-
-      ffmpeg.on('error', (err) => {
-        console.error('[Music] FFmpeg process error:', err.message);
-      });
-
-      const resource = createAudioResource(ffmpeg.stdout, {
-        inputType: StreamType.Raw,
-        inlineVolume: true
-      });
-
-      if (resource.volume) {
-        resource.volume.setVolumeLogarithmic(this.volume / 100);
-      }
-
-      this.currentResource = resource;
-      this.player.play(resource);
-
-      // Post Now Playing Card
-      await this.sendNowPlayingCard();
+      await this._streamTrack(track);
     } catch (err) {
-      console.error(`[Music] Error playing track "${track.title}":`, err.message);
-      this.notifyTextChannel(`❌ Could not stream **${track.title}**: ${err.message}. Moving to next track...`);
+      console.error(`[Music] Error playing track "${track.title}":`, cleanMusicError(err));
+      this.notifyTextChannel(`❌ Could not stream **${track.title}**: ${cleanMusicError(err)}. Moving to next track...`);
       this.playNext();
     }
   }
@@ -335,6 +453,7 @@ export class GuildMusicManager {
   handleSongFinish() {
     this.clearProgressInterval();
     if (this.currentTrack) {
+      this.previousTrack = this.currentTrack;
       if (this.loopMode === 'song') {
         // Re-enqueue at the beginning of the queue
         this.queue.unshift(this.currentTrack);
@@ -350,11 +469,25 @@ export class GuildMusicManager {
   }
 
   async replay() {
-    if (!this.currentTrack) return false;
+    const track = this.currentTrack || this.previousTrack;
+    if (!track) return false;
+
     this.clearProgressInterval();
-    this.queue.unshift(this.currentTrack);
-    this.player.stop();
-    return true;
+    this._cleanupCurrentProcess();
+    this.currentTrack = track;
+    this.previousTrack = track;
+    this.playbackStartTs = 0;
+    this.pausedTs = 0;
+    this.totalPausedDuration = 0;
+
+    try {
+      await this._streamTrack(track);
+      return true;
+    } catch (err) {
+      console.error(`[Music] Replay error for "${track.title}":`, cleanMusicError(err));
+      this.notifyTextChannel(`❌ Could not replay **${track.title}**: ${cleanMusicError(err)}.`);
+      return false;
+    }
   }
 
   skip() {
@@ -435,10 +568,11 @@ export class GuildMusicManager {
 
   async notifyTextChannel(content) {
     if (!this.textChannelId) return;
+    const sanitized = sanitizePublicMessage(content);
     try {
       const ch = await this.client.channels.fetch(this.textChannelId).catch(() => null);
       if (ch && ch.isTextBased()) {
-        const msg = await ch.send({ content }).catch(() => null);
+        const msg = await ch.send({ content: sanitized }).catch(() => null);
         if (msg) {
           setTimeout(() => msg.delete().catch(() => null), 15000);
         }
@@ -553,6 +687,16 @@ export class GuildMusicManager {
       if (!ch || !ch.isTextBased()) return;
 
       const payload = this.buildNowPlayingComponents();
+      if (this.nowPlayingMessage) {
+        try {
+          await this.nowPlayingMessage.edit(payload);
+          if (this.player.state.status === AudioPlayerStatus.Playing) {
+            this.startProgressInterval();
+          }
+          return;
+        } catch {}
+      }
+
       const sent = await ch.send(payload).catch(() => null);
       this.nowPlayingMessage = sent;
 
@@ -850,13 +994,13 @@ export async function handleReplayCommand(interactionOrMessage) {
   const guild = interactionOrMessage.guild;
   const manager = musicManagers.get(guild?.id);
 
-  if (!manager || !manager.currentTrack) {
-    const msg = '❌ There is no active song playing to replay.';
+  const track = manager?.currentTrack || manager?.previousTrack;
+  if (!manager || !track) {
+    const msg = '❌ There is no active or recently played song to replay.';
     if (isSlash) return interactionOrMessage.reply({ content: msg, flags: MessageFlags.Ephemeral });
     return interactionOrMessage.reply(msg);
   }
 
-  const track = manager.currentTrack;
   await manager.replay();
 
   const card = new ContainerBuilder().setAccentColor(0x5865f2);
@@ -1068,7 +1212,11 @@ export async function handleMusicButtonInteraction(interaction) {
   } else if (action === 'loop') {
     manager.cycleLoopMode();
   } else if (action === 'replay') {
-    await manager.replay();
+    const ok = await manager.replay();
+    if (!ok) {
+      await interaction.reply({ content: '❌ No active or recently played track to replay.', flags: MessageFlags.Ephemeral }).catch(() => null);
+      return true;
+    }
   } else if (action === 'stop') {
     manager.stop();
     await interaction.update({

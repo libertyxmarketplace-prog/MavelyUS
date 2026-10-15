@@ -3,7 +3,7 @@
   "meta": {
     "name": "Alabama State Roleplay Ticket Knowledge Base",
     "note": "Editable knowledge base. approved:true entries are served with zero API cost. Staff can add/edit/remove entries via /kb without editing bot source.",
-    "updatedAt": 1791939236
+    "updatedAt": 1791961202
   },
   "faqs": [
     {
@@ -843,6 +843,340 @@
       "suppliedBy": "1100907704807063724",
       "createdAt": 1791929962,
       "updatedAt": 1791930176
+    },
+    {
+      "id": "ln_mv7hv9gn_e8bg",
+      "question": "I might need to retire.",
+      "answer": "You know you can take a LOA for now.",
+      "category": "ia",
+      "keywords": [
+        "retire."
+      ],
+      "approved": true,
+      "origin": "staff",
+      "sourceTicketId": "1559754923288174612",
+      "suppliedBy": "523693281541095424",
+      "createdAt": 1791945137,
+      "updatedAt": 1791952281
+    },
+    {
+      "id": "ln_mv7ied8x_jbkq",
+      "question": "hello ladies and gents.",
+      "answer": "Hello! How can I assist you today regarding your Internal Affairs inquiry?",
+      "category": "ia",
+      "keywords": [
+        "hello",
+        "ladies",
+        "gents."
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559759373553893447",
+      "suppliedBy": null,
+      "createdAt": 1791946029,
+      "updatedAt": 1791946029
+    },
+    {
+      "id": "ln_mv7iep9b_3z3e",
+      "question": "i would like to make sure that the report i filed against the IA austin is being handled",
+      "answer": "Please provide the details of your report against Austin, including what happened, when it occurred, and any evidence you may have (screenshots, clips). This will help ensure that your report is properly reviewed. Rest assured, your report will be kept confidential, and an authorized staff member will take it from here.",
+      "category": "ia",
+      "keywords": [
+        "like",
+        "make",
+        "sure",
+        "report",
+        "filed",
+        "against",
+        "internal",
+        "affairs",
+        "austin",
+        "handled"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559759373553893447",
+      "suppliedBy": null,
+      "createdAt": 1791946044,
+      "updatedAt": 1791946044
+    },
+    {
+      "id": "ln_mv7ife4b_dfjk",
+      "question": "report follow up",
+      "answer": "You are causing more drama by a few words Austin said.",
+      "category": "ia",
+      "keywords": [
+        "report",
+        "follow",
+        "up"
+      ],
+      "approved": true,
+      "origin": "staff",
+      "sourceTicketId": "1559759373553893447",
+      "suppliedBy": "801196543100190740",
+      "createdAt": 1791946076,
+      "updatedAt": 1791946545
+    },
+    {
+      "id": "ln_mv7ixos5_c0f0",
+      "question": "I want to make it clear that I am not trolling. What was said genuinely brought back flashbacks related to a serious child abuse case, and it hurt my feelings that you accused me of trolling instead of taking my concerns seriously.\n\nI am not making this up or trying to cause problems. This situation genuinely affected me, and being dismissed like that made me feel even worse.\n\nI am asking for this situation to be taken seriously and for appropriate action to be taken regarding what was said. I don't think it's fair to dismiss someone's feelings as trolling without understanding what they are going through.\n\nIf you would like to take my statement into consideration, I would appreciate the opportunity to explain my concerns and have them heard fairly. I would also like this matter handled re",
+      "answer": "I acknowledge your concerns and understand the seriousness of the situation. Please provide any specific details or screenshots related to the incident, and I will ensure that your statement is forwarded to the appropriate staff members for review. Your feelings are important, and we want to address this matter respectfully and privately. Thank you for bringing this to our attention.",
+      "category": "general",
+      "keywords": [
+        "make",
+        "clear",
+        "not",
+        "trolling.",
+        "said",
+        "genuinely",
+        "brought",
+        "back",
+        "flashbacks",
+        "related",
+        "serious",
+        "child"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559763052063100959",
+      "suppliedBy": null,
+      "createdAt": 1791946930,
+      "updatedAt": 1791946930
+    },
+    {
+      "id": "ln_mv7iy3sm_5mbe",
+      "question": "one thing please",
+      "answer": "Please provide the details of your inquiry or concern regarding Internal Affairs, and I will assist you accordingly.",
+      "category": "ia",
+      "keywords": [
+        "one",
+        "thing"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559763276999557190",
+      "suppliedBy": null,
+      "createdAt": 1791946950,
+      "updatedAt": 1791946950
+    },
+    {
+      "id": "ln_mv7iy5l1_bmb7",
+      "question": "I want to make it clear that I am not trolling. What was said genuinely brought back flashbacks related to a serious child abuse case, and it hurt my feelings that you accused me of trolling instead of taking my concerns seriously.\n\nI am not making this up or trying to cause problems. This situation genuinely affected me, and being dismissed like that made me feel even worse.\n\nI am asking for this situation to be taken seriously and for appropriate action to be taken regarding what was said. I don't think it's fair to dismiss someone's feelings as trolling without understanding what they are going through.\n\nIf you would like to take my statement into consideration, I would appreciate the opportunity to explain my concerns and have them heard fairly. I would also like this matter handled re",
+      "answer": "Thank you for sharing your concerns. I will ensure that your statement is documented and escalated to the appropriate staff members for review. \n\nPlease allow some time for them to address this matter. If you have any additional evidence or details to provide, feel free to share them here. Your request for privacy and respectful handling of this situation will be noted. \n\nI appreciate your patience.",
+      "category": "ia",
+      "keywords": [
+        "make",
+        "clear",
+        "not",
+        "trolling.",
+        "said",
+        "genuinely",
+        "brought",
+        "back",
+        "flashbacks",
+        "related",
+        "serious",
+        "child"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559763276999557190",
+      "suppliedBy": null,
+      "createdAt": 1791946952,
+      "updatedAt": 1791946952
+    },
+    {
+      "id": "ln_mv7iywqc_64v6",
+      "question": "Restored ticket session",
+      "answer": "What exactly happened?",
+      "category": "ia",
+      "keywords": [
+        "restored",
+        "ticket",
+        "session"
+      ],
+      "approved": true,
+      "origin": "staff",
+      "sourceTicketId": "1559763276999557190",
+      "suppliedBy": "1087319194976129104",
+      "createdAt": 1791946987,
+      "updatedAt": 1791946987
+    },
+    {
+      "id": "ln_mv7izkhi_j0gx",
+      "question": "Opening ticket reason: want to talk to the da",
+      "answer": "I have stepped aside and notified our staff team to assist you directly.",
+      "category": "general",
+      "keywords": [
+        "opening",
+        "ticket",
+        "reason",
+        "talk",
+        "da"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559763542008406137",
+      "suppliedBy": null,
+      "createdAt": 1791947018,
+      "updatedAt": 1791947018
+    },
+    {
+      "id": "ln_mv7izn00_w6e1",
+      "question": "want to talk to the da",
+      "answer": "No problem.",
+      "category": "general",
+      "keywords": [
+        "talk",
+        "da"
+      ],
+      "approved": true,
+      "origin": "staff",
+      "sourceTicketId": "1559763542008406137",
+      "suppliedBy": "1087319194976129104",
+      "createdAt": 1791947021,
+      "updatedAt": 1791947884
+    },
+    {
+      "id": "ln_mv7jzx3z_waox",
+      "question": "This is a test please close right after I say",
+      "answer": "<@1402908543488626729> how are you",
+      "category": "general",
+      "keywords": [
+        "test",
+        "close",
+        "right",
+        "after",
+        "say"
+      ],
+      "approved": true,
+      "origin": "ai",
+      "sourceTicketId": "1559770671645462619",
+      "suppliedBy": null,
+      "createdAt": 1791948714,
+      "updatedAt": 1791956445
+    },
+    {
+      "id": "ln_mv7k0190_2pcg",
+      "question": "Yo",
+      "answer": "Hello! How can I assist you today? If you have any questions or need support, feel free to ask!",
+      "category": "general",
+      "keywords": [
+        "yo"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559770671645462619",
+      "suppliedBy": null,
+      "createdAt": 1791948719,
+      "updatedAt": 1791948719
+    },
+    {
+      "id": "ln_mv7k09s4_t2k4",
+      "question": "What’s whitelisted",
+      "answer": "Whitelisted refers to a system where only approved users have access to certain features, areas, or resources within the server or game. In our community, being whitelisted typically means you have been granted permission to join specific departments or use certain tools, like the CAD system. This access is usually obtained through an application and acceptance process. If you have more specific questions about whitelisting, feel free to ask!",
+      "category": "general",
+      "keywords": [
+        "whitelisted"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559770671645462619",
+      "suppliedBy": null,
+      "createdAt": 1791948730,
+      "updatedAt": 1791948730
+    },
+    {
+      "id": "ln_mv7kax68_sbmt",
+      "question": "hello",
+      "answer": "Hello! How can I assist you today? If you have any questions or need support, feel free to let me know!",
+      "category": "general",
+      "keywords": [
+        "hello"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559770671645462619",
+      "suppliedBy": null,
+      "createdAt": 1791949227,
+      "updatedAt": 1791949227
+    },
+    {
+      "id": "ln_mv7ologw_xg8v",
+      "question": "how are you",
+      "answer": "I'm here to assist you! If you have any questions or need support, feel free to ask.",
+      "category": "general",
+      "keywords": [],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559770671645462619",
+      "suppliedBy": null,
+      "createdAt": 1791956448,
+      "updatedAt": 1791956448
+    },
+    {
+      "id": "ln_mv7qcr8y_fyni",
+      "question": "Retirement",
+      "answer": "<@1235121963295313941> anything else?",
+      "category": "highrank",
+      "keywords": [
+        "retirement"
+      ],
+      "approved": true,
+      "origin": "staff",
+      "sourceTicketId": "1559814646502789170",
+      "suppliedBy": "1489935520753782974",
+      "createdAt": 1791959390,
+      "updatedAt": 1791959390
+    },
+    {
+      "id": "ln_mv7rezgm_5vjo",
+      "question": "oh where can i find it",
+      "answer": "You can find the **High Rank Support** ticket channel by navigating to the server's channel list. If you need further assistance, please let me know!",
+      "category": "general",
+      "keywords": [
+        "oh",
+        "find"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559822780764135456",
+      "suppliedBy": null,
+      "createdAt": 1791961174,
+      "updatedAt": 1791961174
+    },
+    {
+      "id": "ln_mv7rf72g_9biq",
+      "question": "open me one",
+      "answer": "You can use the quick-action button attached below to open a ticket in the appropriate category. If you need further assistance, feel free to ask!",
+      "category": "general",
+      "keywords": [
+        "open",
+        "one"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559822780764135456",
+      "suppliedBy": null,
+      "createdAt": 1791961184,
+      "updatedAt": 1791961184
+    },
+    {
+      "id": "ln_mv7rfl1f_402d",
+      "question": "close ma ticket",
+      "answer": "I am happy to help! Closing your ticket now.",
+      "category": "general",
+      "keywords": [
+        "close",
+        "ma",
+        "ticket"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1559822780764135456",
+      "suppliedBy": null,
+      "createdAt": 1791961202,
+      "updatedAt": 1791961202
     }
   ],
   "pending": [],

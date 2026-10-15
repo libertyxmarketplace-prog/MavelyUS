@@ -8,17 +8,19 @@ const __dirname = dirname(__filename);
 console.log('[supervisor] Alabama Bot Supervisor active. 24/7 auto-restart is armed.');
 
 let isStopping = false;
+let currentChild = null;
 
 function launch() {
   if (isStopping) return;
 
-  const child = spawn(process.execPath, [join(__dirname, 'src', 'index.js')], {
+  currentChild = spawn(process.execPath, [join(__dirname, 'src', 'index.js')], {
     stdio: 'inherit',
     env: process.env,
     cwd: __dirname
   });
 
-  child.on('exit', (code, signal) => {
+  currentChild.on('exit', (code, signal) => {
+    currentChild = null;
     if (isStopping) {
       console.log('[supervisor] Bot stopped gracefully.');
       return;
@@ -27,21 +29,32 @@ function launch() {
     setTimeout(launch, 1500);
   });
 
-  child.on('error', (err) => {
+  currentChild.on('error', (err) => {
+    currentChild = null;
     if (isStopping) return;
     console.error('[supervisor] Spawn error:', err.message);
     setTimeout(launch, 3000);
   });
 }
 
-process.on('SIGINT', () => {
+function stopSupervisor(signal) {
   isStopping = true;
+  if (currentChild) {
+    try {
+      currentChild.kill(signal);
+    } catch {}
+  }
   process.exit(0);
-});
+}
 
-process.on('SIGTERM', () => {
-  isStopping = true;
-  process.exit(0);
+process.on('SIGINT', () => stopSupervisor('SIGINT'));
+process.on('SIGTERM', () => stopSupervisor('SIGTERM'));
+
+process.on('uncaughtException', (err) => {
+  console.error('[supervisor] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[supervisor] Unhandled Rejection:', reason);
 });
 
 launch();

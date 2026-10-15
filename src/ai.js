@@ -207,6 +207,12 @@ export const ACTION_SCHEMA = [
     desc: 'Close the open ticket IN THIS CHANNEL: archive the transcript, then delete the channel. Use whenever someone says to close "this", "the" or one named single ticket (e.g. "close the general ticket"). NOT for departments or panels.'
   },
   { action: 'ticket_info', risk: 'directive', args: {}, desc: 'Show the details of the open ticket in this channel: category, author, claim, age and reason.' },
+  {
+    action: 'ticket_escalate',
+    risk: 'directive',
+    args: { target_role: 'string or null', reason: 'string or null' },
+    desc: 'Escalate the open ticket in this channel to Senior High Rank / High Rank, Internal Affairs, Department Support, or staff leadership for review.'
+  },
   // ── Channel tools (staff) ───────────────────────────────────────────────────
   { action: 'slowmode', risk: 'directive', args: { seconds: 'int 0-21600' }, desc: 'Set slowmode on this channel (0 turns it off).' },
   { action: 'pin_message', risk: 'directive', args: {}, desc: "Pin the message being replied to, or otherwise the latest message in this channel." },
@@ -1086,6 +1092,27 @@ export function parseLocally(request) {
     return { action: 'ticket_info', args: {}, reply: 'Reading the open ticket.' };
   }
 
+  // ── Ticket escalate ─────────────────────────────────────────────────────────
+  if (
+    /\bescalat(e|ing|ion)\b/i.test(t) &&
+    (/\btickets?\b/i.test(t) || /\b(shr|high ?rank|senior|ia|internal|dept|department|staff|lead|leadership)\b/i.test(t))
+  ) {
+    let target_role = null;
+    if (/\b(shr|senior|high ?rank)\b/i.test(t)) target_role = 'highrank';
+    else if (/\b(ia|internal)\b/i.test(t)) target_role = 'ia';
+    else if (/\b(dept|department)\b/i.test(t)) target_role = 'deptreport';
+
+    let reason = null;
+    const forMatch = t.match(/\bfor\s+(.+)$/i);
+    if (forMatch) reason = forMatch[1].trim();
+
+    return {
+      action: 'ticket_escalate',
+      args: { target_role, reason },
+      reply: 'Escalating the ticket for review.'
+    };
+  }
+
   // ── Close the OPEN ticket in this channel ──────────────────────────────────
   // Singular "ticket" + a close verb = the actual ticket channel (transcript
   // archive + delete). Plural "tickets", "desk", "panel", "department" and
@@ -1958,6 +1985,37 @@ export async function executeIntent(intent, ctx) {
             `> **Opened:** ${opened}\n` +
             `> **Reason:** ${ticket.reason || '*No reason given*'}\n` +
             `> **Channel:** <#${message.channelId}>`
+        };
+      }
+
+      case 'ticket_escalate': {
+        const channel = message.channel;
+        const ticket = ctx.getActiveTicket?.(channel);
+        if (!ticket) {
+          return {
+            ok: false,
+            message: '❌ There is no open ticket in this channel to escalate.\n> Please run this command inside the ticket channel you want to escalate.'
+          };
+        }
+
+        const roleTarget = args.target_role || (
+          /shr|senior|high ?rank/i.test(String(message.content || '')) ? 'highrank' :
+          /ia|internal/i.test(String(message.content || '')) ? 'ia' :
+          /dept|department/i.test(String(message.content || '')) ? 'deptreport' : null
+        );
+
+        const reason = args.reason || (
+          String(message.content || '').match(/\bfor\s+(.+)$/i)?.[1]?.trim() ?? null
+        );
+
+        if (!ctx.escalateTicket) {
+          return { ok: false, message: '❌ Escalation handler is not configured on this instance.' };
+        }
+
+        const { roleId } = await ctx.escalateTicket(channel, ticket, roleTarget, reason, message.author);
+        return {
+          ok: true,
+          message: `🚨 **Ticket Escalated:** Successfully escalated this ticket to <@&${roleId}>${reason ? ` (${reason})` : ''}.`
         };
       }
 

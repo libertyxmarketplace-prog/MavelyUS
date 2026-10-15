@@ -341,11 +341,12 @@ function buildTicketSystemPrompt(category) {
     'YOUR BEHAVIOR:',
     '- Be professional, direct, and concise. Do NOT be overly chatty, fluffy, or write walls of unnecessary text. Give the exact helpful information directly.',
     '- Whenever referring a user to a channel, always mention the channel directly using <#id> so they can click it instantly.',
-    '- Read the user\'s inquiry and prior conversation history carefully. Maintain conversation context and remember what was previously discussed.',
+    '- CRITICAL CONVERSATION MEMORY: Read the conversation history above from the ticket carefully. Memorize and keep track of everything previously sent by the user, staff members, and the assistant. If staff or the user already gave information or answered something above, use that context immediately. Never ask for information that was already provided in the chat.',
     '- CRITICAL: The user is ALREADY inside their active private ticket channel. NEVER tell the user to visit the ticket desk (<#1360798150910021735>) or use a ticket desk button to request support, assistance, or an agent. They are already here!',
-    '- If the user asks for a human, staff member, support agent, or asks to be redirected, transferred, or unclaimed, escalate immediately with JSON: {"action": "escalate", "answer": "I have stepped aside and notified our staff team to assist you directly."}.',
+    '- If the user explicitly asks for a human only, refuses AI, or asks to stop talking to the AI, escalate immediately with JSON: {"action": "escalate", "answer": "I have stepped aside and notified our staff team to assist you directly."}. Do NOT escalate or step down simply because the user mentions staff or asks questions.',
+    '- CRITICAL ESCALATION & STATEMENTS: If the user provides a statement, report, complaint, or explains an incident/concern (e.g. reporting staff, an officer, player misconduct, rule violations, appeals, or incident details for review), you MUST document their statement and escalate to staff for review. Reply with JSON: {"action": "escalate", "answer": "Thank you for sharing your concerns. I have officially documented your statement and notified our staff team for review. Please allow some time for them to address this matter. If you have any additional evidence or details, feel free to share them here.", "statement": "<concise 1-3 sentence summary of the user\'s incident/statement>"}',
     '- If the user mentions that a button is not working or asks how to open a partnership or report ticket, let them know they can use the quick-action button attached below.',
-    '- If a staff member mentions wanting to retire, resign, or step down, ask them for: (1) Current rank, (2) Reason for retirement (optional), (3) Any final remarks or messages for the community, and let them know the request will be escalated to Senior High Rank for review.',
+    '- STAFF RETIREMENTS: Staff retirements are handled EXCLUSIVELY in High Rank Support or Internal Affairs tickets. If the ticket is in General Support, inform them that staff retirements can only be processed in High Rank Support or Internal Affairs, and advise them to create a ticket there. If the ticket IS in High Rank Support or Internal Affairs, ask them for: (1) Current rank, (2) Reason for retirement (optional), (3) Any final remarks or messages for the community, and let them know the request will be escalated to Senior High Rank for review.',
     '- If their request requires staff action (e.g. assigning roles, reviewing proof/applications, in-game ban appeals), acknowledge their request, let them know what details/screenshots to post, and reassure them staff has been notified.',
     '- If the user says they are done or asks to close, let them know you are happy to help and closing the ticket.',
     '- NEVER use the robot emoji (🤖) anywhere in your response.',
@@ -375,10 +376,10 @@ function factsBlock(records) {
 async function aiGenerate({ question, category, facts, history = [] }) {
   const system = buildTicketSystemPrompt(category).replace('__FACTS__', factsBlock(facts));
 
-  // Limited conversation history (most recent last) + the live question.
-  const convo = history.slice(-8).map((m) => ({
+  // Up to 25 recent conversation turns from the ticket channel (most recent last) + the live question.
+  const convo = history.slice(-25).map((m) => ({
     role: (m.role === 'assistant' || m.staff || m.role === 'bot') ? 'assistant' : 'user',
-    content: String(m.content).slice(0, 500)
+    content: String(m.content).slice(0, 1000)
   }));
   convo.push({ role: 'user', content: `Ticket category: ${CATEGORY_GUIDE[category]?.label || category}\nUser Inquiry/Reason: ${String(question).slice(0, 1000)}` });
 
@@ -398,11 +399,17 @@ async function aiGenerate({ question, category, facts, history = [] }) {
   }
 
   if (parsed && typeof parsed.answer === 'string' && parsed.answer.trim()) {
-    return { action: parsed.action || 'answer', answer: parsed.answer.trim(), provider, model };
+    return {
+      action: parsed.action || 'answer',
+      answer: parsed.answer.trim(),
+      statement: typeof parsed.statement === 'string' ? parsed.statement.trim() : null,
+      provider,
+      model
+    };
   }
 
   // Could not parse JSON envelope — treat the raw text as an answer.
-  return { action: 'answer', answer: String(text).trim().slice(0, 1000), provider, model };
+  return { action: 'answer', answer: String(text).trim().slice(0, 1000), statement: null, provider, model };
 }
 
 
@@ -505,10 +512,16 @@ export async function answerTicket({ question, category, history = [], ticketId 
   try {
     const related = searchKnowledge(cleanQ, 3).filter((r) => r.confidence > 0.15);
     const facts = related.map((r) => r.record);
-    const { action, answer, provider, model } = await aiGenerate({ question: cleanQ, category, facts, history });
+    const { action, answer, statement, provider, model } = await aiGenerate({ question: cleanQ, category, facts, history });
 
     if (action === 'escalate') {
-      return { text: answer || 'I have stepped aside and notified our staff team to assist you directly.', source: 'ai', escalated: true, meta: { provider, model } };
+      return {
+        text: answer || 'I have stepped aside and notified our staff team to assist you directly.',
+        source: 'ai',
+        escalated: true,
+        statement: statement || null,
+        meta: { provider, model }
+      };
     }
 
     if (answer && answer.trim()) {
