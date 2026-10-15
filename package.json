@@ -5,6 +5,9 @@
   "description": "Alabama State Roleplay session announcement bot",
   "type": "module",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "start": "node run.js",
     "direct": "node src/index.js",
