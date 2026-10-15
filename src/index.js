@@ -7000,7 +7000,7 @@ function buildTicketControlContainer(ticket, bannerOverride) {
     : (isAiClaimed
       ? 'Claimed and automated by AI Assistant.'
       : (isClaimed ? `Claimed and handled by <@${ticket.claimedBy}>.` : 'Awaiting an available staff member to claim.'));
-  const statusBadge = isEscalated ? '🟠 Escalated' : (isAiClaimed ? 'AI Active' : (isClaimed ? 'Claimed' : 'Unclaimed'));
+  const statusBadge = isClaimed ? 'Claimed' : (isEscalated ? 'Escalated' : 'Unclaimed');
 
   container.addSectionComponents(
     sectionRow(
@@ -7008,7 +7008,7 @@ function buildTicketControlContainer(ticket, bannerOverride) {
       statusSubtitle,
       statusBadge,
       'info_ticket_status',
-      isEscalated ? ButtonStyle.Primary : ButtonStyle.Secondary
+      ButtonStyle.Secondary
     )
   );
 
@@ -12592,8 +12592,8 @@ function sendTicketAiOpening(channel, ticketData) {
         };
         ticketData.claimedBy = null;
         ticketData.escalated = true;
-        ticketData.aiActive = false;
-        ticketData.aiStopped = true;
+        ticketData.aiActive = true;
+        ticketData.aiStopped = false;
         saveTickets();
         try {
           channel.setName(formatTicketChannelName('🟠', ticketData.authorUsername)).catch(() => null);
@@ -12902,12 +12902,11 @@ async function handleTicketAiMessage(message, ticket) {
     // Staff unclaims the ticket
     if (/\bunclaim\b/i.test(cleanStaffCmd) || /\bunclaim\b/i.test(content)) {
       ticket.claimedBy = null;
-      ticket.escalated = false;
       ticket.aiActive = isCategoryEnabled(category);
       ticket.aiStopped = false;
       saveTickets();
       try {
-        await message.channel.setName(formatTicketChannelName('🔴', ticket.authorUsername)).catch(() => null);
+        await message.channel.setName(formatTicketChannelName(ticket.escalated ? '🟠' : '🔴', ticket.authorUsername)).catch(() => null);
       } catch {}
       if (ticket.controlMessageId) {
         try {
@@ -13075,6 +13074,23 @@ async function handleTicketAiMessage(message, ticket) {
   if (!isDirectlyPrompted && (!ticket.aiActive || ticket.aiStopped || humanClaimed)) return;
   if (!content) return; // image-only / empty
 
+  // 4.5. User asks to escalate without providing reasons/details yet: ask them why / details
+  const isEscalateAsk = /\b(escalat(?:e|ed|ing|ion))\b/i.test(content) &&
+    !/\b(why|what is|how do|how to|already escalated)\b/i.test(content);
+  const hasSubstantialDetails = content.length > 80 || /\b(because|since|officer|staff|rdm|vdm|failrp|banned|warned|rules|reason)\b/i.test(content);
+
+  if (isAuthor && isEscalateAsk && !hasSubstantialDetails && !ticket.statement) {
+    ticket.escalatedPendingReason = true;
+    saveTickets();
+    await message.reply({
+      content:
+        `**Alabama Support Assistant**\n\n` +
+        `I can certainly escalate this ticket for our staff team to review! Could you please provide the reason for the escalation along with any details, player names, or screenshots regarding what happened so our staff has all the information they need?`,
+      allowedMentions: { repliedUser: false }
+    }).catch(() => {});
+    return;
+  }
+
   try { message.channel.sendTyping().catch(() => {}); } catch {}
 
   // 5. Build rich channel conversation memory from the top of the ticket (up to 40 messages)
@@ -13169,8 +13185,9 @@ async function handleTicketAiMessage(message, ticket) {
         };
 
         ticket.escalated = true;
-        ticket.aiActive = false;
-        ticket.aiStopped = true;
+        ticket.aiActive = true;
+        ticket.aiStopped = false;
+        ticket.escalatedPendingReason = false;
         saveTickets();
 
         try {
@@ -15780,7 +15797,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
       ticket.claimedBy = null;
-      ticket.escalated = false;
       ticket.aiActive = isCategoryEnabled(ticket.categoryKey);
       ticket.aiStopped = false;
       saveTickets();
@@ -15793,7 +15809,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }).catch(() => {});
 
       // 2. Background updates
-      interaction.channel.setName(formatTicketChannelName('🔴', ticket.authorUsername)).catch((err) => {
+      interaction.channel.setName(formatTicketChannelName(ticket.escalated ? '🟠' : '🔴', ticket.authorUsername)).catch((err) => {
         console.warn(`Could not rename ticket channel: ${err.message}`);
       });
 
