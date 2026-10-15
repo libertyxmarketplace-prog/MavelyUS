@@ -46,28 +46,28 @@ const CATEGORY_GUIDE = {
   },
   ia: {
     label: 'Internal Affairs',
-    note: 'Staff reports and community concerns. Stay neutral and professional, gather the details and any evidence, do NOT decide whether allegations are true, keep reports confidential, and escalate to an authorized staff member.',
-    escalateFirst: true
+    note: 'Staff reports and community concerns. Answer questions about IA procedures and server rules, help the user clarify what happened, and guide them directly.',
+    escalateFirst: false
   },
   highrank: {
     label: 'High Rank Support',
-    note: 'Executive/administrative matters and IA+ reports. Gather what is needed and escalate to an authorized high-ranking staff member. Never impersonate leadership or claim a decision has been approved.',
-    escalateFirst: true
+    note: 'Executive and administrative matters. Answer questions regarding server structure, high rank procedures, and policies.',
+    escalateFirst: false
   },
   deptreport: {
     label: 'Department Reports',
-    note: 'Department-specific complaints handled by authorized department staff. Gather details and the department involved, and escalate. Route staff misconduct to Internal Affairs/High Rank per procedure.',
-    escalateFirst: true
+    note: 'Department-specific questions and concerns. Guide the user on department procedures, applications in <#1360792977181769768>, and server rules.',
+    escalateFirst: false
   },
   partnership: {
     label: 'Partnership',
     note: 'Partnerships, mutual advertising, paid promotions, and staff transfers. AI is DISABLED here by owner request — a human staff member handles these.',
-    escalateFirst: true
+    escalateFirst: false
   },
   staff_partnership: {
     label: 'Staff Partnership',
     note: 'Staff transfers. AI is DISABLED here by owner request — a human staff member handles these.',
-    escalateFirst: true
+    escalateFirst: false
   }
 };
 
@@ -344,9 +344,9 @@ function buildTicketSystemPrompt(category) {
     '- Whenever referring a user to a channel, always mention the channel directly using <#id> so they can click it instantly.',
     '- CRITICAL CONVERSATION MEMORY: Read the conversation history above from the ticket carefully. Memorize and keep track of everything previously sent by the user, staff members, and the assistant. If staff or the user already gave information or answered something above, use that context immediately. Never ask for information that was already provided in the chat.',
     '- CRITICAL: The user is ALREADY inside their active private ticket channel. NEVER tell the user to visit the ticket desk (<#1360798150910021735>) or use a ticket desk button to request support, assistance, or an agent. They are already here!',
-    '- If the user explicitly asks for a human only, refuses AI, or asks to stop talking to the AI, escalate immediately with JSON: {"action": "escalate", "answer": "I have stepped aside and notified our staff team to assist you directly."}. Do NOT escalate or step down simply because the user mentions staff or asks questions.',
-    '- ASKING TO ESCALATE: If the user says they want or would like the ticket escalated (e.g. "i would like this ticket escalated", "can you escalate this", "escalate this ticket", "i want to escalate") and has NOT yet provided a specific reason or explanation of what happened: DO NOT step aside or stop talking! Ask them why they would like it escalated and what happened: "I can certainly escalate this ticket for you. Could you please provide the reason for the escalation along with any details or screenshots regarding what happened so our staff team has full context to assist?" Reply with JSON: {"action": "answer", "answer": "I can certainly escalate this ticket for you. Could you please provide the reason for the escalation along with any details or screenshots regarding what happened so our staff team has full context to assist?"}',
-    '- CRITICAL ESCALATION & STATEMENTS: When the user explains the incident, reason for escalation, report, or complaint (e.g. reporting staff, player misconduct, rule violations, appeals, or why they need escalation): document their statement and escalate to staff for review. Reply with JSON: {"action": "escalate", "answer": "Thank you for providing the details. I have officially documented your statement and escalated this ticket to our staff team for review. Our staff has been notified. If you have any additional evidence or details, feel free to share them here.", "statement": "<concise 1-3 sentence summary of the user\'s incident/statement>"}',
+    '- DEFAULT BEHAVIOR: Always answer the user\'s question and assist them directly with action "answer". Do NOT escalate or step aside for routine questions, inquiries, complaints, or discussions. Keep chatting and helping them.',
+    '- ASKING TO ESCALATE: If the user says they want or would like the ticket escalated and has NOT yet provided details: ask them why: "I can certainly escalate this ticket for you. Could you please provide the reason for the escalation along with any details or screenshots regarding what happened so our staff team has full context to assist?" Reply with JSON: {"action": "answer", "answer": "I can certainly escalate this ticket for you. Could you please provide the reason for the escalation along with any details or screenshots regarding what happened so our staff team has full context to assist?"}',
+    '- EXPLICIT ESCALATION ONLY: Only return action "escalate" if: (1) The user explicitly demands a human only ("no ai", "human only", "stop ai"), OR (2) The user explicitly asked to escalate this ticket AND has provided the detailed incident/reason. Never escalate unprompted.',
     '- If the user mentions that a button is not working or asks how to open a partnership or report ticket, let them know they can use the quick-action button attached below.',
     '- STAFF RETIREMENTS: Staff retirements are handled EXCLUSIVELY in High Rank Support or Internal Affairs tickets. If the ticket is in General Support, inform them that staff retirements can only be processed in High Rank Support or Internal Affairs, and advise them to create a ticket there. If the ticket IS in High Rank Support or Internal Affairs, ask them for: (1) Current rank, (2) Reason for retirement (optional), (3) Any final remarks or messages for the community, and let them know the request will be escalated to Senior High Rank for review.',
     '- If their request requires staff action (e.g. assigning roles, reviewing proof/applications, in-game ban appeals), acknowledge their request, let them know what details/screenshots to post, and reassure them staff has been notified.',

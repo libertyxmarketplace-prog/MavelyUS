@@ -3,7 +3,7 @@
   "meta": {
     "name": "Alabama State Roleplay Ticket Knowledge Base",
     "note": "Editable knowledge base. approved:true entries are served with zero API cost. Staff can add/edit/remove entries via /kb without editing bot source.",
-    "updatedAt": 1792024569
+    "updatedAt": 1792025792
   },
   "faqs": [
     {
@@ -1194,6 +1194,57 @@
       "suppliedBy": null,
       "createdAt": 1792024569,
       "updatedAt": 1792024569
+    },
+    {
+      "id": "ln_mv8to20e_fhl9",
+      "question": "I would wanna report a user ingame for exploits",
+      "answer": "Thank you for reaching out. To report a user for exploits, please provide the following details: \n1. Username of the player involved. \n2. Description of the exploit and what you witnessed. \n3. Any evidence (screenshots or clips) you may have. \nOnce you provide this information, our staff team will review your report.",
+      "category": "general",
+      "keywords": [
+        "wanna",
+        "report",
+        "user",
+        "ingame",
+        "exploits"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1560092387181858957",
+      "suppliedBy": null,
+      "createdAt": 1792025423,
+      "updatedAt": 1792025423
+    },
+    {
+      "id": "ln_mv8tvyau_nk6q",
+      "question": "what is the session code?",
+      "answer": "The session code to join the server is `ALABAM`. Make sure to enter it when prompted in the game. If you have any other questions, feel free to ask!",
+      "category": "general",
+      "keywords": [
+        "session",
+        "code"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": null,
+      "suppliedBy": null,
+      "createdAt": 1792025791,
+      "updatedAt": 1792025791
+    },
+    {
+      "id": "ln_mv8tvz1o_hz87",
+      "question": "can you escalate this ticket?",
+      "answer": "I can certainly escalate this ticket for you. Could you please provide the reason for the escalation along with any details or screenshots regarding what happened so our staff team has full context to assist?",
+      "category": "general",
+      "keywords": [
+        "escalate",
+        "ticket"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": null,
+      "suppliedBy": null,
+      "createdAt": 1792025792,
+      "updatedAt": 1792025792
     }
   ],
   "pending": [],

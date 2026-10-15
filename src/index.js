@@ -12594,8 +12594,8 @@ async function sendTicketAiOpening(channel, ticketData) {
     const cleanText = (res?.text || '').replace(/🤖/g, '').trim() ||
       `Thank you for reaching out to **Alabama State Roleplay Support**!\n\nI have noted your inquiry regarding: **${String(reason).slice(0, 150)}**.\n\nOur support team has been notified. Please provide any additional screenshots, player names, or details below, and an authorized staff member will assist you shortly!`;
 
-    const isStatementOrEscalation = res?.escalated === true ||
-      /\b(statement.*(?:documented|filed)|escalated to (?:the )?staff|needs staff attention|staff attention required|stepping aside for staff|handing (?:this )?off to staff)\b/i.test(cleanText);
+    // Only escalate on opening if the initial reason explicitly requested an escalation
+    const isStatementOrEscalation = /\b(escalat(?:e|ed|ing|ion))\b/i.test(reason) && res?.escalated === true;
 
     if (isStatementOrEscalation) {
       ticketData.statement = {
@@ -12625,11 +12625,15 @@ async function sendTicketAiOpening(channel, ticketData) {
       }
       const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
       const stCard = buildTicketStatementCard(ticketData);
+      if (roleId) {
+        await channel.send({
+          content: `🔔 <@&${roleId}> **Official Statement Documented — Staff Attention Required**\n\n**Alabama Support Assistant**\n${cleanText}`,
+          allowedMentions: { roles: [roleId] }
+        }).catch(() => {});
+      }
       return await channel.send({
-        content: `🔔 <@&${roleId}> **Official Statement Documented — Staff Attention Required**\n\n**Alabama Support Assistant**\n${cleanText}`,
         components: [stCard.toJSON()],
-        flags: MessageFlags.IsComponentsV2,
-        allowedMentions: { roles: [roleId] }
+        flags: MessageFlags.IsComponentsV2
       }).catch((e) => console.warn(`[ticket-ai] Could not post opening statement card: ${e.message}`));
     }
 
@@ -12739,7 +12743,6 @@ async function handleTicketAiMessage(message, ticket) {
     if (ticket.statement) {
       const card = buildTicketStatementCard(ticket, { isBriefing: true });
       await message.reply({
-        content: `📋 **Alabama Case Briefing**\nHere is the documented statement and case overview for this ticket:`,
         components: [card.toJSON()],
         flags: MessageFlags.IsComponentsV2,
         allowedMentions: { repliedUser: false }
@@ -12797,7 +12800,6 @@ async function handleTicketAiMessage(message, ticket) {
 
     const card = buildTicketStatementCard(ticket, { isBriefing: true });
     await message.reply({
-      content: `📋 **Alabama Case Briefing**\nHere is the case overview and statement based on the ticket details:`,
       components: [card.toJSON()],
       flags: MessageFlags.IsComponentsV2,
       allowedMentions: { repliedUser: false }
@@ -12894,11 +12896,13 @@ async function handleTicketAiMessage(message, ticket) {
     );
 
     const shrRoleId = '1341932333741244476';
-    await message.reply({
+    await message.channel.send({
       content: `🔔 <@&${shrRoleId}> **Senior High Rank Review Required**`,
+      allowedMentions: { roles: [shrRoleId] }
+    }).catch(() => {});
+    await message.channel.send({
       components: [shrCard.toJSON()],
-      flags: MessageFlags.IsComponentsV2,
-      allowedMentions: { roles: [shrRoleId], repliedUser: false }
+      flags: MessageFlags.IsComponentsV2
     }).catch(() => {});
     return;
   }
@@ -13199,12 +13203,14 @@ async function handleTicketAiMessage(message, ticket) {
       channelId: ticket.channelId,
       userId: message.author.id
     }))
-    .then((res) => {
+    .then(async (res) => {
       const cleanText = (res?.text || '').replace(/🤖/g, '').trim() ||
         `Thank you for reaching out! I have noted your message for our support staff. If you have any additional details or screenshots, please send them here and an authorized staff member will assist you shortly!`;
 
-      const isStatementOrEscalation = res?.escalated === true ||
-        /\b(statement.*(?:documented|filed)|escalated to (?:the )?staff|needs staff attention|staff attention required|stepping aside for staff|handing (?:this )?off to staff)\b/i.test(cleanText);
+      // Only escalate if the user is in an active escalation flow (escalatedPendingReason) or explicitly demanded escalation
+      const isExplicitEscalateUser = /\b(escalat(?:e|ed|ing|ion)|talk to a human|human only|speak with staff|supervisor|need a mod|need an admin)\b/i.test(content);
+      const isStatementOrEscalation = (ticket.escalatedPendingReason && (content.length > 10 || res?.statement)) ||
+        (isExplicitEscalateUser && (res?.escalated === true || content.length > 40));
 
       if (isStatementOrEscalation) {
         const userAttachments = [];
@@ -13247,11 +13253,15 @@ async function handleTicketAiMessage(message, ticket) {
         const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
         const stCard = buildTicketStatementCard(ticket);
 
-        return message.reply({
-          content: `🔔 <@&${roleId}> **Official Statement Documented — Staff Attention Required**\n\n**Alabama Support Assistant**\n${cleanText}`,
+        if (roleId) {
+          await message.channel.send({
+            content: `🔔 <@&${roleId}> **Official Statement Documented — Staff Attention Required**\n\n**Alabama Support Assistant**\n${cleanText}`,
+            allowedMentions: { roles: [roleId] }
+          }).catch(() => {});
+        }
+        return await message.channel.send({
           components: [stCard.toJSON()],
-          flags: MessageFlags.IsComponentsV2,
-          allowedMentions: { roles: [roleId], repliedUser: false }
+          flags: MessageFlags.IsComponentsV2
         }).catch((e) => console.warn(`[ticket-ai] Could not post statement card reply: ${e.message}`));
       }
 
