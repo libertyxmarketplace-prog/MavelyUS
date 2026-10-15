@@ -12250,10 +12250,10 @@ const TICKET_ESCALATION_ROLES = {
  * @returns {ContainerBuilder}
  */
 function buildTicketStatementCard(ticket, options = {}) {
-  const card = new ContainerBuilder().setAccentColor(0xed4245);
+  // Orange accent color for escalated ticket statement cards
+  const card = new ContainerBuilder().setAccentColor(0xf59e0b);
   const st = ticket.statement || {};
-  const isBriefing = options.isBriefing || false;
-  const header = isBriefing ? '## 📋 Case Briefing & Statement' : '## 📋 Official Case Statement Documented';
+  const header = '## 📋 Case Briefing & Statement';
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent(header));
   card.addSeparatorComponents(thinLine());
 
@@ -12263,9 +12263,14 @@ function buildTicketStatementCard(ticket, options = {}) {
   const timeSec = Math.floor((st.submittedAt || (ticket.createdAt ? ticket.createdAt * 1000 : Date.now())) / 1000);
   const statementBody = st.summary || st.content || ticket.reason || 'No statement details recorded.';
 
-  let evidenceStr = 'None attached';
-  if (Array.isArray(st.attachments) && st.attachments.length) {
-    evidenceStr = st.attachments.map((url, idx) => `[Evidence Link ${idx + 1}](${url})`).join(' • ');
+  const allAtts = [
+    ...(Array.isArray(st.attachments) ? st.attachments : []),
+    ...(Array.isArray(ticket.attachments) ? ticket.attachments : [])
+  ].filter((v, i, a) => typeof v === 'string' && a.indexOf(v) === i);
+
+  let evidenceStr = '*No screenshot evidence attached yet. (Upload screenshots in chat if available)*';
+  if (allAtts.length) {
+    evidenceStr = allAtts.map((url, idx) => `[Evidence Screenshot ${idx + 1}](${url})`).join(' • ');
   } else if (st.evidence) {
     evidenceStr = st.evidence;
   }
@@ -12274,13 +12279,32 @@ function buildTicketStatementCard(ticket, options = {}) {
     `• **Submitted By:** ${userMention} (\`${userTag}\`)\n` +
     `• **Category:** ${cat}\n` +
     `• **Documented:** <t:${timeSec}:f> (<t:${timeSec}:R>)\n` +
-    `• **Status:** 🔴 Awaiting Staff Review\n\n` +
+    `• **Status:** 🟠 Escalated — Awaiting Staff Review\n\n` +
     `### 📝 Documented Statement / Case Overview:\n` +
     `> ${statementBody.split('\n').filter(Boolean).join('\n> ')}\n\n` +
-    `• **Evidence Attached:** ${evidenceStr}`;
+    `### 📸 Evidence Attached:\n` +
+    `> ${evidenceStr}`;
 
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent(desc.slice(0, 3900)));
   card.addSeparatorComponents(thinLine());
+
+  // Embed screenshot evidence directly inside the V2 panel via MediaGallery
+  const imageAttachments = allAtts.filter((url) =>
+    /\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(url) || url.includes('/attachments/')
+  );
+  if (imageAttachments.length > 0) {
+    try {
+      const galleryItems = imageAttachments.slice(0, 4).map((url) =>
+        new MediaGalleryItemBuilder().setURL(url)
+      );
+      card.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(...galleryItems)
+      );
+      card.addSeparatorComponents(thinLine());
+    } catch (galErr) {
+      console.warn(`[ticket-ai] Could not add media gallery to statement card: ${galErr.message}`);
+    }
+  }
 
   return card;
 }
@@ -12687,6 +12711,23 @@ async function handleTicketAiMessage(message, ticket) {
   const botNameCalled = /\b(alabama utuils|alabama utils|alabama utilities|alabama bot)\b/i.test(content);
   const isDirectlyPrompted = botPinged || botNameCalled;
 
+  // Extract all uploaded attachments / screenshots in this message
+  const uploadedUrls = [];
+  if (message.attachments?.size) {
+    for (const [, att] of message.attachments) {
+      if (att.url) uploadedUrls.push(att.url);
+    }
+  }
+
+  // Save attachments to durable ticket record so they persist as evidence
+  if (uploadedUrls.length > 0) {
+    ticket.attachments = ticket.attachments || [];
+    for (const u of uploadedUrls) {
+      if (!ticket.attachments.includes(u)) ticket.attachments.push(u);
+    }
+    saveTickets();
+  }
+
   // Auto-adopt author if session was recovered without author ID
   if ((!ticket.authorId || ticket.authorId === 'Unknown') && !message.author.bot) {
     ticket.authorId = message.author.id;
@@ -12709,6 +12750,34 @@ async function handleTicketAiMessage(message, ticket) {
     await message.reply({
       content: '⏸️ **Ticket AI has been paused.** Automated responses are now stopped in this channel so staff can assist directly.',
       allowedMentions: { repliedUser: false }
+    }).catch(() => {});
+    return;
+  }
+
+  // 0.015. Staff Takeover / Handover ("I'll take it from here", "let go of the ticket", "unclaim so staff can claim")
+  const staffTakeoverRegex = /\b(i'?ll take (?:it|over)|ill take (?:it|over)|il take (?:it|over)|i will take (?:it|over)|i got it from here|i got this|let me handle (?:this|it)|i'?ll handle (?:this|it)|ill handle (?:this|it)|i will handle (?:this|it)|take over|staff takeover|taking over|let go of (?:the )?ticket|step aside|hand (?:this )?over|unclaim so staff can claim)\b/i;
+  if (staffTakeoverRegex.test(content)) {
+    ticket.claimedBy = null;
+    ticket.aiActive = false;
+    ticket.aiStopped = true;
+    ticket.manuallyPaused = true;
+    saveTickets();
+    try {
+      await message.channel.setName(formatTicketChannelName(ticket.escalated ? '🟠' : '🔴', ticket.authorUsername)).catch(() => null);
+    } catch {}
+    if (ticket.controlMessageId) {
+      try {
+        const ctrl = await message.channel.messages.fetch(ticket.controlMessageId);
+        await ctrl.edit({
+          components: [buildTicketControlContainer(ticket).toJSON()],
+          flags: MessageFlags.IsComponentsV2
+        });
+      } catch {}
+    }
+    const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+    await message.reply({
+      content: `> 👤 **Staff Takeover** — I have stepped aside and let go of the ticket. The ticket is open for our staff team to claim and assist directly.\n\n<@&${roleId}>`,
+      allowedMentions: { roles: [roleId], repliedUser: false }
     }).catch(() => {});
     return;
   }
@@ -12966,6 +13035,34 @@ async function handleTicketAiMessage(message, ticket) {
       return;
     }
 
+    // Staff takeover: "I'll take it from here", "unclaim so staff can claim", "let me handle this", etc.
+    const staffTakeoverRegex = /\b(i'?ll take (?:it|over)|ill take (?:it|over)|il take (?:it|over)|i will take (?:it|over)|i got it from here|i got this|let me handle (?:this|it)|i'?ll handle (?:this|it)|ill handle (?:this|it)|i will handle (?:this|it)|take over|staff takeover|taking over|let go of (?:the )?ticket|step aside|hand (?:this )?over)\b/i;
+    if (staffTakeoverRegex.test(cleanStaffCmd) || staffTakeoverRegex.test(content)) {
+      ticket.claimedBy = null;
+      ticket.aiActive = false;
+      ticket.aiStopped = true;
+      ticket.manuallyPaused = true;
+      saveTickets();
+      try {
+        await message.channel.setName(formatTicketChannelName(ticket.escalated ? '🟠' : '🔴', ticket.authorUsername)).catch(() => null);
+      } catch {}
+      if (ticket.controlMessageId) {
+        try {
+          const ctrl = await message.channel.messages.fetch(ticket.controlMessageId);
+          await ctrl.edit({
+            components: [buildTicketControlContainer(ticket).toJSON()],
+            flags: MessageFlags.IsComponentsV2
+          });
+        } catch {}
+      }
+      const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+      await message.reply({
+        content: `> 👤 **Staff Takeover** — I have stepped aside and let go of the ticket. The ticket is open for our staff team to claim and assist directly.\n\n<@&${roleId}>`,
+        allowedMentions: { roles: [roleId], repliedUser: false }
+      }).catch(() => {});
+      return;
+    }
+
     // Staff claims the ticket
     if (/\b(claim|claim\s+(?:the\s+|this\s+)?ticket|claim\s+it)\b/i.test(cleanStaffCmd)) {
       ticket.claimedBy = message.author.id;
@@ -13117,12 +13214,12 @@ async function handleTicketAiMessage(message, ticket) {
   }
 
   if (!isDirectlyPrompted && (!ticket.aiActive || ticket.aiStopped || humanClaimed)) return;
-  if (!content) return; // image-only / empty
+  if (!content && uploadedUrls.length === 0) return; // no text and no attachments
 
   // 4.5. User asks to escalate without providing reasons/details yet: ask them why / details
   const isEscalateAsk = /\b(escalat(?:e|ed|ing|ion))\b/i.test(content) &&
     !/\b(why|what is|how do|how to|already escalated)\b/i.test(content);
-  const hasSubstantialDetails = content.length > 80 || /\b(because|since|officer|staff|rdm|vdm|failrp|banned|warned|rules|reason)\b/i.test(content);
+  const hasSubstantialDetails = content.length > 80 || uploadedUrls.length > 0 || /\b(because|since|officer|staff|rdm|vdm|failrp|banned|warned|rules|reason)\b/i.test(content);
 
   if ((isAuthor || authorIsStaff || isDirectlyPrompted) && isEscalateAsk && !hasSubstantialDetails && !ticket.statement) {
     ticket.escalatedPendingReason = true;
@@ -13146,8 +13243,17 @@ async function handleTicketAiMessage(message, ticket) {
       const sorted = [...fetched.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
       for (const m of sorted) {
         if (m.id === message.id) continue;
-        const raw = m.cleanContent || m.content || '';
-        if (!raw || !raw.trim()) continue;
+        const msgAtts = [];
+        if (m.attachments?.size) {
+          for (const [, a] of m.attachments) {
+            if (a.url) msgAtts.push(a.url);
+          }
+        }
+        let raw = (m.cleanContent || m.content || '').trim();
+        if (msgAtts.length > 0) {
+          raw = (raw ? raw + ' ' : '') + `[Attached screenshot/image evidence: ${msgAtts.join(' ')}]`;
+        }
+        if (!raw) continue;
 
         if (m.author.id === botId) {
           let text = raw.trim();
@@ -13161,16 +13267,14 @@ async function handleTicketAiMessage(message, ticket) {
             history.push({ role: 'assistant', content: text.slice(0, 1000) });
           }
         } else if (m.author.id === ticket.authorId) {
-          const text = raw.trim();
-          if (text && !isAiStopRequest(text) && !isAiContinueRequest(text)) {
-            history.push({ role: 'user', content: text.slice(0, 1000) });
+          if (raw && !isAiStopRequest(raw) && !isAiContinueRequest(raw)) {
+            history.push({ role: 'user', content: raw.slice(0, 1000) });
           }
         } else if (!m.author.bot) {
           // Staff member or other participant in channel
-          const text = raw.trim();
-          if (text && !isAiStopRequest(text) && !isAiContinueRequest(text)) {
+          if (raw && !isAiStopRequest(raw) && !isAiContinueRequest(raw)) {
             const sender = m.member?.displayName || m.author.username || 'Staff';
-            history.push({ role: 'user', content: `[Staff/Participant ${sender}]: ${text.slice(0, 1000)}` });
+            history.push({ role: 'user', content: `[Staff/Participant ${sender}]: ${raw.slice(0, 1000)}` });
           }
         }
       }
@@ -13188,6 +13292,10 @@ async function handleTicketAiMessage(message, ticket) {
 
   // Clean the live question
   let cleanQ = content.replace(/<@!?\d+>/g, '').trim();
+  if (uploadedUrls.length > 0) {
+    const attNote = `[Uploaded ${uploadedUrls.length} screenshot/image evidence: ${uploadedUrls.join(' ')}]`;
+    cleanQ = cleanQ ? `${cleanQ} ${attNote}` : attNote;
+  }
   const strippedVerbs = cleanAiCommandText(cleanQ);
   if (!cleanQ || strippedVerbs === 'continue' || strippedVerbs === 'resume' || strippedVerbs === 'talk' || strippedVerbs === 'speak' || strippedVerbs === 'answer' || strippedVerbs === 'help') {
     const lastUserMsg = [...history].reverse().find((h) => h.role === 'user');
@@ -13207,29 +13315,35 @@ async function handleTicketAiMessage(message, ticket) {
       const cleanText = (res?.text || '').replace(/🤖/g, '').trim() ||
         `Thank you for reaching out! I have noted your message for our support staff. If you have any additional details or screenshots, please send them here and an authorized staff member will assist you shortly!`;
 
-      // Only escalate if the user is in an active escalation flow (escalatedPendingReason) or explicitly demanded escalation
+      // Detect escalation:
+      // (a) AI model escalated or AI reply states ticket will be escalated
+      // (b) User was in pending escalation and provided details or screenshots
+      // (c) User requested escalation / staff human assistance
+      const aiSaysEscalated = res?.escalated === true ||
+        /\b(will be escalated|escalated for review|escalated to (?:our |the )?staff|escalating (?:this )?ticket|officially documented your statement|passed to (?:our |the )?staff|forwarded to (?:our |the )?staff)\b/i.test(cleanText);
       const isExplicitEscalateUser = /\b(escalat(?:e|ed|ing|ion)|talk to a human|human only|speak with staff|supervisor|need a mod|need an admin)\b/i.test(content);
-      const isStatementOrEscalation = (ticket.escalatedPendingReason && (content.length > 10 || res?.statement)) ||
-        (isExplicitEscalateUser && (res?.escalated === true || content.length > 40));
+      const isStatementOrEscalation = aiSaysEscalated ||
+        (ticket.escalatedPendingReason && (content.length > 5 || uploadedUrls.length > 0 || res?.statement)) ||
+        (isExplicitEscalateUser && (content.length > 15 || uploadedUrls.length > 0 || res?.statement));
 
       if (isStatementOrEscalation) {
-        const userAttachments = [];
-        if (message.attachments?.size) {
-          message.attachments.forEach((att) => {
-            if (att.url) userAttachments.push(att.url);
-          });
-        }
+        const allAtts = [
+          ...(Array.isArray(uploadedUrls) ? uploadedUrls : []),
+          ...(Array.isArray(ticket.attachments) ? ticket.attachments : []),
+          ...(Array.isArray(ticket.statement?.attachments) ? ticket.statement.attachments : [])
+        ].filter((v, i, a) => typeof v === 'string' && a.indexOf(v) === i);
 
-        const derivedSummary = res?.statement || (cleanQ && cleanQ.length > 15 ? cleanQ : (ticket.reason || cleanText));
+        const cleanSummary = cleanQ ? cleanQ.replace(/\[Uploaded.*?\]/g, '').trim() : '';
+        const derivedSummary = res?.statement || (cleanSummary && cleanSummary.length > 10 ? cleanSummary : (ticket.reason || cleanText));
 
         ticket.statement = {
           authorId: message.author.id,
           authorTag: message.author.tag || message.author.username,
-          content: cleanQ || ticket.reason || 'Statement submitted in ticket.',
+          content: cleanSummary || ticket.reason || 'Statement submitted in ticket.',
           summary: derivedSummary.slice(0, 1500),
           category: ticket.categoryName || ticket.categoryKey,
           submittedAt: Date.now(),
-          attachments: userAttachments.length ? userAttachments : (ticket.statement?.attachments || [])
+          attachments: allAtts
         };
 
         ticket.escalated = true;
@@ -13251,12 +13365,16 @@ async function handleTicketAiMessage(message, ticket) {
           }).catch(() => {});
         }
         const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
-        const stCard = buildTicketStatementCard(ticket);
+        const stCard = buildTicketStatementCard(ticket, { isBriefing: true });
 
         if (roleId) {
           await message.channel.send({
             content: `🔔 <@&${roleId}> **Official Statement Documented — Staff Attention Required**\n\n**Alabama Support Assistant**\n${cleanText}`,
             allowedMentions: { roles: [roleId] }
+          }).catch(() => {});
+        } else {
+          await message.channel.send({
+            content: `**Alabama Support Assistant**\n${cleanText}`
           }).catch(() => {});
         }
         return await message.channel.send({
