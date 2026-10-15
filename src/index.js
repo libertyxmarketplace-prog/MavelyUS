@@ -6838,13 +6838,16 @@ function loadTickets() {
       // existing open tickets start responding immediately. Only AI-enabled,
       // human-unclaimed categories become active; we never override a ticket
       // that already has an explicit aiActive flag (respects stop/takeover).
-      if (typeof t.aiActive !== 'boolean') {
-        const aiEligible =
-          isCategoryEnabled(t.categoryKey) &&
-          t.categoryKey !== 'partnership' &&
-          t.categoryKey !== 'staff_partnership' &&
-          !t.claimedBy;
-        t.aiActive = aiEligible;
+      const aiEligible =
+        isCategoryEnabled(t.categoryKey) &&
+        t.categoryKey !== 'partnership' &&
+        t.categoryKey !== 'staff_partnership' &&
+        !t.claimedBy;
+      if (aiEligible) {
+        t.aiActive = true;
+        t.aiStopped = false;
+      } else if (typeof t.aiActive !== 'boolean') {
+        t.aiActive = false;
         t.aiStopped = false;
       }
       activeTickets.set(chanId, t);
@@ -12528,7 +12531,7 @@ async function processRetirementDenial(channel, ticket, denier) {
  * @param {import('discord.js').TextChannel} channel
  * @param {object} ticketData the ticket record (needs categoryKey, reason, channelId)
  */
-function sendTicketAiOpening(channel, ticketData) {
+async function sendTicketAiOpening(channel, ticketData) {
   if (!channel || !ticketData) return;
   const category = ticketData.categoryKey;
   if (!isCategoryEnabled(category)) return; // partnership etc. → human only
@@ -12563,69 +12566,93 @@ function sendTicketAiOpening(channel, ticketData) {
     return;
   }
 
+  const isDefaultReason = !reason || reason === 'Not specified' || reason === 'No reason provided';
+  if (isDefaultReason) {
+    const welcomeText =
+      `**Alabama Support Assistant**\n\n` +
+      `Hello and welcome to **Alabama State Roleplay Support**! 👋\n\n` +
+      `How can we help you today? Please describe your inquiry, question, or issue in detail below, and provide any screenshots or usernames if applicable. An authorized staff member will also assist you shortly!`;
+    channel.send({
+      content: welcomeText,
+      allowedMentions: { parse: [] }
+    }).catch((e) => console.warn(`[ticket-ai] Could not post opening welcome reply: ${e.message}`));
+    return;
+  }
+
   try { channel.sendTyping().catch(() => {}); } catch {}
 
-  Promise.resolve()
-    .then(() => answerTicket({
+  try {
+    const res = await answerTicket({
       question: reason,
       category,
       history: [],
       ticketId: ticketData.channelId,
       channelId: ticketData.channelId,
       userId: ticketData.authorId
-    }))
-    .then((res) => {
-      if (!res || !res.text) return; // disabled/no-answer → nothing to post
-      const cleanText = res.text.replace(/🤖/g, '').trim();
-      const isStatementOrEscalation = res.escalated === true ||
-        /\b(statement.*(?:documented|filed)|escalated to (?:the )?staff|needs staff attention|staff attention required|stepping aside for staff|handing (?:this )?off to staff)\b/i.test(cleanText);
+    });
 
-      if (isStatementOrEscalation) {
-        ticketData.statement = {
-          authorId: ticketData.authorId,
-          authorTag: ticketData.authorUsername,
-          content: reason,
-          summary: res.statement || (reason && reason.length > 10 ? reason : cleanText),
-          category: ticketData.categoryName || ticketData.categoryKey,
-          submittedAt: Date.now(),
-          attachments: []
-        };
-        ticketData.claimedBy = null;
-        ticketData.escalated = true;
-        ticketData.aiActive = true;
-        ticketData.aiStopped = false;
-        saveTickets();
-        try {
-          channel.setName(formatTicketChannelName('🟠', ticketData.authorUsername)).catch(() => null);
-        } catch {}
-        if (ticketData.controlMessageId) {
-          channel.messages.fetch(ticketData.controlMessageId).then((ctrl) => {
-            return ctrl.edit({
-              components: [buildTicketControlContainer(ticketData).toJSON()],
-              flags: MessageFlags.IsComponentsV2
-            });
-          }).catch(() => {});
-        }
-        const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
-        const stCard = buildTicketStatementCard(ticketData);
-        return channel.send({
-          content: `🔔 <@&${roleId}> **Official Statement Documented — Staff Attention Required**\n\n**Alabama Support Assistant**\n${cleanText}`,
-          components: [stCard.toJSON()],
-          flags: MessageFlags.IsComponentsV2,
-          allowedMentions: { roles: [roleId] }
-        }).catch((e) => console.warn(`[ticket-ai] Could not post opening statement card: ${e.message}`));
+    const cleanText = (res?.text || '').replace(/🤖/g, '').trim() ||
+      `Thank you for reaching out to **Alabama State Roleplay Support**!\n\nI have noted your inquiry regarding: **${String(reason).slice(0, 150)}**.\n\nOur support team has been notified. Please provide any additional screenshots, player names, or details below, and an authorized staff member will assist you shortly!`;
+
+    const isStatementOrEscalation = res?.escalated === true ||
+      /\b(statement.*(?:documented|filed)|escalated to (?:the )?staff|needs staff attention|staff attention required|stepping aside for staff|handing (?:this )?off to staff)\b/i.test(cleanText);
+
+    if (isStatementOrEscalation) {
+      ticketData.statement = {
+        authorId: ticketData.authorId,
+        authorTag: ticketData.authorUsername,
+        content: reason,
+        summary: res?.statement || (reason && reason.length > 10 ? reason : cleanText),
+        category: ticketData.categoryName || ticketData.categoryKey,
+        submittedAt: Date.now(),
+        attachments: []
+      };
+      ticketData.claimedBy = null;
+      ticketData.escalated = true;
+      ticketData.aiActive = true;
+      ticketData.aiStopped = false;
+      saveTickets();
+      try {
+        channel.setName(formatTicketChannelName('🟠', ticketData.authorUsername)).catch(() => null);
+      } catch {}
+      if (ticketData.controlMessageId) {
+        channel.messages.fetch(ticketData.controlMessageId).then((ctrl) => {
+          return ctrl.edit({
+            components: [buildTicketControlContainer(ticketData).toJSON()],
+            flags: MessageFlags.IsComponentsV2
+          });
+        }).catch(() => {});
       }
+      const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+      const stCard = buildTicketStatementCard(ticketData);
+      return await channel.send({
+        content: `🔔 <@&${roleId}> **Official Statement Documented — Staff Attention Required**\n\n**Alabama Support Assistant**\n${cleanText}`,
+        components: [stCard.toJSON()],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: { roles: [roleId] }
+      }).catch((e) => console.warn(`[ticket-ai] Could not post opening statement card: ${e.message}`));
+    }
 
-      const components = buildQuickActionButtons(`${reason} ${cleanText}`, ticketData);
-      return channel.send({
-        content: `**Alabama Support Assistant**\n\n${cleanText}`,
-        ...(components.length ? { components } : {}),
-        allowedMentions: { parse: [] }
-      }).catch((e) =>
-        console.warn(`[ticket-ai] Could not post opening reply: ${e.message}`)
-      );
-    })
-    .catch((err) => console.warn(`[ticket-ai] Opening response failed: ${err.message}`));
+    const components = buildQuickActionButtons(`${reason} ${cleanText}`, ticketData);
+    return await channel.send({
+      content: `**Alabama Support Assistant**\n\n${cleanText}`,
+      ...(components.length ? { components } : {}),
+      allowedMentions: { parse: [] }
+    }).catch((e) =>
+      console.warn(`[ticket-ai] Could not post opening reply: ${e.message}`)
+    );
+  } catch (err) {
+    console.warn(`[ticket-ai] Opening response failed: ${err.message}`);
+    const fallbackText =
+      `**Alabama Support Assistant**\n\n` +
+      `Thank you for reaching out to **Alabama State Roleplay Support**!\n\n` +
+      `I have noted your inquiry regarding: **${String(reason).slice(0, 150)}**.\n\n` +
+      `Our support team has been notified. Please provide any additional screenshots, player names, or details below, and an authorized staff member will assist you shortly!`;
+    channel.send({
+      content: fallbackText,
+      allowedMentions: { parse: [] }
+    }).catch(() => {});
+  }
 }
 
 /**
@@ -12656,6 +12683,14 @@ async function handleTicketAiMessage(message, ticket) {
   const botNameCalled = /\b(alabama utuils|alabama utils|alabama utilities|alabama bot)\b/i.test(content);
   const isDirectlyPrompted = botPinged || botNameCalled;
 
+  // Auto-adopt author if session was recovered without author ID
+  if ((!ticket.authorId || ticket.authorId === 'Unknown') && !message.author.bot) {
+    ticket.authorId = message.author.id;
+    ticket.authorUsername = message.author.username;
+    ticket.authorTag = message.author.tag || message.author.username;
+    saveTickets();
+  }
+
   // Update activity timestamp on any interaction for 15-minute inactivity tracking
   ticket.lastActivityAt = Date.now();
   saveTickets();
@@ -12664,6 +12699,7 @@ async function handleTicketAiMessage(message, ticket) {
   if (isAiStopRequest(content)) {
     ticket.aiActive = false;
     ticket.aiStopped = true;
+    ticket.manuallyPaused = true;
     saveTickets();
     refreshTicketAiState(message.channel, ticket).catch(() => {});
     await message.reply({
@@ -12677,6 +12713,7 @@ async function handleTicketAiMessage(message, ticket) {
   if (isAiContinueRequest(content)) {
     ticket.aiActive = true;
     ticket.aiStopped = false;
+    ticket.manuallyPaused = false;
     ticket.claimedBy = null;
     saveTickets();
     refreshTicketAiState(message.channel, ticket).catch(() => {});
@@ -13006,8 +13043,9 @@ async function handleTicketAiMessage(message, ticket) {
       return;
     }
 
-    // If this staff member is NOT the ticket author, check if they are prompting the bot or talking directly
-    if (!isAuthor) {
+    // If ticket is claimed by a human staff member, staff member talking steps back the bot unless directly prompted
+    const humanClaimed = ticket.claimedBy && ticket.claimedBy !== botId;
+    if (humanClaimed && !isAuthor && !isDirectlyPrompted) {
       if (content.length > 10) {
         const q = (ticket.reason && ticket.reason !== 'Not specified' && ticket.reason !== 'No reason provided')
           ? ticket.reason
@@ -13025,12 +13063,7 @@ async function handleTicketAiMessage(message, ticket) {
           console.warn(`[ticket-ai] Could not capture staff answer: ${err.message}`);
         }
       }
-
-      // If staff did NOT ping or mention the bot, they are talking to the user — assistant steps back for this message
-      if (!isDirectlyPrompted) {
-        return; // staff talking directly without calling bot steps back
-      }
-      // If isDirectlyPrompted is true, staff explicitly asked the bot to speak/assist!
+      return; // staff talking directly in claimed ticket steps back
     }
   }
 
@@ -13042,9 +13075,10 @@ async function handleTicketAiMessage(message, ticket) {
 
   // 2. User explicitly requests to stop AI or requests human only
   const humanRequestRegex = /\b(stop ai|no ai|don'?t want ai|dont want ai|i don'?t wanna chat with ai|i dont wanna chat with ai|stop talking to ai|talk to a human only|speak with a real person only|human only)\b/i;
-  if (isAuthor && humanRequestRegex.test(content)) {
+  if ((isAuthor || authorIsStaff) && humanRequestRegex.test(content)) {
     ticket.aiActive = false;
     ticket.aiStopped = true;
+    ticket.manuallyPaused = true;
     saveTickets();
     const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
     message.reply({
@@ -13071,6 +13105,13 @@ async function handleTicketAiMessage(message, ticket) {
 
   // 4. Gate: AI only replies while active, not paused, and no human has claimed it (unless directly pinged/prompted)
   const humanClaimed = ticket.claimedBy && ticket.claimedBy !== botId;
+  // Auto-heal unclaimed ticket in an AI category if not explicitly paused
+  if (!humanClaimed && !ticket.manuallyPaused && (!ticket.aiActive || ticket.aiStopped)) {
+    ticket.aiActive = true;
+    ticket.aiStopped = false;
+    saveTickets();
+  }
+
   if (!isDirectlyPrompted && (!ticket.aiActive || ticket.aiStopped || humanClaimed)) return;
   if (!content) return; // image-only / empty
 
@@ -13079,7 +13120,7 @@ async function handleTicketAiMessage(message, ticket) {
     !/\b(why|what is|how do|how to|already escalated)\b/i.test(content);
   const hasSubstantialDetails = content.length > 80 || /\b(because|since|officer|staff|rdm|vdm|failrp|banned|warned|rules|reason)\b/i.test(content);
 
-  if (isAuthor && isEscalateAsk && !hasSubstantialDetails && !ticket.statement) {
+  if ((isAuthor || authorIsStaff || isDirectlyPrompted) && isEscalateAsk && !hasSubstantialDetails && !ticket.statement) {
     ticket.escalatedPendingReason = true;
     saveTickets();
     await message.reply({
@@ -13159,9 +13200,10 @@ async function handleTicketAiMessage(message, ticket) {
       userId: message.author.id
     }))
     .then((res) => {
-      if (!res || !res.text) return;
-      const cleanText = res.text.replace(/🤖/g, '').trim();
-      const isStatementOrEscalation = res.escalated === true ||
+      const cleanText = (res?.text || '').replace(/🤖/g, '').trim() ||
+        `Thank you for reaching out! I have noted your message for our support staff. If you have any additional details or screenshots, please send them here and an authorized staff member will assist you shortly!`;
+
+      const isStatementOrEscalation = res?.escalated === true ||
         /\b(statement.*(?:documented|filed)|escalated to (?:the )?staff|needs staff attention|staff attention required|stepping aside for staff|handing (?:this )?off to staff)\b/i.test(cleanText);
 
       if (isStatementOrEscalation) {
@@ -13172,7 +13214,7 @@ async function handleTicketAiMessage(message, ticket) {
           });
         }
 
-        const derivedSummary = res.statement || (cleanQ && cleanQ.length > 15 ? cleanQ : (ticket.reason || cleanText));
+        const derivedSummary = res?.statement || (cleanQ && cleanQ.length > 15 ? cleanQ : (ticket.reason || cleanText));
 
         ticket.statement = {
           authorId: message.author.id,
@@ -13222,7 +13264,13 @@ async function handleTicketAiMessage(message, ticket) {
         console.warn(`[ticket-ai] Could not post follow-up reply: ${e.message}`)
       );
     })
-    .catch((err) => console.warn(`[ticket-ai] Follow-up response failed: ${err.message}`));
+    .catch((err) => {
+      console.warn(`[ticket-ai] Follow-up response failed: ${err.message}`);
+      return message.reply({
+        content: `**Alabama Support Assistant**\n\nThank you for reaching out! I have noted your message for our support staff. If you have any additional details or screenshots, please provide them here and an authorized staff member will assist you shortly!`,
+        allowedMentions: { repliedUser: false }
+      }).catch(() => {});
+    });
 }
 
 /**
@@ -13531,11 +13579,14 @@ async function createTicketForUser(client, interaction, catKey, reason) {
           if (existingGuildCh.name.startsWith('🔴・')) {
             existingGuildCh.setName(formatTicketChannelName('🟢', sanitizedUsername)).catch(() => null);
           }
-          if (!existingTicket.aiOpeningSent) {
+          existingTicket.aiActive = true;
+          existingTicket.aiStopped = false;
+          if (reason && reason !== 'Existing ticket session' && reason !== 'No reason provided') {
+            existingTicket.reason = reason;
+            saveTickets();
+            sendTicketAiOpening(existingGuildCh, existingTicket);
+          } else if (!existingTicket.aiOpeningSent) {
             existingTicket.aiOpeningSent = true;
-            if (reason && reason !== 'Existing ticket session' && reason !== 'No reason provided') {
-              existingTicket.reason = reason;
-            }
             saveTickets();
             sendTicketAiOpening(existingGuildCh, existingTicket);
           }
@@ -20163,8 +20214,8 @@ function buildAiContext(message) {
 
       ticket.claimedBy = null;
       ticket.escalated = true;
-      ticket.aiActive = false;
-      ticket.aiStopped = true;
+      ticket.aiActive = true;
+      ticket.aiStopped = false;
       saveTickets();
 
       try {
