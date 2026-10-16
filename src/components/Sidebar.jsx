@@ -1,360 +1,256 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
-  LayoutDashboard, 
-  Bot, 
-  Terminal, 
-  Boxes, 
-  Settings, 
-  FileText,
   Home,
+  LayoutDashboard,
+  BookOpen,
+  ShieldCheck,
+  Radio,
+  FileText,
+  MessageSquare,
+  Settings,
   LogOut,
-  ExternalLink
+  ExternalLink,
+  Shield,
+  FileQuestion
 } from 'lucide-react';
-import { CivLinkIcon } from './CivLinkLogo';
 
 export function Sidebar({ 
-  activeTab, 
-  setActiveTab, 
-  onOpenSettings, 
-  onOpenLegal, 
+  currentView = 'home',
+  onNavigate,
+  activeTab = 'overview',
+  setActiveTab,
+  onOpenSettings,
+  onOpenLegal,
   user,
-  onGoHome 
 }) {
-  const [hoveredTab, setHoveredTab] = useState(null);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  // Close user menu on outside click
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [userMenuOpen]);
 
   const navItems = [
-    { id: 'overview', label: '01. Overview', icon: LayoutDashboard },
-    { id: 'builder', label: '02. Bot Builder', icon: Bot },
-    { id: 'commands', label: '03. Command Manager', icon: Terminal },
-    { id: 'marketplace', label: '04. Module Library', icon: Boxes },
+    { 
+      id: 'home', 
+      label: 'Home', 
+      icon: Home, 
+      active: currentView === 'home',
+      onClick: () => onNavigate?.('home')
+    },
+    { 
+      id: 'dashboard', 
+      label: 'Dashboard', 
+      icon: LayoutDashboard, 
+      active: currentView === 'dashboard',
+      onClick: () => onNavigate?.('dashboard')
+    },
+    { 
+      id: 'docs', 
+      label: 'Documentation', 
+      icon: BookOpen, 
+      active: currentView === 'docs',
+      onClick: () => onNavigate?.('docs')
+    },
+    { 
+      id: 'moderation', 
+      label: 'Staff & Security', 
+      icon: ShieldCheck, 
+      active: currentView === 'dashboard' && activeTab === 'commands',
+      onClick: () => {
+        onNavigate?.('dashboard');
+        setActiveTab?.('commands');
+      }
+    },
+    { 
+      id: 'telemetry', 
+      label: 'Server Telemetry', 
+      icon: Radio, 
+      active: currentView === 'dashboard' && activeTab === 'builder',
+      onClick: () => {
+        onNavigate?.('dashboard');
+        setActiveTab?.('builder');
+      }
+    },
+    { 
+      id: 'records', 
+      label: 'Module Catalog', 
+      icon: FileText, 
+      active: currentView === 'dashboard' && activeTab === 'marketplace',
+      onClick: () => {
+        onNavigate?.('dashboard');
+        setActiveTab?.('marketplace');
+      }
+    },
   ];
 
   return (
-    <aside
-      style={{
-        width: '54px',
-        minWidth: '54px',
-        height: '100vh',
-        background: '#090a0f',
-        borderRight: '1px solid #1a1e29',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '14px 0',
-        position: 'sticky',
-        top: 0,
-        zIndex: 40,
-        userSelect: 'none'
-      }}
-    >
-      {/* Top Logo - takes back to Home landing page or Overview */}
-      <div 
-        onClick={onGoHome}
-        style={{
-          cursor: 'pointer',
-          padding: '6px',
-          borderRadius: '6px',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'opacity 0.15s ease'
-        }}
-        title="CivLink — Home"
-      >
-        <CivLinkIcon size={24} />
+    <aside className="fixed left-0 top-0 bottom-0 z-50 w-14 sm:w-16 flex flex-col items-center justify-between py-5 border-r border-white/[0.08] bg-[#0b0c10]/95 backdrop-blur-md select-none">
+      {/* Top Branding / Logo */}
+      <div className="flex flex-col items-center gap-7">
+        <button
+          onClick={() => onNavigate?.('home')}
+          className="flex items-center justify-center p-0 hover:opacity-80 transition-opacity outline-none focus:outline-none"
+          title="Home"
+        >
+          <img src="/mavely-mark.png" alt="Mavely" className="size-7 object-contain" onError={(e) => {
+            // fallback if image not loaded
+            e.currentTarget.style.display = 'none';
+          }} />
+        </button>
+
+        {/* Main Nav Icons */}
+        <nav className="flex flex-col items-center gap-4">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={item.onClick}
+                title={item.label}
+                className={`group relative flex size-8 items-center justify-center rounded-none bg-transparent transition-colors outline-none focus:outline-none focus:ring-0 active:bg-transparent ${
+                  item.active ? 'text-white' : 'text-white/40 hover:text-white'
+                }`}
+              >
+                <Icon className="size-[19px]" />
+                <span className="pointer-events-none absolute left-full ml-3 hidden rounded-md bg-[#141416] border border-white/10 px-2 py-1 text-[11px] font-medium text-white whitespace-nowrap shadow-xl group-hover:block z-50">
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
-      {/* Main Navigation Rail */}
-      <nav 
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-          alignItems: 'center',
-          width: '100%',
-          flex: 1
-        }}
-      >
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          const isHovered = hoveredTab === item.id;
-
-          return (
-            <div
-              key={item.id}
-              style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}
-              onMouseEnter={() => setHoveredTab(item.id)}
-              onMouseLeave={() => setHoveredTab(null)}
-            >
-              <button
-                onClick={() => setActiveTab(item.id)}
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '6px',
-                  /* Clean monochrome active state - NOT BLUE */
-                  background: isActive ? '#20242f' : isHovered ? '#141720' : 'transparent',
-                  border: isActive ? '1px solid #2d3345' : '1px solid transparent',
-                  color: isActive ? '#ffffff' : isHovered ? '#d1d5db' : '#64748b',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.12s ease',
-                  outline: 'none',
-                  position: 'relative'
-                }}
-                aria-label={item.label}
-              >
-                <Icon size={18} strokeWidth={isActive ? 2.1 : 1.7} />
-
-                {/* Subtle neutral indicator bar on left - NOT BLUE */}
-                {isActive && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: '-8px',
-                      width: '3px',
-                      height: '20px',
-                      background: '#94a3b8',
-                      borderRadius: '0 3px 3px 0'
-                    }}
-                  />
-                )}
-              </button>
-
-              {/* Tooltip */}
-              {isHovered && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: '54px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: '#141722',
-                    border: '1px solid #23293a',
-                    color: '#ffffff',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    padding: '5px 10px',
-                    borderRadius: '5px',
-                    whiteSpace: 'nowrap',
-                    boxShadow: '0 6px 18px rgba(0,0,0,0.5)',
-                    pointerEvents: 'none',
-                    zIndex: 50
-                  }}
-                >
-                  {item.label}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </nav>
-
-      {/* Bottom Actions */}
-      <div 
-        style={{
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '10px'
-        }}
-      >
-        <div 
-          style={{
-            width: '28px',
-            height: '1px',
-            background: '#191d28',
-            margin: '2px 0'
-          }}
-        />
-
-        {/* Home link */}
-        <button
-          onClick={onGoHome}
-          title="Return to Website Home"
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '6px',
-            background: 'transparent',
-            border: 'none',
-            color: '#64748b',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'color 0.12s ease'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.color = '#cbd5e1'}
-          onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}
+      {/* Bottom Icons & User Popover */}
+      <div className="flex flex-col items-center gap-3 pt-4 border-t border-white/[0.06] relative" ref={menuRef}>
+        {/* Discord Support Link */}
+        <a
+          href="https://discord.gg/UCqXrvHFqh"
+          target="_blank"
+          rel="noreferrer"
+          title="Discord Community & Support"
+          className="flex size-8 items-center justify-center text-white/40 hover:text-white transition-colors outline-none focus:outline-none"
         >
-          <Home size={18} />
-        </button>
+          <MessageSquare className="size-[18px]" />
+        </a>
 
-        {/* Legal / Docs */}
-        <button
-          onClick={() => onOpenLegal('terms')}
-          title="Terms & Privacy"
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '6px',
-            background: 'transparent',
-            border: 'none',
-            color: '#64748b',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'color 0.12s ease'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.color = '#cbd5e1'}
-          onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}
-        >
-          <FileText size={18} />
-        </button>
-
-        {/* Settings */}
+        {/* Settings Button */}
         <button
           onClick={onOpenSettings}
-          title="Bot Tokens & Keys"
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '6px',
-            background: 'transparent',
-            border: 'none',
-            color: '#64748b',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'color 0.12s ease'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.color = '#cbd5e1'}
-          onMouseLeave={(e) => e.currentTarget.style.color = '#64748b'}
+          title="Bot Tokens & Server Config"
+          className="flex size-8 items-center justify-center text-white/40 hover:text-white transition-colors outline-none focus:outline-none"
         >
-          <Settings size={18} />
+          <Settings className="size-[18px]" />
         </button>
 
-        {/* User Profile Avatar */}
-        <div style={{ position: 'relative', marginTop: '2px' }}>
-          <div 
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            title={user ? `@${user.username}` : "Not logged in"}
-            style={{
-              position: 'relative',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+        {/* User Avatar with Clickable Popover Menu (contains Terms of Service and Privacy Policy) */}
+        <div className="relative">
+          <button
+            onClick={() => setUserMenuOpen((prev) => !prev)}
+            title={user ? (user.globalName || user.username) : "User profile & legal"}
+            className={`mt-1 flex size-8 items-center justify-center rounded-full overflow-hidden ring-1 transition-all outline-none ${
+              userMenuOpen ? 'ring-emerald-400 scale-105' : 'ring-white/20 hover:ring-white/60'
+            }`}
           >
             {user?.avatarUrl ? (
               <img
                 src={user.avatarUrl}
                 alt={user.username}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  border: '1px solid #2d3345',
-                  display: 'block'
-                }}
+                className="size-full object-cover rounded-full"
               />
             ) : (
-              <div
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  background: '#191d28',
-                  border: '1px solid #2d3345',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#94a3b8',
-                  fontSize: '11px',
-                  fontWeight: 700
+              <img
+                src="/mavely_avatar.png"
+                alt="User"
+                className="size-full object-cover rounded-full"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
                 }}
-              >
-                {user?.username ? user.username.slice(0, 2).toUpperCase() : '?'}
-              </div>
+              />
             )}
+          </button>
 
-            {/* Online indicator dot */}
-            <span
-              style={{
-                position: 'absolute',
-                bottom: '-1px',
-                right: '-1px',
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                background: user ? '#10b981' : '#64748b',
-                border: '1.5px solid #090a0f'
-              }}
-            />
-          </div>
-
-          {/* User Popover Menu */}
-          {showUserMenu && (
-            <div
-              style={{
-                position: 'absolute',
-                left: '48px',
-                bottom: '0',
-                background: '#10131c',
-                border: '1px solid #23293a',
-                borderRadius: '8px',
-                padding: '12px',
-                width: '180px',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.6)',
-                zIndex: 60,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}
-            >
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>
-                  {user?.displayName || user?.username || 'Guest'}
+          {/* User Popover Menu showing profile, Terms, Privacy Policy & Log Out */}
+          {userMenuOpen && (
+            <div className="absolute left-12 bottom-0 w-64 rounded-xl bg-[#12141c] border border-white/10 shadow-2xl p-3 space-y-3 z-50">
+              {/* Header User Profile Info */}
+              <div className="flex items-center gap-2.5 pb-2.5 border-b border-white/[0.06]">
+                <img
+                  src={user?.avatarUrl || "/mavely_avatar.png"}
+                  alt={user?.username || "Guest"}
+                  className="size-9 object-cover rounded-full ring-1 ring-white/15"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-white truncate">
+                    {user?.displayName || user?.username || 'Guest Administrator'}
+                  </p>
+                  <p className="text-[11px] text-zinc-400 truncate">
+                    {user ? `@${user.username}` : 'Discord OAuth2'}
+                  </p>
                 </div>
-                <div className="font-mono" style={{ fontSize: '11px', color: '#64748b' }}>
-                  {user ? `@${user.username}` : 'Not connected'}
-                </div>
+                <span className="size-2 rounded-full bg-emerald-400" title="System Online" />
               </div>
 
-              <div style={{ height: '1px', background: '#1c2232', margin: '2px 0' }} />
-
-              {user ? (
+              {/* Menu Actions including Terms of Service and Privacy Policy */}
+              <div className="space-y-1">
                 <button
                   onClick={() => {
-                    setShowUserMenu(false);
-                    fetch('/auth/logout', { method: 'POST' }).then(() => window.location.reload());
+                    setUserMenuOpen(false);
+                    onOpenLegal?.('terms');
                   }}
-                  className="btn-danger"
-                  style={{ width: '100%', fontSize: '11px', padding: '6px 10px' }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.06] hover:text-white transition-colors text-left"
                 >
-                  <LogOut size={13} />
-                  LOG OUT
+                  <FileText className="size-3.5 text-zinc-400" />
+                  <span>Terms of Service</span>
                 </button>
-              ) : (
-                <a
-                  href="/auth/discord/login"
-                  className="btn-primary"
-                  style={{ width: '100%', fontSize: '11px', padding: '6px 10px' }}
+
+                <button
+                  onClick={() => {
+                    setUserMenuOpen(false);
+                    onOpenLegal?.('privacy');
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.06] hover:text-white transition-colors text-left"
                 >
-                  LOG IN WITH DISCORD
-                </a>
-              )}
+                  <Shield className="size-3.5 text-zinc-400" />
+                  <span>Privacy Policy</span>
+                </button>
+              </div>
+
+              {/* Log In / Log Out */}
+              <div className="pt-2 border-t border-white/[0.06]">
+                {user ? (
+                  <button
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      fetch('/auth/logout', { method: 'POST' }).then(() => window.location.reload());
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/10 transition-colors text-left"
+                  >
+                    <LogOut className="size-3.5" />
+                    <span>Log Out</span>
+                  </button>
+                ) : (
+                  <a
+                    href="/auth/discord/login"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-white text-black font-semibold px-2.5 py-1.5 text-xs hover:bg-zinc-200 transition-colors"
+                  >
+                    <span>Connect Discord</span>
+                  </a>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -362,3 +258,5 @@ export function Sidebar({
     </aside>
   );
 }
+
+export default Sidebar;

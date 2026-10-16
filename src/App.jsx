@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { HomeView } from './views/HomeView';
+import { DocsView } from './views/DocsView';
 import { OverviewView } from './views/OverviewView';
 import { BotBuilderView } from './views/BotBuilderView';
 import { CommandManagerView } from './views/CommandManagerView';
@@ -11,15 +12,16 @@ import { CivLinkLogo } from './components/CivLinkLogo';
 import { 
   Server, 
   LogIn, 
-  RotateCw, 
   Settings, 
-  ExternalLink,
   ChevronDown
 } from 'lucide-react';
 
 export default function App() {
   const [currentView, setCurrentView] = useState(() => {
-    return window.location.pathname.startsWith('/dashboard') ? 'dashboard' : 'home';
+    const p = window.location.pathname;
+    if (p.startsWith('/dashboard')) return 'dashboard';
+    if (p.startsWith('/docs')) return 'docs';
+    return 'home';
   });
   const [activeTab, setActiveTab] = useState('overview'); // overview, builder, commands, marketplace
   const [user, setUser] = useState(null);
@@ -53,9 +55,11 @@ export default function App() {
 
   useEffect(() => {
     loadUserAndBot();
-    // sync browser history state
     const handlePop = () => {
-      setCurrentView(window.location.pathname.startsWith('/dashboard') ? 'dashboard' : 'home');
+      const p = window.location.pathname;
+      if (p.startsWith('/dashboard')) setCurrentView('dashboard');
+      else if (p.startsWith('/docs')) setCurrentView('docs');
+      else setCurrentView('home');
     };
     window.addEventListener('popstate', handlePop);
     return () => window.removeEventListener('popstate', handlePop);
@@ -63,7 +67,8 @@ export default function App() {
 
   const navigateTo = (view) => {
     setCurrentView(view);
-    window.history.pushState({}, '', view === 'dashboard' ? '/dashboard' : '/');
+    const path = view === 'dashboard' ? '/dashboard' : view === 'docs' ? '/docs' : '/';
+    window.history.pushState({}, '', path);
   };
 
   const handleSaveConfig = async (newConfig) => {
@@ -80,212 +85,151 @@ export default function App() {
     }
   };
 
-  // If user is on the Landing / Home view
-  if (currentView === 'home') {
-    return (
-      <>
-        <HomeView 
-          onEnterDashboard={() => navigateTo('dashboard')} 
-          user={user} 
-          onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })} 
-        />
-        <LegalModal 
-          isOpen={legalModal.isOpen} 
-          onClose={() => setLegalModal({ ...legalModal, isOpen: false })} 
-          tab={legalModal.tab} 
-        />
-      </>
-    );
-  }
-
-  // Dashboard View
   const isBotOnline = botData?.runtime?.status === 'online';
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#08090d', color: '#f8fafc' }}>
-      {/* 54px Thin Sidebar Rail (Zero Blue on click, purely neutral active state) */}
+    <div className="flex min-h-screen bg-[#08090d] text-white selection:bg-emerald-500/20 selection:text-white">
+      {/* Persistent Left Sidebar Rail across all views */}
       <Sidebar
+        currentView={currentView}
+        onNavigate={navigateTo}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })}
         user={user}
-        onGoHome={() => navigateTo('home')}
       />
 
-      {/* Main Dashboard Column */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* Top Header */}
-        <header
-          style={{
-            height: '56px',
-            borderBottom: '1px solid #161a25',
-            background: '#0a0c12',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0 24px',
-            position: 'sticky',
-            top: 0,
-            zIndex: 30
-          }}
-        >
-          {/* Left: Active Server & Bot Status */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div 
-              onClick={() => setIsSettingsOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '5px 10px',
-                background: '#121622',
-                borderRadius: '5px',
-                border: '1px solid #1f2536',
-                cursor: 'pointer'
-              }}
-              title="Change server in Settings"
-            >
-              <Server size={14} style={{ color: '#2E90FA' }} />
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
-                {botData?.config?.guildId ? 'Configured Server' : 'No Server Selected'}
-              </span>
-              <ChevronDown size={13} style={{ color: '#64748b' }} />
-            </div>
+      {/* Main Content Area Offset by Left Sidebar */}
+      <div className="flex-1 pl-14 sm:pl-16 min-w-0 flex flex-col">
+        {/* Landing Home View */}
+        {currentView === 'home' && (
+          <HomeView
+            onEnterDashboard={() => navigateTo('dashboard')}
+            onOpenDocs={() => navigateTo('docs')}
+            user={user}
+            onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })}
+          />
+        )}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className={isBotOnline ? 'badge badge-emerald' : botData?.hasToken ? 'badge badge-zinc' : 'badge badge-rose'}>
-                {isBotOnline ? 'BOT ONLINE' : botData?.hasToken ? 'BOT STOPPED' : 'NO BOT TOKEN'}
-              </span>
-              {botData?.hasErlcKey && (
-                <span className="badge badge-blue">PRC API LINKED</span>
-              )}
-            </div>
-          </div>
+        {/* Documentation View */}
+        {currentView === 'docs' && (
+          <DocsView
+            onBackHome={() => navigateTo('home')}
+            onEnterDashboard={() => navigateTo('dashboard')}
+          />
+        )}
 
-          {/* Right: User Login & Quick Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {user ? (
-              <div 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '8px',
-                  padding: '4px 8px',
-                  background: '#121622',
-                  borderRadius: '6px',
-                  border: '1px solid #1f2536'
-                }}
-              >
-                {user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%' }} />
-                ) : (
-                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#252d40', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700 }}>
-                    {user.username.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-                <span className="font-mono" style={{ fontSize: '12px', fontWeight: 600, color: '#ffffff' }}>
-                  @{user.username}
-                </span>
+        {/* Dashboard View */}
+        {currentView === 'dashboard' && (
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Top Dashboard Header */}
+            <header className="h-14 border-b border-white/[0.06] bg-[#0a0c12] flex items-center justify-between px-6 sticky top-0 z-30">
+              {/* Left: Active Server & Bot Status */}
+              <div className="flex items-center gap-3">
+                <div 
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-white/20 transition-all cursor-pointer"
+                  title="Change server in Settings"
+                >
+                  <Server className="size-3.5 text-emerald-400" />
+                  <span className="text-xs font-semibold text-white">
+                    {botData?.config?.guildId ? 'Configured Server' : 'No Server Selected'}
+                  </span>
+                  <ChevronDown className="size-3 text-zinc-400" />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className={`text-[11px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                    isBotOnline 
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                      : botData?.hasToken 
+                        ? 'bg-zinc-800 text-zinc-400 border border-zinc-700' 
+                        : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                  }`}>
+                    {isBotOnline ? 'BOT ONLINE' : botData?.hasToken ? 'BOT STOPPED' : 'NO BOT TOKEN'}
+                  </span>
+                  {botData?.hasErlcKey && (
+                    <span className="text-[11px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                      PRC API LINKED
+                    </span>
+                  )}
+                </div>
               </div>
-            ) : (
-              <a 
-                href="/auth/discord/login" 
-                className="btn-primary font-mono" 
-                style={{ fontSize: '12px', padding: '6px 12px' }}
-              >
-                <LogIn size={13} />
-                LOGIN WITH DISCORD
-              </a>
-            )}
 
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="btn-secondary font-mono"
-              style={{ fontSize: '12px', padding: '6px 10px' }}
-              title="Settings"
-            >
-              <Settings size={14} />
-            </button>
+              {/* Right: User Login & Quick Actions */}
+              <div className="flex items-center gap-3">
+                {user ? (
+                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08]">
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="" className="size-5 rounded-full" />
+                    ) : (
+                      <div className="size-5 rounded-full bg-zinc-800 flex items-center justify-center text-[9px] font-bold">
+                        {user.username.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-xs font-semibold text-white">
+                      @{user.username}
+                    </span>
+                  </div>
+                ) : (
+                  <a 
+                    href="/auth/discord/login" 
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-white text-black font-semibold text-xs px-3 py-1.5 hover:bg-zinc-200 transition-all"
+                  >
+                    <LogIn className="size-3.5" />
+                    <span>LOGIN WITH DISCORD</span>
+                  </a>
+                )}
+
+                <button
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="flex size-8 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-zinc-400 hover:text-white transition-all cursor-pointer"
+                  title="Settings"
+                >
+                  <Settings className="size-3.5" />
+                </button>
+              </div>
+            </header>
+
+            {/* Dashboard View Router */}
+            <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
+              {activeTab === 'overview' && (
+                <OverviewView 
+                  botData={botData} 
+                  onRefresh={loadUserAndBot} 
+                  onOpenSettings={() => setIsSettingsOpen(true)}
+                  setActiveTab={setActiveTab}
+                />
+              )}
+
+              {activeTab === 'builder' && (
+                <BotBuilderView 
+                  botData={botData} 
+                  onSaveConfig={handleSaveConfig} 
+                  onRefresh={loadUserAndBot}
+                />
+              )}
+
+              {activeTab === 'commands' && (
+                <CommandManagerView 
+                  botData={botData} 
+                  onSaveConfig={handleSaveConfig}
+                />
+              )}
+
+              {activeTab === 'marketplace' && (
+                <ModuleMarketplaceView 
+                  botData={botData} 
+                  onRefresh={loadUserAndBot}
+                />
+              )}
+            </main>
           </div>
-        </header>
-
-        {/* View Router */}
-        <main style={{ flex: 1, padding: '24px 28px', maxWidth: '1440px', width: '100%', margin: '0 auto' }}>
-          {activeTab === 'overview' && (
-            <OverviewView 
-              botData={botData} 
-              onRefresh={loadUserAndBot} 
-              onOpenSettings={() => setIsSettingsOpen(true)}
-              setActiveTab={setActiveTab}
-            />
-          )}
-
-          {activeTab === 'builder' && (
-            <BotBuilderView 
-              botData={botData} 
-              onSaveConfig={handleSaveConfig} 
-              onRefresh={loadUserAndBot}
-            />
-          )}
-
-          {activeTab === 'commands' && (
-            <CommandManagerView 
-              botData={botData} 
-              onSaveConfig={handleSaveConfig}
-            />
-          )}
-
-          {activeTab === 'marketplace' && (
-            <ModuleMarketplaceView 
-              botData={botData} 
-              onRefresh={loadUserAndBot}
-            />
-          )}
-        </main>
-
-        {/* Bottom Minimal Footer */}
-        <footer
-          style={{
-            borderTop: '1px solid #141722',
-            padding: '16px 28px',
-            fontSize: '12px',
-            color: '#64748b',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '12px',
-            background: '#090a0f'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CivLinkLogo size={18} showText={true} />
-            <span>•</span>
-            <span className="font-mono">v1.4.2-enterprise</span>
-            <span>•</span>
-            <span>Custom ER:LC Bot Runtime Engine</span>
-          </div>
-
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <button 
-              onClick={() => setLegalModal({ isOpen: true, tab: 'terms' })}
-              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}
-            >
-              Terms of Service
-            </button>
-            <button 
-              onClick={() => setLegalModal({ isOpen: true, tab: 'privacy' })}
-              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}
-            >
-              Privacy Policy
-            </button>
-            <span className="font-mono" style={{ color: '#2E90FA' }}>civlink.xyz</span>
-          </div>
-        </footer>
+        )}
       </div>
 
-      {/* Modals */}
+      {/* Global Modals */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}

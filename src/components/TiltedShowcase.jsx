@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { Layers, Sparkles, ExternalLink, ChevronRight } from 'lucide-react';
 
 const EMBED_CARDS = [
   {
@@ -13,7 +12,7 @@ const EMBED_CARDS = [
     id: 'assistance',
     name: 'Alabama Assistance',
     subtitle: 'Live Dropdown Category Portal',
-    tag: 'SUPPORT PORTAL',
+    tag: 'PORTAL',
     image: '/embeds/alabama-assistance.png'
   },
   {
@@ -27,14 +26,14 @@ const EMBED_CARDS = [
     id: 'promotion',
     name: 'Promotion Notice',
     subtitle: 'Official Rank Commendation Dispatch',
-    tag: 'LOGGING & AUDIT',
+    tag: 'AUDIT',
     image: '/embeds/promotion-notice.png'
   }
 ];
 
 export function TiltedShowcase() {
   const [activeId, setActiveId] = useState('support');
-  const [rotate, setRotate] = useState({ x: 5, y: -8 });
+  const [rotate, setRotate] = useState({ x: 5, y: -7 });
   const [isHovered, setIsHovered] = useState(false);
   const cardRef = useRef(null);
 
@@ -48,30 +47,28 @@ export function TiltedShowcase() {
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
 
-    // Subtle 3D tilt angles based on mouse
-    const rotX = ((y - centerY) / centerY) * -10;
-    const rotY = ((x - centerX) / centerX) * 12;
+    const rotX = ((y - centerY) / centerY) * -8;
+    const rotY = ((x - centerX) / centerX) * 10;
     setRotate({ x: rotX, y: rotY });
   };
 
   const handleMouseLeave = () => {
     setIsHovered(false);
-    // Smooth return to subtle natural 3D tilt
     setRotate({ x: 5, y: -7 });
   };
 
   return (
     <div style={{ width: '100%', maxWidth: '820px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
       
-      {/* Panel Switcher Selector */}
+      {/* Panel Switcher Selector — ZERO GLOW, clean matte buttons */}
       <div 
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          padding: '6px',
-          background: '#0a0d14',
-          border: '1px solid #1a2030',
+          padding: '5px',
+          background: 'rgba(255, 255, 255, 0.03)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
           borderRadius: '10px',
           flexWrap: 'wrap',
           justifyContent: 'center'
@@ -87,23 +84,24 @@ export function TiltedShowcase() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '8px 14px',
+                padding: '7px 14px',
                 fontSize: '12px',
-                fontWeight: 600,
+                fontWeight: 500,
                 letterSpacing: '-0.01em',
                 borderRadius: '7px',
-                transition: 'all 0.18s ease',
-                background: isActive ? '#141c2c' : 'transparent',
-                color: isActive ? '#38bdf8' : '#64748b',
-                border: isActive ? '1px solid #2b3b58' : '1px solid transparent',
-                boxShadow: isActive ? '0 0 16px rgba(46, 144, 250, 0.2)' : 'none',
-                cursor: 'pointer'
+                transition: 'all 0.15s ease',
+                background: isActive ? '#1c202a' : 'transparent',
+                color: isActive ? '#ffffff' : '#71717a',
+                border: isActive ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid transparent',
+                boxShadow: 'none',
+                cursor: 'pointer',
+                outline: 'none'
               }}
               onMouseEnter={(e) => {
-                if (!isActive) e.currentTarget.style.color = '#cbd5e1';
+                if (!isActive) e.currentTarget.style.color = '#d4d4d8';
               }}
               onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.color = '#64748b';
+                if (!isActive) e.currentTarget.style.color = '#71717a';
               }}
             >
               <span>{card.name}</span>
@@ -111,11 +109,11 @@ export function TiltedShowcase() {
                 <span 
                   style={{ 
                     fontSize: '9px', 
-                    fontWeight: 700, 
+                    fontWeight: 600, 
                     padding: '1px 6px', 
                     borderRadius: '4px', 
-                    background: 'rgba(56, 189, 248, 0.15)', 
-                    color: '#38bdf8',
+                    background: 'rgba(255, 255, 255, 0.08)', 
+                    color: '#a1a1aa',
                     letterSpacing: '0.04em'
                   }}
                 >
@@ -127,7 +125,7 @@ export function TiltedShowcase() {
         })}
       </div>
 
-      {/* 2D/3D Tilted Perspective Canvas */}
+      {/* 2D/3D Tilted Perspective Canvas — ZERO GLOW, realistic depth */}
       <div
         style={{
           perspective: '1200px',
@@ -146,40 +144,24 @@ export function TiltedShowcase() {
             position: 'relative',
             width: '100%',
             maxWidth: '560px',
-            transform: `perspective(1200px) rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale(${isHovered ? 1.02 : 1})`,
-            transition: isHovered ? 'transform 0.08s ease-out' : 'transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.45s ease',
+            transform: `perspective(1200px) rotateX(${rotate.x}deg) rotateY(${rotate.y}deg) scale(${isHovered ? 1.01 : 1})`,
+            transition: isHovered ? 'transform 0.08s ease-out' : 'transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1)',
             transformStyle: 'preserve-3d',
-            borderRadius: '16px',
-            padding: '8px',
-            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            boxShadow: isHovered
-              ? '0 30px 60px -12px rgba(0, 0, 0, 0.9), 0 0 45px rgba(46, 144, 250, 0.28)'
-              : '0 25px 50px -15px rgba(0, 0, 0, 0.85), 0 0 30px rgba(46, 144, 250, 0.16)',
+            borderRadius: '14px',
+            padding: '6px',
+            background: '#12141a',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            boxShadow: '0 24px 50px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.04)',
             cursor: 'default',
             userSelect: 'none'
           }}
         >
-          {/* Subtle Ambient Light Ring */}
-          <div 
-            style={{
-              position: 'absolute',
-              inset: '-2px',
-              borderRadius: '18px',
-              background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.3) 0%, transparent 50%, rgba(30, 58, 138, 0.2) 100%)',
-              zIndex: -1,
-              filter: 'blur(8px)',
-              pointerEvents: 'none'
-            }}
-          />
-
-          {/* Actual Discord Embed Image — Clean, 100% Fidelity, No Mock HTML */}
+          {/* Actual Discord Embed Image */}
           <div 
             style={{ 
-              borderRadius: '12px', 
+              borderRadius: '10px', 
               overflow: 'hidden', 
-              background: '#2b2d31',
-              boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.05)'
+              background: '#2b2d31'
             }}
           >
             <img
@@ -189,26 +171,14 @@ export function TiltedShowcase() {
                 width: '100%',
                 height: 'auto',
                 display: 'block',
-                borderRadius: '12px'
+                borderRadius: '10px'
               }}
             />
           </div>
-
-          {/* Dynamic Light Sheen overlay on hover */}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: '16px',
-              pointerEvents: 'none',
-              background: 'linear-gradient(115deg, rgba(255,255,255,0.06) 0%, transparent 40%, rgba(255,255,255,0.02) 100%)',
-              mixBlendMode: 'overlay'
-            }}
-          />
         </div>
       </div>
 
-      {/* Quick Visual Thumbnail Strip */}
+      {/* Quick Visual Thumbnail Strip — ZERO GLOW */}
       <div 
         style={{
           display: 'grid',
@@ -228,19 +198,21 @@ export function TiltedShowcase() {
                 position: 'relative',
                 borderRadius: '8px',
                 overflow: 'hidden',
-                border: isActive ? '2px solid #38bdf8' : '1px solid #1e2433',
-                background: '#0f1219',
+                border: isActive ? '1px solid rgba(255, 255, 255, 0.4)' : '1px solid rgba(255, 255, 255, 0.06)',
+                background: '#0d0f14',
                 padding: '2px',
                 transition: 'all 0.15s ease',
-                boxShadow: isActive ? '0 0 12px rgba(56, 189, 248, 0.3)' : 'none',
-                opacity: isActive ? 1 : 0.65,
-                transform: isActive ? 'scale(1.03)' : 'scale(1)'
+                boxShadow: 'none',
+                opacity: isActive ? 1 : 0.6,
+                transform: isActive ? 'scale(1.02)' : 'scale(1)',
+                cursor: 'pointer',
+                outline: 'none'
               }}
               onMouseEnter={(e) => {
                 if (!isActive) e.currentTarget.style.opacity = '0.9';
               }}
               onMouseLeave={(e) => {
-                if (!isActive) e.currentTarget.style.opacity = '0.65';
+                if (!isActive) e.currentTarget.style.opacity = '0.6';
               }}
             >
               <img
@@ -248,7 +220,7 @@ export function TiltedShowcase() {
                 alt={card.name}
                 style={{
                   width: '100%',
-                  height: '48px',
+                  height: '46px',
                   objectFit: 'cover',
                   objectPosition: 'top center',
                   display: 'block',
@@ -258,8 +230,8 @@ export function TiltedShowcase() {
               <div 
                 style={{ 
                   fontSize: '10px', 
-                  fontWeight: 600, 
-                  color: isActive ? '#38bdf8' : '#94a3b8', 
+                  fontWeight: 500, 
+                  color: isActive ? '#ffffff' : '#71717a', 
                   padding: '4px 2px 2px',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -276,3 +248,5 @@ export function TiltedShowcase() {
     </div>
   );
 }
+
+export default TiltedShowcase;
