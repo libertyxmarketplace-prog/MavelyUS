@@ -1,4 +1,4 @@
-@charset "UTF-8";
+@import "tailwindcss";
 
 /* CivLink Design System — Precision Industrial Dark */
 :root {
@@ -44,6 +44,18 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+}
+
+button {
+  cursor: pointer;
 }
 
 html, body {
