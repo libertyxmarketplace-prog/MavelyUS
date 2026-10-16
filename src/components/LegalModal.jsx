@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Shield, FileText } from 'lucide-react';
 import { CivLinkLogo } from './CivLinkLogo';
 
 export function LegalModal({ isOpen, onClose, tab = 'terms' }) {
-  const [activeTab, setActiveTab] = React.useState(tab);
+  const [activeTab, setActiveTab] = useState(tab);
 
   React.useEffect(() => {
     setActiveTab(tab);
@@ -16,7 +16,7 @@ export function LegalModal({ isOpen, onClose, tab = 'terms' }) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.75)',
+        background: 'rgba(0, 0, 0, 0.8)',
         backdropFilter: 'blur(4px)',
         zIndex: 100,
         display: 'flex',
@@ -31,19 +31,19 @@ export function LegalModal({ isOpen, onClose, tab = 'terms' }) {
         style={{
           width: '100%',
           maxWidth: '640px',
-          maxHeight: '80vh',
-          background: 'var(--bg-card)',
-          borderColor: 'var(--border-medium)',
+          maxHeight: '85vh',
+          background: '#10131c',
+          borderColor: '#242b3d',
           padding: '28px',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+          boxShadow: '0 25px 50px rgba(0, 0, 0, 0.7)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <CivLinkLogo size={22} />
             <div style={{ display: 'flex', gap: '8px' }}>
               <button 
@@ -62,44 +62,44 @@ export function LegalModal({ isOpen, onClose, tab = 'terms' }) {
               </button>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>
             <X size={20} />
           </button>
         </div>
 
-        <div style={{ overflowY: 'auto', paddingRight: '8px', fontSize: '13px', lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+        <div style={{ overflowY: 'auto', paddingRight: '8px', fontSize: '13px', lineHeight: 1.6, color: '#94a3b8' }}>
           {activeTab === 'terms' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>1. Acceptance of Terms</h4>
-              <p>By connecting your Roblox private server or Discord account to CivLink (civlink.xyz), you agree to comply with all applicable community guidelines, Roblox Terms of Use, and Discord Developer Policies.</p>
+              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>1. Agreement to Terms</h4>
+              <p>By connecting your Discord account or hosting a bot instance through CivLink (civlink.xyz), you agree to comply with Discord Developer Terms of Service, Discord Community Guidelines, and Roblox Terms of Use.</p>
 
-              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>2. Server API and Data Ownership</h4>
-              <p>CivLink acts solely as an operational bridge between the Roblox ER:LC Remote Server API and the Melonly API. All moderation logs, penal codes, and server data remain the intellectual property of the respective server owner.</p>
+              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>2. Bot Tokens and Authentication</h4>
+              <p>You retain full ownership of any Discord bot application tokens and ER:LC server keys you submit. Tokens are stored using AES-256-GCM encryption at rest on your host and are only used to maintain gateway sessions and command registrations.</p>
 
-              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>3. Anti-Ghost Auditing & Fair Play</h4>
-              <p>Staff efficiency metrics (AER Scores) are algorithmic estimations based on logged server events and do not supersede human management discretion.</p>
+              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>3. Acceptable Use</h4>
+              <p>You agree not to use CivLink bot infrastructure to engage in mass raiding, automated harassment, malicious webhook spam, or unauthorized server disruption.</p>
 
               <h4 style={{ color: '#ffffff', fontWeight: 700 }}>4. Termination</h4>
-              <p>You may disconnect CivLink API keys or revoke Discord OAuth2 tokens at any time via your server dashboard.</p>
+              <p>You may disconnect your tokens or terminate your bot instance at any time via the CivLink dashboard.</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>1. Information Collected</h4>
-              <p>We only collect basic Discord identity tokens (username, discriminator, user ID, and server list) to confirm administrative permissions. We do not store passwords or unauthorized financial data.</p>
+              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>1. Information We Collect</h4>
+              <p>When you log in via Discord OAuth2, we receive your basic public Discord profile (User ID, username, and avatar URL) and the list of Discord servers where you hold administrative permissions.</p>
 
-              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>2. Use of Melonly and ER:LC Data</h4>
-              <p>API keys provided in CivLink settings are utilized strictly to poll public/private server status, active shifts, and command logs requested by your server administrators.</p>
+              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>2. Server Data & Storage</h4>
+              <p>Bot configurations, custom embed styles, command permissions, and PRC keys are encrypted on the server instance. We do not sell, rent, or transfer your data or server member records to third parties.</p>
 
-              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>3. Data Retention and Security</h4>
-              <p>Audit records and arrest logs are stored locally in secure browser storage or encrypted database backends. We do not sell user data to third parties.</p>
+              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>3. Cookies and Sessions</h4>
+              <p>We use an encrypted HTTP-only session cookie solely to maintain your administrative dashboard login.</p>
 
-              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>4. Contact & Compliance</h4>
-              <p>For inquiries regarding GDPR compliance or data deletion requests, contact team@civlink.xyz.</p>
+              <h4 style={{ color: '#ffffff', fontWeight: 700 }}>4. Contact</h4>
+              <p>For questions or data deletion requests, reach out at legal@civlink.xyz.</p>
             </div>
           )}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '10px', borderTop: '1px solid #1a202e' }}>
           <button onClick={onClose} className="btn-secondary font-mono" style={{ fontSize: '12px' }}>
             CLOSE
           </button>

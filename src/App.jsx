@@ -1,216 +1,262 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
-import { CivLinkLogo } from './components/CivLinkLogo';
+import { HomeView } from './views/HomeView';
 import { OverviewView } from './views/OverviewView';
-import { SsuView } from './views/SsuView';
-import { PenalCodeView } from './views/PenalCodeView';
-import { StaffAuditView } from './views/StaffAuditView';
-import { DispatchView } from './views/DispatchView';
-import { RecordsView } from './views/RecordsView';
-import { AuthModal } from './components/AuthModal';
+import { BotBuilderView } from './views/BotBuilderView';
+import { CommandManagerView } from './views/CommandManagerView';
+import { ModuleMarketplaceView } from './views/ModuleMarketplaceView';
 import { SettingsModal } from './components/SettingsModal';
 import { LegalModal } from './components/LegalModal';
+import { CivLinkLogo } from './components/CivLinkLogo';
 import { 
   Server, 
-  ChevronDown, 
-  ShieldCheck, 
-  Radio, 
   LogIn, 
-  Check, 
-  AlertCircle 
+  RotateCw, 
+  Settings, 
+  ExternalLink,
+  ChevronDown
 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [legalModalState, setLegalModalState] = useState({ isOpen: false, tab: 'terms' });
-  const [oauthToast, setOauthToast] = useState(null);
-
-  // User session state
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('civlink_user');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { return null; }
-    }
-    // Default logged in user matching user's avatar from Image 2
-    return {
-      username: 'sulma',
-      id: '1552165138017165372',
-      avatar: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=100&auto=format&fit=crop&q=80',
-      guilds: ['Liberty County State RP']
-    };
+  const [currentView, setCurrentView] = useState(() => {
+    return window.location.pathname.startsWith('/dashboard') ? 'dashboard' : 'home';
   });
+  const [activeTab, setActiveTab] = useState('overview'); // overview, builder, commands, marketplace
+  const [user, setUser] = useState(null);
+  const [botData, setBotData] = useState(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [legalModal, setLegalModal] = useState({ isOpen: false, tab: 'terms' });
+  const [loading, setLoading] = useState(true);
 
-  // Handle Discord OAuth Callback
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const pathname = window.location.pathname;
+  // Fetch current user and bot state
+  const loadUserAndBot = async () => {
+    try {
+      const meRes = await fetch('/api/me');
+      if (meRes.ok) {
+        const me = await meRes.json();
+        setUser(me);
+      } else {
+        setUser(null);
+      }
 
-    if (code || pathname.includes('/auth/discord/callback')) {
-      const newUser = {
-        username: 'sulma',
-        id: '1552165138017165372',
-        avatar: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=100&auto=format&fit=crop&q=80',
-        guilds: ['Liberty County State RP']
-      };
-      setUser(newUser);
-      localStorage.setItem('civlink_user', JSON.stringify(newUser));
-      setOauthToast('Discord OAuth2 Authorization Confirmed. Session active.');
-      setTimeout(() => setOauthToast(null), 4000);
-      window.history.replaceState({}, document.title, "/");
+      const botRes = await fetch('/api/bot');
+      if (botRes.ok) {
+        const b = await botRes.json();
+        setBotData(b);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    loadUserAndBot();
+    // sync browser history state
+    const handlePop = () => {
+      setCurrentView(window.location.pathname.startsWith('/dashboard') ? 'dashboard' : 'home');
+    };
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
   }, []);
 
-  const handleLogin = (userData) => {
-    setUser(userData);
-    localStorage.setItem('civlink_user', JSON.stringify(userData));
+  const navigateTo = (view) => {
+    setCurrentView(view);
+    window.history.pushState({}, '', view === 'dashboard' ? '/dashboard' : '/');
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('civlink_user');
-    setIsAuthOpen(false);
+  const handleSaveConfig = async (newConfig) => {
+    const res = await fetch('/api/bot/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config: newConfig })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setBotData(data);
+    } else {
+      throw new Error(data.error || 'Failed to save config');
+    }
   };
 
-  const openLegal = (tab = 'terms') => {
-    setLegalModalState({ isOpen: true, tab });
-  };
+  // If user is on the Landing / Home view
+  if (currentView === 'home') {
+    return (
+      <>
+        <HomeView 
+          onEnterDashboard={() => navigateTo('dashboard')} 
+          user={user} 
+          onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })} 
+        />
+        <LegalModal 
+          isOpen={legalModal.isOpen} 
+          onClose={() => setLegalModal({ ...legalModal, isOpen: false })} 
+          tab={legalModal.tab} 
+        />
+      </>
+    );
+  }
+
+  // Dashboard View
+  const isBotOnline = botData?.runtime?.status === 'online';
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
-      {/* Sidebar Rail (Replicating user's Image 2) */}
-      <Sidebar 
-        activeTab={activeTab} 
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#08090d', color: '#f8fafc' }}>
+      {/* 54px Thin Sidebar Rail (Zero Blue on click, purely neutral active state) */}
+      <Sidebar
+        activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenLegal={openLegal}
+        onOpenLegal={(tab) => setLegalModal({ isOpen: true, tab })}
         user={user}
-        onOpenAuth={() => setIsAuthOpen(true)}
+        onGoHome={() => navigateTo('home')}
       />
 
-      {/* Main Content Area */}
+      {/* Main Dashboard Column */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* Top Header Bar */}
+        {/* Top Header */}
         <header
           style={{
-            height: '60px',
-            borderBottom: '1px solid var(--border-subtle)',
-            background: 'var(--bg-card)',
+            height: '56px',
+            borderBottom: '1px solid #161a25',
+            background: '#0a0c12',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 28px',
+            padding: '0 24px',
             position: 'sticky',
             top: 0,
             zIndex: 30
           }}
         >
-          {/* Server Switcher */}
+          {/* Left: Active Server & Bot Status */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '8px', 
-                padding: '6px 10px', 
-                background: 'var(--bg-elevated)', 
-                borderRadius: '6px',
-                border: '1px solid var(--border-medium)',
+              onClick={() => setIsSettingsOpen(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '5px 10px',
+                background: '#121622',
+                borderRadius: '5px',
+                border: '1px solid #1f2536',
                 cursor: 'pointer'
               }}
+              title="Change server in Settings"
             >
-              <Server size={14} style={{ color: 'var(--civ-blue)' }} />
+              <Server size={14} style={{ color: '#2E90FA' }} />
               <span style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
-                Liberty County State RP
+                {botData?.config?.guildId ? 'Configured Server' : 'No Server Selected'}
               </span>
-              <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
+              <ChevronDown size={13} style={{ color: '#64748b' }} />
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="badge badge-emerald">ER:LC LINKED</span>
-              <span className="badge badge-blue">MELONLY v2.4</span>
+              <span className={isBotOnline ? 'badge badge-emerald' : botData?.hasToken ? 'badge badge-zinc' : 'badge badge-rose'}>
+                {isBotOnline ? 'BOT ONLINE' : botData?.hasToken ? 'BOT STOPPED' : 'NO BOT TOKEN'}
+              </span>
+              {botData?.hasErlcKey && (
+                <span className="badge badge-blue">PRC API LINKED</span>
+              )}
             </div>
           </div>
 
-          {/* Right Header Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          {/* Right: User Login & Quick Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {user ? (
               <div 
-                onClick={() => setIsAuthOpen(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
                   gap: '8px',
-                  padding: '4px 10px 4px 4px',
-                  background: 'var(--bg-elevated)',
+                  padding: '4px 8px',
+                  background: '#121622',
                   borderRadius: '6px',
-                  border: '1px solid var(--border-subtle)',
-                  cursor: 'pointer'
+                  border: '1px solid #1f2536'
                 }}
               >
-                <img 
-                  src={user.avatar} 
-                  alt={user.username} 
-                  style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} 
-                />
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="" style={{ width: '22px', height: '22px', borderRadius: '50%' }} />
+                ) : (
+                  <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#252d40', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 700 }}>
+                    {user.username.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
                 <span className="font-mono" style={{ fontSize: '12px', fontWeight: 600, color: '#ffffff' }}>
                   @{user.username}
                 </span>
-                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
               </div>
             ) : (
-              <button onClick={() => setIsAuthOpen(true)} className="btn-primary font-mono" style={{ fontSize: '12px', padding: '6px 12px' }}>
+              <a 
+                href="/auth/discord/login" 
+                className="btn-primary font-mono" 
+                style={{ fontSize: '12px', padding: '6px 12px' }}
+              >
                 <LogIn size={13} />
-                CONNECT DISCORD
-              </button>
+                LOGIN WITH DISCORD
+              </a>
             )}
+
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="btn-secondary font-mono"
+              style={{ fontSize: '12px', padding: '6px 10px' }}
+              title="Settings"
+            >
+              <Settings size={14} />
+            </button>
           </div>
         </header>
 
-        {/* OAuth Toast Notification */}
-        {oauthToast && (
-          <div 
-            style={{ 
-              background: 'rgba(16, 185, 129, 0.15)', 
-              borderBottom: '1px solid rgba(16, 185, 129, 0.3)', 
-              padding: '10px 28px', 
-              fontSize: '12px', 
-              color: '#34d399', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px' 
-            }}
-          >
-            <Check size={14} />
-            <span>{oauthToast}</span>
-          </div>
-        )}
+        {/* View Router */}
+        <main style={{ flex: 1, padding: '24px 28px', maxWidth: '1440px', width: '100%', margin: '0 auto' }}>
+          {activeTab === 'overview' && (
+            <OverviewView 
+              botData={botData} 
+              onRefresh={loadUserAndBot} 
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              setActiveTab={setActiveTab}
+            />
+          )}
 
-        {/* View Content */}
-        <main style={{ flex: 1, padding: '28px', maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
-          {activeTab === 'overview' && <OverviewView setActiveTab={setActiveTab} onOpenAuth={() => setIsAuthOpen(true)} user={user} />}
-          {activeTab === 'ssu' && <SsuView />}
-          {activeTab === 'penal' && <PenalCodeView />}
-          {activeTab === 'staff' && <StaffAuditView />}
-          {activeTab === 'dispatch' && <DispatchView />}
-          {activeTab === 'records' && <RecordsView />}
+          {activeTab === 'builder' && (
+            <BotBuilderView 
+              botData={botData} 
+              onSaveConfig={handleSaveConfig} 
+              onRefresh={loadUserAndBot}
+            />
+          )}
+
+          {activeTab === 'commands' && (
+            <CommandManagerView 
+              botData={botData} 
+              onSaveConfig={handleSaveConfig}
+            />
+          )}
+
+          {activeTab === 'marketplace' && (
+            <ModuleMarketplaceView 
+              botData={botData} 
+              onRefresh={loadUserAndBot}
+            />
+          )}
         </main>
 
-        {/* Industrial Footer (Clean, Professional, Anti-Vibe-Code) */}
-        <footer 
+        {/* Bottom Minimal Footer */}
+        <footer
           style={{
-            borderTop: '1px solid var(--border-subtle)',
-            padding: '18px 28px',
+            borderTop: '1px solid #141722',
+            padding: '16px 28px',
             fontSize: '12px',
-            color: 'var(--text-muted)',
+            color: '#64748b',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: '12px',
-            background: 'var(--bg-sidebar)'
+            background: '#090a0f'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -218,45 +264,39 @@ export default function App() {
             <span>•</span>
             <span className="font-mono">v1.4.2-enterprise</span>
             <span>•</span>
-            <span>Roblox ER:LC & Melonly Operations Terminal</span>
+            <span>Custom ER:LC Bot Runtime Engine</span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', gap: '16px' }}>
             <button 
-              onClick={() => openLegal('terms')} 
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px' }}
+              onClick={() => setLegalModal({ isOpen: true, tab: 'terms' })}
+              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}
             >
               Terms of Service
             </button>
             <button 
-              onClick={() => openLegal('privacy')} 
-              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px' }}
+              onClick={() => setLegalModal({ isOpen: true, tab: 'privacy' })}
+              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}
             >
               Privacy Policy
             </button>
-            <span className="font-mono" style={{ color: 'var(--civ-blue-light)' }}>civlink.xyz</span>
+            <span className="font-mono" style={{ color: '#2E90FA' }}>civlink.xyz</span>
           </div>
         </footer>
       </div>
 
       {/* Modals */}
-      <AuthModal 
-        isOpen={isAuthOpen} 
-        onClose={() => setIsAuthOpen(false)} 
-        user={user} 
-        onLogin={handleLogin} 
-        onLogout={handleLogout} 
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        botData={botData}
+        onRefresh={loadUserAndBot}
       />
 
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
-      />
-
-      <LegalModal 
-        isOpen={legalModalState.isOpen} 
-        onClose={() => setLegalModalState({ ...legalModalState, isOpen: false })} 
-        tab={legalModalState.tab} 
+      <LegalModal
+        isOpen={legalModal.isOpen}
+        onClose={() => setLegalModal({ ...legalModal, isOpen: false })}
+        tab={legalModal.tab}
       />
     </div>
   );

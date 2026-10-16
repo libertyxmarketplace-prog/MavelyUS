@@ -1,249 +1,340 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Users, 
-  ShieldAlert, 
-  Radio, 
   Activity, 
-  Copy, 
-  Check, 
+  Server, 
+  Users, 
+  RotateCw, 
+  CheckCircle2, 
+  XCircle, 
+  AlertTriangle, 
+  Play, 
+  Square, 
+  Cpu, 
+  Clock, 
+  Ticket, 
+  Shield, 
+  Radio,
   ExternalLink,
-  ChevronRight,
-  TrendingUp,
-  AlertTriangle
+  ChevronRight
 } from 'lucide-react';
-import { CivLinkLogo } from '../components/CivLinkLogo';
 
-export function OverviewView({ setActiveTab, onOpenAuth, user }) {
-  const [copiedCode, setCopiedCode] = React.useState(false);
+export function OverviewView({ botData, onRefresh, onOpenSettings, setActiveTab }) {
+  const [overview, setOverview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [runningDiag, setRunningDiag] = useState(false);
+  const [diagnostics, setDiagnostics] = useState(null);
+  const [actionNotice, setActionNotice] = useState('');
 
-  const copyServerCode = () => {
-    navigator.clipboard.writeText(':join liberty-county-rp-702');
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
+  const loadData = async () => {
+    try {
+      const res = await fetch('/api/overview');
+      if (res.ok) {
+        const data = await res.json();
+        setOverview(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(loadData, 6000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleBotAction = async (action) => {
+    try {
+      const res = await fetch(`/api/bot/${action}`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setActionNotice(`Error: ${data.error || 'Action failed'}`);
+      } else {
+        setActionNotice(`Bot ${action} command sent successfully.`);
+        loadData();
+        onRefresh?.();
+      }
+    } catch (e) {
+      setActionNotice(`Error: ${e.message}`);
+    }
+    setTimeout(() => setActionNotice(''), 4000);
+  };
+
+  const runDiagnostics = async () => {
+    setRunningDiag(true);
+    try {
+      const res = await fetch('/api/bot/diagnostics', { method: 'POST' });
+      const data = await res.json();
+      setDiagnostics(data.checks || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRunningDiag(false);
+    }
+  };
+
+  const bot = overview?.bot || {};
+  const isOnline = bot.status === 'online';
+  const hasToken = bot.hasToken;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Top Welcome / Server Header */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+      {/* Top Banner / Actions */}
       <div 
-        className="card-shell" 
-        style={{ 
-          padding: '24px 28px',
+        className="card-shell"
+        style={{
+          padding: '22px 24px',
           background: 'linear-gradient(180deg, #10141f 0%, #0d0f17 100%)',
-          borderColor: 'var(--border-medium)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '20px'
+          gap: '16px'
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <CivLinkLogo size={24} showText={true} />
-            <span className="badge badge-blue">ENTERPRISE PRC</span>
-            <span className="badge badge-emerald">SERVER ONLINE</span>
-          </div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '-0.02em', color: '#ffffff' }}>
-            Liberty County State Roleplay
-          </h1>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            PRC ID: <span className="font-mono" style={{ color: 'var(--civ-blue-light)' }}>liberty-county-rp-702</span> &nbsp;•&nbsp; Connected with Melonly API v2.4
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button onClick={copyServerCode} className="btn-secondary font-mono">
-            {copiedCode ? <Check size={15} style={{ color: '#10b981' }} /> : <Copy size={15} />}
-            {copiedCode ? 'COMMAND COPIED' : ':join liberty-county-rp-702'}
-          </button>
-          <button onClick={() => setActiveTab('ssu')} className="btn-primary font-mono">
-            MANAGE SSU
-            <ChevronRight size={15} />
-          </button>
-        </div>
-      </div>
-
-      {/* Metrics Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-        {/* Metric 1: In-Game Population */}
-        <div className="card-shell" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Server Population
-            </span>
-            <Users size={18} style={{ color: 'var(--civ-blue)' }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-            <span className="font-mono" style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff' }}>
-              28 <span style={{ fontSize: '16px', color: 'var(--text-muted)' }}>/ 35</span>
-            </span>
-            <span className="badge badge-emerald">80% CAPACITY</span>
-          </div>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-            13 Law Enforcement • 11 Civilians • 4 Fire/DOT
-          </p>
-        </div>
-
-        {/* Metric 2: Anti-Ghost Shift Radar */}
-        <div className="card-shell" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Staff Activity Radar
-            </span>
-            <ShieldAlert size={18} style={{ color: '#f59e0b' }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-            <span className="font-mono" style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff' }}>
-              7 <span style={{ fontSize: '16px', color: 'var(--text-muted)' }}>Active</span>
-            </span>
-            <span className="badge badge-amber">1 GHOST FLAGGED</span>
-          </div>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-            Melonly sync verified • 1 staff AFK farming shift hours
-          </p>
-        </div>
-
-        {/* Metric 3: Active Priority */}
-        <div className="card-shell" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Active Priority Status
-            </span>
-            <Radio size={18} style={{ color: '#ef4444' }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-            <span className="font-mono" style={{ fontSize: '24px', fontWeight: 700, color: '#f87171' }}>
-              PRIORITY 1
-            </span>
-            <span className="badge badge-rose">07:44 COOLDOWN</span>
-          </div>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-            Armed Bank Robbery underway at Postal 204
-          </p>
-        </div>
-
-        {/* Metric 4: Citations & Arrests */}
-        <div className="card-shell" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              24H Arrest Operations
-            </span>
-            <Activity size={18} style={{ color: 'var(--civ-blue-light)' }} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-            <span className="font-mono" style={{ fontSize: '28px', fontWeight: 700, color: '#ffffff' }}>
-              42 <span style={{ fontSize: '16px', color: 'var(--text-muted)' }}>Booked</span>
-            </span>
-            <span className="badge badge-blue font-mono">$18,450 FINES</span>
-          </div>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
-            Calculated via CivLink Smart Penal Code
-          </p>
-        </div>
-      </div>
-
-      {/* Main Grid: Live Feed & Quick Actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', alignItems: 'start' }}>
-        {/* Left Column: Live Incident & SSU Stream */}
-        <div className="card-shell" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#ffffff' }}>Real-Time Server Dispatch Stream</h3>
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Direct feed from ER:LC Server API & Melonly webhooks</p>
-            </div>
-            <span className="badge badge-emerald">LIVE POLLING (1s)</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: '6px', border: '1px solid var(--border-medium)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span className="badge badge-rose">10-80 PURSUIT</span>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>Black Bullhorn Pursuit heading South on Route 13</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Officer Badge #214 (Sgt. Miller) • 2 units in pursuit</div>
-                </div>
-              </div>
-              <span className="font-mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>2m ago</span>
-            </div>
-
-            <div style={{ padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: '6px', border: '1px solid var(--border-medium)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span className="badge badge-amber">STAFF AUDIT</span>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>Moderator @Kev_RP flagged for 90m zero-command shift</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Logged in Melonly shift but zero ER:LC server commands logged</div>
-                </div>
-              </div>
-              <span className="font-mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>14m ago</span>
-            </div>
-
-            <div style={{ padding: '12px 14px', background: 'var(--bg-elevated)', borderRadius: '6px', border: '1px solid var(--border-medium)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span className="badge badge-emerald">SSU SEEDER</span>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>SSU Goal Reached: 25+ Players threshold unlocked</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Awarded 2.0x server economy XP to 14 active early seeders</div>
-                </div>
-              </div>
-              <span className="font-mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>38m ago</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Quick Launch Actions */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div className="card-shell" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>Quick Operations</h3>
-            
-            <button 
-              onClick={() => setActiveTab('penal')}
-              className="btn-secondary" 
-              style={{ justifyContent: 'space-between', padding: '10px 14px' }}
-            >
-              <span>⚖️ Smart Penal Code Calculator</span>
-              <ChevronRight size={16} />
-            </button>
-
-            <button 
-              onClick={() => setActiveTab('staff')}
-              className="btn-secondary" 
-              style={{ justifyContent: 'space-between', padding: '10px 14px' }}
-            >
-              <span>🛡️ Melonly Staff Shift Audit</span>
-              <ChevronRight size={16} />
-            </button>
-
-            <button 
-              onClick={() => setActiveTab('dispatch')}
-              className="btn-secondary" 
-              style={{ justifyContent: 'space-between', padding: '10px 14px' }}
-            >
-              <span>🚨 Live 911 Web Dispatch</span>
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div 
-            className="card-shell" 
             style={{ 
-              padding: '20px', 
-              background: 'linear-gradient(180deg, #121826 0%, #0c0f17 100%)',
-              borderColor: 'var(--civ-blue-border)'
+              width: '46px', 
+              height: '46px', 
+              borderRadius: '8px', 
+              background: '#161a26', 
+              border: '1px solid #232a3d', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              overflow: 'hidden'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span className="badge badge-blue">OAUTH2 READY</span>
+            {bot.user?.avatarUrl ? (
+              <img src={bot.user.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <Server size={22} style={{ color: '#2E90FA' }} />
+            )}
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#ffffff', margin: 0 }}>
+                {bot.user?.username || 'Your ER:LC Bot'}
+              </h1>
+              <span className={isOnline ? 'badge badge-emerald' : hasToken ? 'badge badge-amber' : 'badge badge-zinc'}>
+                {isOnline ? 'ONLINE' : hasToken ? 'OFFLINE' : 'NO TOKEN CONFIGURED'}
+              </span>
+              {bot.latency !== null && bot.latency !== undefined && (
+                <span className="badge badge-zinc font-mono">{bot.latency}ms ping</span>
+              )}
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>
-              Discord Integration Active
-            </div>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: '14px' }}>
-              Client ID: <span className="font-mono">1552165138017165372</span>
+            <p style={{ fontSize: '12px', color: '#94a3b8', margin: '4px 0 0' }}>
+              Uptime: <strong style={{ color: '#ffffff' }}>{bot.uptimeMs ? `${Math.floor(bot.uptimeMs / 60000)}m active` : '0m (Stopped)'}</strong>
+              &nbsp;•&nbsp; Managed via CivLink Engine
             </p>
-            <button onClick={onOpenAuth} className="btn-primary font-mono" style={{ width: '100%' }}>
-              MANAGE DISCORD AUTH
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {isOnline ? (
+            <button onClick={() => handleBotAction('stop')} className="btn-danger font-mono" style={{ fontSize: '12px' }}>
+              <Square size={13} />
+              STOP BOT
             </button>
+          ) : (
+            <button onClick={() => handleBotAction('start')} className="btn-primary font-mono" style={{ fontSize: '12px' }}>
+              <Play size={13} />
+              START BOT
+            </button>
+          )}
+
+          <button onClick={() => handleBotAction('restart')} className="btn-secondary font-mono" style={{ fontSize: '12px' }}>
+            <RotateCw size={13} />
+            RESTART
+          </button>
+
+          <button onClick={runDiagnostics} className="btn-secondary font-mono" style={{ fontSize: '12px' }} disabled={runningDiag}>
+            <Activity size={13} style={{ color: '#2E90FA' }} />
+            {runningDiag ? 'CHECKING...' : 'RUN DIAGNOSTICS'}
+          </button>
+        </div>
+      </div>
+
+      {actionNotice && (
+        <div style={{ padding: '10px 16px', background: '#131826', border: '1px solid #232b40', borderRadius: '6px', fontSize: '13px', color: '#94a3b8' }}>
+          {actionNotice}
+        </div>
+      )}
+
+      {/* Diagnostics Results Modal / Drawer if triggered */}
+      {diagnostics && (
+        <div className="card-shell" style={{ padding: '20px', borderColor: '#2d374f', background: '#0e121a' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#ffffff' }}>System Diagnostics Report</h3>
+            <button onClick={() => setDiagnostics(null)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}>
+              Dismiss
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+            {diagnostics.map((chk, i) => (
+              <div key={i} style={{ padding: '10px 14px', background: '#131722', borderRadius: '6px', border: '1px solid #1f2536', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                {chk.status === 'pass' && <CheckCircle2 size={16} style={{ color: '#10b981', marginTop: '2px' }} />}
+                {chk.status === 'warn' && <AlertTriangle size={16} style={{ color: '#f59e0b', marginTop: '2px' }} />}
+                {chk.status === 'fail' && <XCircle size={16} style={{ color: '#ef4444', marginTop: '2px' }} />}
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#ffffff' }}>{chk.name}</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{chk.detail}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Key Metrics Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+        {/* Metric 1: Discord Guild */}
+        <div className="card-shell" style={{ padding: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>
+            <span>Discord Members</span>
+            <Users size={16} style={{ color: '#2E90FA' }} />
+          </div>
+          <div className="font-mono" style={{ fontSize: '26px', fontWeight: 800, color: '#ffffff', marginTop: '6px' }}>
+            {overview?.discord?.memberCount !== undefined && overview?.discord?.memberCount !== null 
+              ? Number(overview.discord.memberCount).toLocaleString()
+              : overview?.guildSelected ? 'Synced' : 'No Server'}
+          </div>
+          <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+            {overview?.discord?.name || 'Set Discord Server in Settings'}
+          </p>
+        </div>
+
+        {/* Metric 2: ER:LC In-Game Players */}
+        <div className="card-shell" style={{ padding: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>
+            <span>ER:LC Players</span>
+            <Server size={16} style={{ color: '#10b981' }} />
+          </div>
+          <div className="font-mono" style={{ fontSize: '26px', fontWeight: 800, color: '#ffffff', marginTop: '6px' }}>
+            {overview?.erlc?.players !== undefined ? (
+              <span>{overview.erlc.players} <span style={{ fontSize: '15px', color: '#64748b' }}>/ {overview.erlc.maxPlayers}</span></span>
+            ) : overview?.erlc?.configured ? (
+              'Linked'
+            ) : (
+              'Key needed'
+            )}
+          </div>
+          <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+            {overview?.erlc?.queue !== undefined ? `${overview.erlc.queue} waiting in queue` : 'Set PRC Server Key'}
+          </p>
+        </div>
+
+        {/* Metric 3: Staff on Duty & Sessions */}
+        <div className="card-shell" style={{ padding: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>
+            <span>Staff On Shift</span>
+            <Shield size={16} style={{ color: '#f59e0b' }} />
+          </div>
+          <div className="font-mono" style={{ fontSize: '26px', fontWeight: 800, color: '#ffffff', marginTop: '6px' }}>
+            {overview?.staffOnDuty !== null && overview?.staffOnDuty !== undefined ? overview.staffOnDuty : '0'} Active
+          </div>
+          <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+            {overview?.session ? 'Session startup in progress' : 'No active SSU session'}
+          </p>
+        </div>
+
+        {/* Metric 4: Tickets & Hosting Resources */}
+        <div className="card-shell" style={{ padding: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#64748b', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>
+            <span>Host CPU / Memory</span>
+            <Cpu size={16} style={{ color: '#2E90FA' }} />
+          </div>
+          <div className="font-mono" style={{ fontSize: '26px', fontWeight: 800, color: '#ffffff', marginTop: '6px' }}>
+            {overview?.host?.cpuPercent ?? 0}% <span style={{ fontSize: '14px', color: '#64748b', fontWeight: 500 }}>CPU</span>
+          </div>
+          <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+            {overview?.host ? `${Math.round(overview.host.heapUsed / 1024 / 1024)} MB heap • ${overview.tickets?.open ?? 0} open tickets` : 'Tracking active'}
+          </p>
+        </div>
+      </div>
+
+      {/* Main Grid: Activity Feed & Errors */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1.4fr', gap: '20px', alignItems: 'start' }}>
+        {/* Left: Recent Activity Feed */}
+        <div className="card-shell" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>Recent Bot Activity</h3>
+            <span className="badge badge-zinc">LIVE DISPATCH LOG</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {overview?.activity && overview.activity.length > 0 ? (
+              overview.activity.slice(0, 7).map((act, i) => (
+                <div key={i} style={{ padding: '9px 12px', background: '#121622', borderRadius: '5px', border: '1px solid #1a2030', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span className={act.type === 'command' ? 'badge badge-blue' : act.type === 'error' ? 'badge badge-rose' : 'badge badge-zinc'} style={{ fontSize: '9px' }}>
+                      {act.type.toUpperCase()}
+                    </span>
+                    <span style={{ fontSize: '12px', color: '#ffffff' }}>{act.message}</span>
+                  </div>
+                  <span className="font-mono" style={{ fontSize: '11px', color: '#64748b' }}>
+                    {new Date(act.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>
+                No recent activity logged yet. Start the bot or execute a command to see live telemetry.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Quick Launch & Diagnostics Quick Info */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Quick Setup / Navigation */}
+          <div className="card-shell" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>Quick Configuration</h3>
+            
+            <button onClick={() => setActiveTab('builder')} className="btn-secondary" style={{ justifyContent: 'space-between', padding: '10px 14px' }}>
+              <span>🛠️ Customize Bot & Embed Styles</span>
+              <ChevronRight size={15} />
+            </button>
+
+            <button onClick={() => setActiveTab('commands')} className="btn-secondary" style={{ justifyContent: 'space-between', padding: '10px 14px' }}>
+              <span>⌨️ Configure Slash Commands & Roles</span>
+              <ChevronRight size={15} />
+            </button>
+
+            <button onClick={() => setActiveTab('marketplace')} className="btn-secondary" style={{ justifyContent: 'space-between', padding: '10px 14px' }}>
+              <span>📦 Install ER:LC & Staff Modules</span>
+              <ChevronRight size={15} />
+            </button>
+          </div>
+
+          {/* Errors Log box */}
+          <div className="card-shell" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff' }}>Command Failures & Errors</h3>
+              <span className="font-mono" style={{ fontSize: '11px', color: '#64748b' }}>
+                {overview?.errors?.length ?? 0} logged
+              </span>
+            </div>
+
+            {overview?.errors && overview.errors.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {overview.errors.slice(0, 3).map((err, i) => (
+                  <div key={i} style={{ padding: '8px 10px', background: 'rgba(239, 68, 68, 0.06)', borderRadius: '5px', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '12px' }}>
+                    <div style={{ fontWeight: 600, color: '#f87171' }}>{err.source}</div>
+                    <div style={{ color: '#94a3b8', fontSize: '11px', marginTop: '2px' }}>{err.message}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: '12px', color: '#64748b' }}>
+                ✓ Zero fatal errors or failed command executions recorded.
+              </div>
+            )}
           </div>
         </div>
       </div>
