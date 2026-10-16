@@ -14,6 +14,7 @@ import { InfiniteSlider } from '@/components/ui/infinite-slider';
 import FeaturesBlock from '@/components/ui/features-4';
 import Faq from '@/components/ui/faq';
 import { EmbedShowcase } from '@/components/EmbedShowcase';
+import { CivLinkIcon } from '@/components/CivLinkIcon';
 import { useAuth } from '@/lib/auth';
 
 const SERVERS = [
@@ -130,16 +131,16 @@ export function HomePage() {
           <div className="mx-auto max-w-6xl w-full relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
             {/* Left Column: Heading, Subtext, Buttons, Server Slider */}
             <div className="lg:col-span-7 flex flex-col items-start text-left space-y-6">
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/25 bg-sky-500/10 px-3 py-1 text-xs text-sky-300 backdrop-blur-sm">
-                <img src="/civlink-mark.png" alt="" className="size-3.5 object-contain" />
-                <span className="font-semibold tracking-wide uppercase text-[10px]">CivLink Bot Platform</span>
-                <span className="text-sky-400/50">•</span>
-                <span className="text-white/80">Built for Roblox ER:LC</span>
+              {/* Top CivLink Badge Banner */}
+              <div className="inline-flex items-center gap-2.5 rounded-full border border-[#38A1FF]/40 bg-[#38A1FF]/10 px-4 py-1.5 text-xs text-white backdrop-blur-md shadow-[0_0_20px_rgba(56,161,255,0.22)]">
+                <CivLinkIcon size={18} glow={true} />
+                <span className="font-bold tracking-wide uppercase text-[11px] text-[#38A1FF]">CivLink Bot Platform</span>
+                <span className="text-[#38A1FF]/50">•</span>
+                <span className="text-zinc-200 font-medium">Built for Roblox ER:LC</span>
               </div>
 
               <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[-0.035em] leading-[1.08] text-white">
-                <span className="bg-gradient-to-r from-sky-400 via-cyan-300 to-blue-500 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-[#38A1FF] via-[#60b5ff] to-[#2563eb] bg-clip-text text-transparent drop-shadow-[0_0_22px_rgba(56,161,255,0.35)]">
                   CivLink
                 </span>{' '}
                 <span className="bg-gradient-to-b from-white via-zinc-100 to-zinc-400 bg-clip-text text-transparent">
@@ -199,7 +200,7 @@ export function HomePage() {
                       key={idx}
                       className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white shrink-0 transition-colors select-none px-1"
                     >
-                      <img src="/civlink-mark.png" alt="" className="size-3.5 object-contain opacity-80" />
+                      <CivLinkIcon size={13} glow={false} />
                       <span className="font-medium text-white/80">{server.name}</span>
                     </div>
                   ))}
@@ -228,7 +229,7 @@ export function HomePage() {
         <footer className="mt-auto py-8 border-t border-white/[0.06] bg-[#090a0f] text-xs text-white/40">
           <div className="mx-auto max-w-6xl px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <img src="/civlink-mark.png" alt="CivLink" className="size-4 object-contain" />
+              <CivLinkIcon size={18} glow={true} />
               <span className="font-medium text-white/70">CivLink</span>
               <span>&copy; {new Date().getFullYear()}</span>
             </div>

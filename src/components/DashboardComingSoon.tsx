@@ -17,6 +17,7 @@ import {
   Bot
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar.tsx';
+import { CivLinkIcon } from '@/components/CivLinkIcon';
 import { useAuth } from '@/lib/auth';
 
 interface DashboardComingSoonProps {
@@ -39,9 +40,7 @@ export function DashboardComingSoon({ onUnlockSandbox }: DashboardComingSoonProp
         {/* Top Header */}
         <header className="sticky top-0 z-40 h-14 bg-[#0a0b0f]/80 backdrop-blur-md border-b border-white/[0.04] flex items-center justify-between px-6 sm:px-10">
           <div className="flex items-center gap-2.5">
-            <div className="size-6 rounded-md bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center p-1">
-              <img src="/civlink-mark.png" alt="CivLink" className="size-full object-contain" />
-            </div>
+            <CivLinkIcon size={22} glow={true} />
             <span className="text-xs font-bold text-white tracking-wide">CivLink Dashboard</span>
           </div>
 

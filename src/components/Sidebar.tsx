@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { SiteSettingsModal } from '@/components/ui/site-settings-modal';
+import { CivLinkIcon } from '@/components/CivLinkIcon';
 
 export function Sidebar() {
   const location = useLocation();
@@ -46,12 +47,8 @@ export function Sidebar() {
       <aside className="fixed left-0 top-0 bottom-0 z-50 w-14 sm:w-16 flex flex-col items-center justify-between py-5 border-r border-white/[0.08] bg-[#0b0c10]/95 backdrop-blur-md select-none">
       {/* Top Branding / Logo */}
       <div className="flex flex-col items-center gap-7">
-        <Link to="/" className="flex items-center justify-center p-0 outline-none focus:outline-none group" title="CivLink">
-          <img
-            src="/civlink-mark.png"
-            alt="CivLink"
-            className="size-7 sm:size-8 object-contain hover:scale-105 active:scale-95 transition-transform duration-200 select-none"
-          />
+        <Link to="/" className="flex items-center justify-center p-0 outline-none focus:outline-none group hover:scale-110 active:scale-95 transition-transform duration-200" title="CivLink">
+          <CivLinkIcon size={30} glow={true} />
           <span className="sr-only">CivLink Home</span>
         </Link>
 
@@ -193,9 +190,9 @@ export function Sidebar() {
             <a
               href="/auth/discord/login"
               title="CivLink Network - Sign In with Discord"
-              className="mt-1 flex size-8 items-center justify-center rounded-full overflow-hidden ring-1 ring-cyan-500/30 bg-[#161c28] p-1.5 hover:ring-cyan-400 hover:scale-105 transition-all outline-none"
+              className="mt-1 flex size-8 items-center justify-center rounded-full overflow-hidden ring-1 ring-[#38A1FF]/30 bg-[#161c28] p-1 hover:ring-[#38A1FF] hover:scale-105 transition-all outline-none"
             >
-              <img src="/civlink-mark.png" alt="CivLink" className="size-full object-contain" />
+              <CivLinkIcon size={20} glow={false} />
             </a>
           </div>
         )}
