@@ -186,7 +186,17 @@ export function Sidebar() {
               </div>
             )}
           </div>
-        ) : null}
+        ) : (
+          <div className="relative">
+            <a
+              href="/auth/discord/login"
+              title="CivLink Network - Sign In with Discord"
+              className="mt-1 flex size-8 items-center justify-center rounded-full overflow-hidden ring-1 ring-cyan-500/30 bg-[#161c28] p-1.5 hover:ring-cyan-400 hover:scale-105 transition-all outline-none"
+            >
+              <img src="/civlink-mark.png" alt="CivLink" className="size-full object-contain" />
+            </a>
+          </div>
+        )}
       </div>
     </aside>
 

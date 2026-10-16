@@ -166,8 +166,8 @@ export function Sidebar({
                 className="size-full object-cover rounded-full"
               />
             ) : (
-              <div className="size-full rounded-full bg-[#161c28] border border-[#2E90FA]/30 flex items-center justify-center text-[#2E90FA]">
-                <User className="size-4" />
+              <div className="size-full rounded-full bg-[#161c28] border border-cyan-500/30 flex items-center justify-center p-1.5">
+                <img src="/civlink-mark.png" alt="CivLink" className="size-full object-contain" />
               </div>
             )}
           </button>
@@ -184,19 +184,19 @@ export function Sidebar({
                     className="size-9 object-cover rounded-full ring-1 ring-white/15"
                   />
                 ) : (
-                  <div className="size-9 rounded-full bg-[#182030] border border-[#2E90FA]/30 flex items-center justify-center text-[#2E90FA]">
-                    <User className="size-4" />
+                  <div className="size-9 rounded-full bg-[#182030] border border-cyan-500/30 flex items-center justify-center p-1.5">
+                    <img src="/civlink-mark.png" alt="CivLink" className="size-full object-contain" />
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-semibold text-white truncate">
-                    {user?.displayName || user?.username || 'Guest Administrator'}
+                    {user?.displayName || user?.username || 'CivLink Network'}
                   </p>
                   <p className="text-[11px] text-zinc-400 truncate">
-                    {user ? `@${user.username}` : 'Discord OAuth2'}
+                    {user ? `@${user.username}` : 'ER:LC Automation'}
                   </p>
                 </div>
-                <span className="size-2 rounded-full bg-emerald-400" title="System Online" />
+                <span className="size-2 rounded-full bg-cyan-400" title="System Online" />
               </div>
 
               {/* Menu Actions including Terms of Service and Privacy Policy */}

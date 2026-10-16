@@ -8,7 +8,7 @@ import {
   LogIn,
   LayoutDashboard
 } from 'lucide-react';
-import { Sidebar } from '@/components/Sidebar';
+import { Sidebar } from '@/components/Sidebar.tsx';
 import { SearchModal } from '@/components/ui/search-modal';
 import { InfiniteSlider } from '@/components/ui/infinite-slider';
 import FeaturesBlock from '@/components/ui/features-4';

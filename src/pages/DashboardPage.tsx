@@ -40,8 +40,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Sidebar } from '@/components/Sidebar';
+import { DashboardComingSoon } from '@/components/DashboardComingSoon';
 import { Stepper, type StepperItem } from '@/components/ui/stepper';
 import { ChannelSelect, RoleSelect, MultiRoleSelect } from '@/components/DiscordResourceSelectors';
 import NotificationsBlock, { type ToastNotification } from '@/components/ui/notifications-5';
@@ -519,6 +519,13 @@ export function DashboardPage() {
     });
     addToast('success', 'Template Applied', `Broadcast headline updated.`);
   };
+
+  const [showSandbox, setShowSandbox] = useState(false);
+
+  // Default to stunning "Coming Soon" dashboard view as requested
+  if (!showSandbox) {
+    return <DashboardComingSoon onUnlockSandbox={() => setShowSandbox(true)} />;
+  }
 
   if (loadingGuilds) {
     return (
