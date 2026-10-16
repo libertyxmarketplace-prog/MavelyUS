@@ -131,15 +131,15 @@ export function HomePage() {
             {/* Left Column: Heading, Subtext, Buttons, Server Slider */}
             <div className="lg:col-span-7 flex flex-col items-start text-left space-y-6">
               {/* Badge */}
-              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs text-cyan-300 backdrop-blur-sm shadow-[0_0_15px_rgba(6,182,212,0.15)]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/25 bg-sky-500/10 px-3 py-1 text-xs text-sky-300 backdrop-blur-sm">
                 <img src="/civlink-mark.png" alt="" className="size-3.5 object-contain" />
                 <span className="font-semibold tracking-wide uppercase text-[10px]">CivLink Bot Platform</span>
-                <span className="text-cyan-400/50">•</span>
+                <span className="text-sky-400/50">•</span>
                 <span className="text-white/80">Built for Roblox ER:LC</span>
               </div>
 
               <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-[-0.035em] leading-[1.08] text-white">
-                <span className="bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500 bg-clip-text text-transparent drop-shadow-[0_0_35px_rgba(6,182,212,0.4)]">
+                <span className="bg-gradient-to-r from-sky-400 via-cyan-300 to-blue-500 bg-clip-text text-transparent">
                   CivLink
                 </span>{' '}
                 <span className="bg-gradient-to-b from-white via-zinc-100 to-zinc-400 bg-clip-text text-transparent">

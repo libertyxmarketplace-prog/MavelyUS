@@ -50,7 +50,7 @@ export function Sidebar() {
           <img
             src="/civlink-mark.png"
             alt="CivLink"
-            className="size-8 object-contain hover:scale-110 active:scale-95 transition-transform drop-shadow-[0_0_12px_rgba(6,182,212,0.45)]"
+            className="size-7 sm:size-8 object-contain hover:scale-105 active:scale-95 transition-transform duration-200 select-none"
           />
           <span className="sr-only">CivLink Home</span>
         </Link>

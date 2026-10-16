@@ -74,25 +74,29 @@ export function DashboardComingSoon({ onUnlockSandbox }: DashboardComingSoonProp
           </div>
         </header>
 
-        {/* Hero Arena with dynamic ambient blush */}
+        {/* Hero Arena with dynamic ambient lighting */}
         <main className="flex-1 px-6 sm:px-12 py-12 sm:py-20 flex flex-col items-center justify-center text-center max-w-5xl mx-auto relative">
-          {/* Ambient Glow Backdrop */}
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center -z-10">
-            <div className="size-[420px] sm:size-[560px] rounded-full bg-gradient-to-tr from-cyan-500/20 via-sky-500/15 to-blue-600/20 blur-[100px] opacity-70 animate-pulse" />
-          </div>
+          {/* Ambient Lighting Backdrop */}
+          <div
+            className="pointer-events-none absolute inset-0 flex items-center justify-center -z-10"
+            style={{
+              background: 'radial-gradient(ellipse 75% 55% at 50% 40%, rgba(14, 165, 233, 0.14) 0%, rgba(59, 130, 246, 0.04) 50%, transparent 75%)',
+              filter: 'blur(35px)'
+            }}
+          />
 
-          {/* Glowing Badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3.5 py-1 text-xs text-cyan-300 backdrop-blur-sm shadow-[0_0_20px_rgba(6,182,212,0.2)] mb-6">
-            <Clock className="size-3.5 text-cyan-400 animate-spin" style={{ animationDuration: '6s' }} />
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-sky-500/25 bg-sky-500/10 px-3.5 py-1 text-xs text-sky-300 backdrop-blur-sm mb-6">
+            <Clock className="size-3.5 text-sky-400 animate-spin" style={{ animationDuration: '6s' }} />
             <span className="font-semibold tracking-wide uppercase text-[10px]">CivLink v2.0 Platform</span>
-            <span className="text-cyan-400/50">•</span>
+            <span className="text-sky-400/50">•</span>
             <span className="text-white/80 font-medium">Under Active Construction</span>
           </div>
 
           {/* Main Title */}
           <h1 className="font-display text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-[-0.035em] leading-[1.08] text-white max-w-3xl">
             Dashboard{' '}
-            <span className="bg-gradient-to-r from-cyan-400 via-sky-300 to-blue-500 bg-clip-text text-transparent drop-shadow-[0_0_35px_rgba(6,182,212,0.4)]">
+            <span className="bg-gradient-to-r from-sky-400 via-cyan-300 to-blue-500 bg-clip-text text-transparent">
               Coming Soon
             </span>
           </h1>
