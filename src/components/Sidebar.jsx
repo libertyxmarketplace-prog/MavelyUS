@@ -9,10 +9,9 @@ import {
   MessageSquare,
   Settings,
   LogOut,
-  ExternalLink,
-  Shield,
-  FileQuestion
+  Shield
 } from 'lucide-react';
+import { CivLinkIcon } from './CivLinkLogo';
 
 export function Sidebar({ 
   currentView = 'home',
@@ -95,17 +94,14 @@ export function Sidebar({
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 z-50 w-14 sm:w-16 flex flex-col items-center justify-between py-5 border-r border-white/[0.08] bg-[#0b0c10]/95 backdrop-blur-md select-none">
-      {/* Top Branding / Logo */}
+      {/* Top Branding / Logo: Clean CivLink Circuit Icon */}
       <div className="flex flex-col items-center gap-7">
         <button
           onClick={() => onNavigate?.('home')}
-          className="flex items-center justify-center p-0 hover:opacity-80 transition-opacity outline-none focus:outline-none"
-          title="Home"
+          className="flex items-center justify-center p-1.5 rounded-lg hover:bg-white/[0.06] transition-all outline-none focus:outline-none"
+          title="CivLink Home"
         >
-          <img src="/mavely-mark.png" alt="Mavely" className="size-7 object-contain" onError={(e) => {
-            // fallback if image not loaded
-            e.currentTarget.style.display = 'none';
-          }} />
+          <CivLinkIcon size={26} />
         </button>
 
         {/* Main Nav Icons */}
@@ -159,7 +155,7 @@ export function Sidebar({
             onClick={() => setUserMenuOpen((prev) => !prev)}
             title={user ? (user.globalName || user.username) : "User profile & legal"}
             className={`mt-1 flex size-8 items-center justify-center rounded-full overflow-hidden ring-1 transition-all outline-none ${
-              userMenuOpen ? 'ring-emerald-400 scale-105' : 'ring-white/20 hover:ring-white/60'
+              userMenuOpen ? 'ring-[#2E90FA] scale-105' : 'ring-white/20 hover:ring-white/60'
             }`}
           >
             {user?.avatarUrl ? (
