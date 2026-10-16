@@ -1,0 +1,216 @@
+@charset "UTF-8";
+
+/* CivLink Design System — Precision Industrial Dark */
+:root {
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Palette */
+  --bg-base: #08090d;
+  --bg-sidebar: #0b0d13;
+  --bg-card: #10131a;
+  --bg-card-hover: #141822;
+  --bg-elevated: #181d2a;
+  --bg-input: #0e1117;
+
+  /* Borders */
+  --border-subtle: #191e2b;
+  --border-medium: #22293b;
+  --border-bright: #2d364f;
+
+  /* CivLink Signature Blue (Matches Logo) */
+  --civ-blue: #2e90fa;
+  --civ-blue-hover: #1570ef;
+  --civ-blue-light: #53b1fd;
+  --civ-blue-dim: rgba(46, 144, 250, 0.12);
+  --civ-blue-border: rgba(46, 144, 250, 0.28);
+
+  /* Functional Accents */
+  --status-online: #10b981;
+  --status-online-dim: rgba(16, 185, 129, 0.12);
+  --status-warning: #f59e0b;
+  --status-warning-dim: rgba(245, 158, 11, 0.12);
+  --status-danger: #ef4444;
+  --status-danger-dim: rgba(239, 68, 68, 0.12);
+
+  /* Text Colors */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-faint: #334155;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-bright);
+}
+
+/* Monospace Helpers */
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Clean Button Styles (Zero Goofy Pill Buttons) */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--civ-blue);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  text-decoration: none;
+}
+.btn-primary:hover {
+  background: var(--civ-blue-hover);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 12px rgba(46, 144, 250, 0.25);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-medium);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  text-decoration: none;
+}
+.btn-secondary:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-bright);
+  color: #ffffff;
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--status-danger-dim);
+  color: var(--status-danger);
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* Micro badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+.badge-blue {
+  background: var(--civ-blue-dim);
+  color: var(--civ-blue-light);
+  border: 1px solid var(--civ-blue-border);
+}
+.badge-emerald {
+  background: var(--status-online-dim);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.badge-amber {
+  background: var(--status-warning-dim);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.badge-rose {
+  background: var(--status-danger-dim);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.badge-zinc {
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Card Shell */
+.card-shell {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  transition: border-color 0.15s ease;
+}
+.card-shell:hover {
+  border-color: var(--border-medium);
+}
+
+/* Input Fields */
+.input-base {
+  background: var(--bg-input);
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
+  font-size: 13px;
+  border-radius: 6px;
+  padding: 8px 12px;
+  outline: none;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+.input-base:focus {
+  border-color: var(--civ-blue);
+  box-shadow: 0 0 0 1px var(--civ-blue);
+}
+.input-base::placeholder {
+  color: var(--text-muted);
+}
