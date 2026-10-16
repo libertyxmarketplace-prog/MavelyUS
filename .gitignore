@@ -25,3 +25,6 @@ dist-ssr
 
 .env
 server/data/
+data/
+*.db.json
+*.log
