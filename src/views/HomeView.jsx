@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Bot, 
   Terminal, 
@@ -11,81 +11,112 @@ import {
   Cpu, 
   Radio, 
   Layers, 
-  Sliders 
+  Sliders,
+  Sparkles,
+  Zap,
+  Clock,
+  Shield
 } from 'lucide-react';
 import { CivLinkLogo } from '../components/CivLinkLogo';
-import { DiscordEmbedPreview } from '../components/DiscordEmbedPreview';
+import { TiltedShowcase } from '../components/TiltedShowcase';
+import { BeamSearch, NotificationBell } from '../components/ui/beam-search';
+import { FlipFadeText } from '../components/ui/flip-fade-text';
+import { StatsCounter } from '../components/ui/stats-counter';
+import { Faq } from '../components/ui/faq';
 
 export function HomeView({ onEnterDashboard, user, onOpenLegal }) {
-  const previewVars = {
-    server: 'Liberty County State RP',
-    players: '28',
-    maxPlayers: '35',
-    queue: '3',
-    joinKey: 'liberty-702',
-    name: 'Liberty County State RP'
-  };
+  const [searchQuery, setSearchQuery] = useState("");
 
   return (
     <div style={{ minHeight: '100vh', background: '#08090d', color: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
       {/* Top Navbar */}
       <header
         style={{
-          height: '64px',
+          height: '68px',
           borderBottom: '1px solid #161923',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 36px',
-          background: 'rgba(8, 9, 13, 0.85)',
-          backdropFilter: 'blur(10px)',
+          padding: '0 32px',
+          background: 'rgba(8, 9, 13, 0.88)',
+          backdropFilter: 'blur(12px)',
           position: 'sticky',
           top: 0,
           zIndex: 50
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+        {/* Left: Brand Logo & Engine Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <CivLinkLogo size={28} showText={true} />
-          <span className="badge badge-zinc" style={{ fontSize: '10px' }}>ENGINE v1.4</span>
+          <span className="badge badge-zinc" style={{ fontSize: '10px' }}>v1.4.2</span>
         </div>
 
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <button 
-            onClick={() => onOpenLegal('terms')}
-            style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '13px', cursor: 'pointer', transition: 'color 0.15s' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
-          >
-            Terms of Service
-          </button>
-          <button 
-            onClick={() => onOpenLegal('privacy')}
-            style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '13px', cursor: 'pointer', transition: 'color 0.15s' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#ffffff'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
-          >
-            Privacy Policy
-          </button>
+        {/* Center/Right: BeamSearch + Notification UI + Legal Links + Auth */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* Notification UI */}
+          <NotificationBell count={1} />
 
-          {user ? (
-            <button onClick={onEnterDashboard} className="btn-primary font-mono" style={{ padding: '7px 16px', fontSize: '12px' }}>
-              OPEN DASHBOARD (@{user.username})
-              <ArrowRight size={14} />
+          {/* BeamSearch with Traveling Laser Beam */}
+          <BeamSearch 
+            placeholder="Search commands, modules..." 
+            onSearch={setSearchQuery} 
+          />
+
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '16px', marginLeft: '8px' }}>
+            <button 
+              onClick={() => onOpenLegal('terms')}
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                color: '#94a3b8', 
+                fontSize: '13px', 
+                fontWeight: 500,
+                cursor: 'pointer', 
+                transition: 'color 0.15s' 
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#38bdf8'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
+            >
+              Terms of Service
             </button>
-          ) : (
-            <a href="/auth/discord/login" className="btn-primary font-mono" style={{ padding: '7px 16px', fontSize: '12px' }}>
-              LOGIN WITH DISCORD
-              <ArrowRight size={14} />
-            </a>
-          )}
-        </nav>
+
+            <button 
+              onClick={() => onOpenLegal('privacy')}
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                color: '#94a3b8', 
+                fontSize: '13px', 
+                fontWeight: 500,
+                cursor: 'pointer', 
+                transition: 'color 0.15s' 
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#38bdf8'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
+            >
+              Privacy Policy
+            </button>
+
+            {user ? (
+              <button onClick={onEnterDashboard} className="btn-primary font-mono" style={{ padding: '7px 16px', fontSize: '12px' }}>
+                OPEN DASHBOARD (@{user.username})
+                <ArrowRight size={14} />
+              </button>
+            ) : (
+              <a href="/auth/discord/login" className="btn-primary font-mono" style={{ padding: '7px 16px', fontSize: '12px' }}>
+                LOGIN WITH DISCORD
+                <ArrowRight size={14} />
+              </a>
+            )}
+          </nav>
+        </div>
       </header>
 
-      {/* Hero Section (Inspired by greed.best / vex.cat aesthetics) */}
+      {/* Hero Section */}
       <section 
         style={{ 
-          padding: '90px 24px 60px', 
-          maxWidth: '1200px', 
+          padding: '80px 24px 60px', 
+          maxWidth: '1280px', 
           margin: '0 auto', 
           width: '100%',
           display: 'flex', 
@@ -95,37 +126,35 @@ export function HomeView({ onEnterDashboard, user, onOpenLegal }) {
           position: 'relative'
         }}
       >
-        {/* Subtle top spotlight effect */}
+        {/* Subtle, refined atmospheric blue glow (NOT crazy vibe coded) */}
         <div 
           style={{
             position: 'absolute',
-            top: '20px',
-            width: '600px',
-            height: '240px',
-            background: 'radial-gradient(ellipse at center, rgba(46, 144, 250, 0.08) 0%, transparent 70%)',
-            pointerEvents: 'none'
+            top: '0',
+            width: '700px',
+            height: '320px',
+            background: 'radial-gradient(ellipse at center, rgba(46, 144, 250, 0.09) 0%, transparent 68%)',
+            pointerEvents: 'none',
+            zIndex: 0
           }}
         />
 
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '4px 12px', background: '#121520', border: '1px solid #1f2536', borderRadius: '4px', marginBottom: '24px' }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-          <span className="font-mono" style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.04em' }}>
-            CUSTOM DISCORD BOT BUILDER FOR ROBLOX ER:LC
-          </span>
-        </div>
-
+        {/* Main Title with FlipFadeText */}
         <h1 
           style={{ 
-            fontSize: '52px', 
+            fontSize: '56px', 
             fontWeight: 800, 
-            letterSpacing: '-0.035em', 
-            lineHeight: 1.12, 
-            maxWidth: '920px',
+            letterSpacing: '-0.04em', 
+            lineHeight: 1.1, 
+            maxWidth: '960px',
             color: '#ffffff',
-            margin: '0 0 20px'
+            margin: '0 0 22px',
+            position: 'relative',
+            zIndex: 1
           }}
         >
-          Build and run your own custom <span style={{ color: '#2E90FA' }}>ER:LC Discord bot</span>.
+          Build and run your <br />
+          <FlipFadeText words={["custom ER:LC bot", "support ticket desk", "live session engine", "staff shift auditor"]} />
         </h1>
 
         <p 
@@ -134,23 +163,25 @@ export function HomeView({ onEnterDashboard, user, onOpenLegal }) {
             lineHeight: 1.6, 
             color: '#94a3b8', 
             maxWidth: '680px',
-            margin: '0 0 36px' 
+            margin: '0 0 36px',
+            position: 'relative',
+            zIndex: 1 
           }}
         >
-          A no-code bot workshop designed for Emergency Response: Liberty County server owners. 
-          Manage slash commands, live in-game server data, shift logs, and custom embed styles from one clean control panel.
+          The dedicated no-code bot workshop for Emergency Response: Liberty County. 
+          Deploy high-fidelity ticket panels, live in-game server telemetry, and staff management directly into your community Discord.
         </p>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '60px' }}>
+        <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '50px', position: 'relative', zIndex: 1 }}>
           {user ? (
             <button onClick={onEnterDashboard} className="btn-primary font-mono" style={{ padding: '12px 24px', fontSize: '14px' }}>
-              GO TO BOT DASHBOARD
+              LAUNCH DASHBOARD
               <ArrowRight size={16} />
             </button>
           ) : (
             <a href="/auth/discord/login" className="btn-primary font-mono" style={{ padding: '12px 24px', fontSize: '14px' }}>
-              CONNECT DISCORD & BUILD BOT
+              CONNECT WITH DISCORD
               <ArrowRight size={16} />
             </a>
           )}
@@ -159,26 +190,62 @@ export function HomeView({ onEnterDashboard, user, onOpenLegal }) {
             className="btn-secondary font-mono" 
             style={{ padding: '12px 22px', fontSize: '14px' }}
           >
-            EXPLORE MODULES & COMMANDS
+            VIEW COMMAND MANAGER
           </button>
         </div>
 
-        {/* Live Interactive Embed Demonstration */}
-        <div style={{ width: '100%', maxWidth: '720px', textAlign: 'left', marginBottom: '40px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', padding: '0 4px' }}>
-            <span className="font-mono" style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Live Diskhook Embed Engine Preview
+        {/* 2D/3D Tilted Showcase of Realistic ER:LC Embed Panels from User Reference Images */}
+        <div style={{ width: '100%', marginBottom: '60px', position: 'relative', zIndex: 1 }}>
+          <div style={{ marginBottom: '14px' }}>
+            <span className="font-mono text-xs text-[#64748b] tracking-wider uppercase">
+              HIGH-FIDELITY EMBED PANELS & DISPATCH MENUS
             </span>
-            <span className="badge badge-emerald">OUTPUT /SERVER</span>
           </div>
-          <DiscordEmbedPreview 
-            title="{name}"
-            description="**{players}/{maxPlayers}** players in game, **{queue}** waiting in queue.
-Join code: **{joinKey}**"
-            vars={previewVars}
-            style={{ color: '#2E90FA', footerText: 'CivLink Real-Time Telemetry' }}
-            botUser={{ username: 'CivLink Assistant' }}
-          />
+          <TiltedShowcase />
+        </div>
+
+        {/* Stats Counter Row */}
+        <div 
+          style={{
+            width: '100%',
+            maxWidth: '920px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '16px',
+            padding: '24px 28px',
+            background: '#0d1017',
+            border: '1px solid #1c2233',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.4)'
+          }}
+        >
+          <div>
+            <div className="text-3xl font-extrabold text-white">
+              <StatsCounter target={18} suffix="+" />
+            </div>
+            <div className="text-xs text-[#64748b] font-medium mt-1">Slash Commands</div>
+          </div>
+
+          <div>
+            <div className="text-3xl font-extrabold text-white">
+              <StatsCounter target={100} suffix="%" />
+            </div>
+            <div className="text-xs text-[#64748b] font-medium mt-1">Custom Branding</div>
+          </div>
+
+          <div>
+            <div className="text-3xl font-extrabold text-white">
+              <StatsCounter target={30} suffix="s" />
+            </div>
+            <div className="text-xs text-[#64748b] font-medium mt-1">Telemetry Polling Rate</div>
+          </div>
+
+          <div>
+            <div className="text-3xl font-extrabold text-white">
+              <StatsCounter target={24} suffix="/7" />
+            </div>
+            <div className="text-xs text-[#64748b] font-medium mt-1">Hosted Cloud Runtime</div>
+          </div>
         </div>
       </section>
 
@@ -187,59 +254,60 @@ Join code: **{joinKey}**"
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ marginBottom: '48px', textAlign: 'center' }}>
             <span className="font-mono" style={{ fontSize: '12px', color: '#2E90FA', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              ENGINE CAPABILITIES
+              MODULAR PLATFORM
             </span>
             <h2 style={{ fontSize: '32px', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em', marginTop: '6px' }}>
-              Everything your ER:LC community needs in one bot.
+              Built specifically for modern ER:LC servers.
             </h2>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px' }}>
-            {/* Pillar 1 */}
             <div className="card-shell" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ width: '40px', height: '40px', borderRadius: '6px', background: '#161a26', border: '1px solid #232a3d', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2E90FA' }}>
                 <Server size={20} />
               </div>
               <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff' }}>01. Real-Time Overview</h3>
               <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: 1.55 }}>
-                Track live bot uptime, Discord guild member count, ER:LC in-game server players, queue counts, host CPU/memory, and run instant diagnostic checks.
+                Track live bot uptime, server members, ER:LC player count and queue, CPU/memory diagnostics, and run instant restart routines.
               </p>
             </div>
 
-            {/* Pillar 2 */}
             <div className="card-shell" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ width: '40px', height: '40px', borderRadius: '6px', background: '#161a26', border: '1px solid #232a3d', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2E90FA' }}>
                 <Bot size={20} />
               </div>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff' }}>02. Bot Builder</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff' }}>02. Bot Builder Workshop</h3>
               <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: 1.55 }}>
-                Customize your bot's name, avatar, presence status, embed theme colors, and welcome/goodbye messages with live Diskhook-grade previews.
+                Set custom bot names, avatars, activity status, signature colors, and welcome/goodbye embeds with live Diskhook preview.
               </p>
             </div>
 
-            {/* Pillar 3 */}
             <div className="card-shell" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ width: '40px', height: '40px', borderRadius: '6px', background: '#161a26', border: '1px solid #232a3d', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2E90FA' }}>
                 <Terminal size={20} />
               </div>
               <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff' }}>03. Command Manager</h3>
               <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: 1.55 }}>
-                Toggle individual slash commands, restrict by channels or staff roles, configure custom cooldowns, rewrite response templates, and track execution stats.
+                Configure individual command permissions, role gates, execution cooldowns, shortcuts/aliases, and custom response templates.
               </p>
             </div>
 
-            {/* Pillar 4 */}
             <div className="card-shell" style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ width: '40px', height: '40px', borderRadius: '6px', background: '#161a26', border: '1px solid #232a3d', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2E90FA' }}>
                 <Boxes size={20} />
               </div>
               <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#ffffff' }}>04. Module Library</h3>
               <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: 1.55 }}>
-                Install and configure individual functional modules in one click: ER:LC telemetry, sessions & SSU voting, staff shifts, moderation logs, tickets, and log relays.
+                One-click activation for ER:LC live queries, SSU sessions, staff shift tracking, moderation logs, ticket channels, and in-game command relays.
               </p>
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Frequently Asked Questions Section */}
+      <section style={{ borderTop: '1px solid #151824', background: '#080a0e' }}>
+        <Faq />
       </section>
 
       {/* Footer */}
@@ -266,11 +334,35 @@ Join code: **{joinKey}**"
           <span>Dedicated ER:LC Community Infrastructure</span>
         </div>
 
-        <div style={{ display: 'flex', gap: '16px' }}>
-          <button onClick={() => onOpenLegal('terms')} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', gap: '18px' }}>
+          <button 
+            onClick={() => onOpenLegal('terms')} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: '#94a3b8', 
+              cursor: 'pointer',
+              fontSize: '12px',
+              transition: 'color 0.15s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#38bdf8'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
+          >
             Terms of Service
           </button>
-          <button onClick={() => onOpenLegal('privacy')} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>
+          <button 
+            onClick={() => onOpenLegal('privacy')} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: '#94a3b8', 
+              cursor: 'pointer',
+              fontSize: '12px',
+              transition: 'color 0.15s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#38bdf8'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
+          >
             Privacy Policy
           </button>
         </div>
