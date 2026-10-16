@@ -47,12 +47,12 @@ export function EmbedShowcase() {
     setCurrentIndex((prev) => (prev - 1 + EMBED_IMAGES.length) % EMBED_IMAGES.length);
   };
 
-  // Auto-advance rotation
+  // Auto-advance rotation every 30 seconds as requested
   useEffect(() => {
     if (isPaused) return;
     timerRef.current = setInterval(() => {
       handleNext();
-    }, 5000);
+    }, 30000);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -77,7 +77,7 @@ export function EmbedShowcase() {
       {/* ─── DYNAMIC "BLUSH" AMBIENT BACKDROP ─── */}
       {/* Radiant mesh glow that softly "blushes" the website background behind the image */}
       <div
-        className={`pointer-events-none absolute -inset-8 sm:-inset-14 rounded-full bg-gradient-to-tr ${active.blush} blur-[75px] sm:blur-[105px] opacity-80 transition-all duration-700 -z-10`}
+        className={`pointer-events-none absolute -inset-8 sm:-inset-16 rounded-full bg-gradient-to-tr ${active.blush} blur-[80px] sm:blur-[110px] opacity-85 transition-all duration-700 -z-10`}
       />
       <div
         className="pointer-events-none absolute -inset-2 rounded-2xl opacity-60 blur-2xl transition-all duration-500 -z-10"
@@ -85,6 +85,24 @@ export function EmbedShowcase() {
           boxShadow: `0 0 70px 15px ${active.glow}`
         }}
       />
+
+      {/* Floating Left Arrow: positioned further away and hidden until someone hovers around it */}
+      <button
+        onClick={handlePrev}
+        aria-label="Previous Image"
+        className="absolute -left-5 sm:-left-12 top-1/2 -translate-y-1/2 z-20 size-11 rounded-full bg-black/70 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center transition-all duration-300 shadow-2xl backdrop-blur-md hover:scale-110 active:scale-90 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto"
+      >
+        <ChevronLeft className="size-6 text-white" />
+      </button>
+
+      {/* Floating Right Arrow: positioned further away and hidden until someone hovers around it */}
+      <button
+        onClick={handleNext}
+        aria-label="Next Image"
+        className="absolute -right-5 sm:-right-12 top-1/2 -translate-y-1/2 z-20 size-11 rounded-full bg-black/70 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center transition-all duration-300 shadow-2xl backdrop-blur-md hover:scale-110 active:scale-90 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto"
+      >
+        <ChevronRight className="size-6 text-white" />
+      </button>
 
       {/* ─── PURE IMAGE ONLY (NO UI CONTAINER/BACKGROUND) ─── */}
       <div
@@ -101,26 +119,8 @@ export function EmbedShowcase() {
           loading="eager"
         />
 
-        {/* Floating Left Arrow */}
-        <button
-          onClick={handlePrev}
-          aria-label="Previous Image"
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 size-10 rounded-full bg-black/60 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center transition-all duration-200 shadow-xl backdrop-blur-md hover:scale-110 active:scale-90 opacity-80 group-hover:opacity-100"
-        >
-          <ChevronLeft className="size-6 text-white" />
-        </button>
-
-        {/* Floating Right Arrow */}
-        <button
-          onClick={handleNext}
-          aria-label="Next Image"
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 size-10 rounded-full bg-black/60 hover:bg-black/90 border border-white/20 text-white flex items-center justify-center transition-all duration-200 shadow-xl backdrop-blur-md hover:scale-110 active:scale-90 opacity-80 group-hover:opacity-100"
-        >
-          <ChevronRight className="size-6 text-white" />
-        </button>
-
-        {/* Subtle Bottom Image Dot Indicators */}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 opacity-70 group-hover:opacity-100 transition-opacity">
+        {/* Subtle Bottom Image Dot Indicators (hidden until hovered) */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           {EMBED_IMAGES.map((_, idx) => (
             <button
               key={idx}

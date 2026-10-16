@@ -99,10 +99,14 @@ export function Sidebar({
       <div className="flex flex-col items-center gap-7">
         <button
           onClick={() => onNavigate?.('home')}
-          className="flex items-center justify-center p-1.5 rounded-lg hover:bg-white/[0.06] transition-all outline-none focus:outline-none"
+          className="flex items-center justify-center p-0 transition-all outline-none focus:outline-none group"
           title="CivLink Home"
         >
-          <CivLinkIcon size={26} />
+          <img
+            src="/civlink-mark.png"
+            alt="CivLink"
+            className="size-8 object-contain hover:scale-110 active:scale-95 transition-transform drop-shadow-[0_0_12px_rgba(6,182,212,0.45)]"
+          />
         </button>
 
         {/* Main Nav Icons */}

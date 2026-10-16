@@ -46,10 +46,12 @@ export function Sidebar() {
       <aside className="fixed left-0 top-0 bottom-0 z-50 w-14 sm:w-16 flex flex-col items-center justify-between py-5 border-r border-white/[0.08] bg-[#0b0c10]/95 backdrop-blur-md select-none">
       {/* Top Branding / Logo */}
       <div className="flex flex-col items-center gap-7">
-        <Link to="/" className="flex items-center justify-center p-0 hover:opacity-90 transition-all outline-none focus:outline-none group relative" title="CivLink">
-          <div className="relative size-8 rounded-lg bg-gradient-to-br from-cyan-500/20 via-blue-500/20 to-transparent p-1 ring-1 ring-cyan-500/30 group-hover:ring-cyan-400/60 transition-all shadow-[0_0_15px_rgba(6,182,212,0.25)] flex items-center justify-center">
-            <img src="/civlink-mark.png" alt="CivLink" className="size-full object-contain" />
-          </div>
+        <Link to="/" className="flex items-center justify-center p-0 outline-none focus:outline-none group" title="CivLink">
+          <img
+            src="/civlink-mark.png"
+            alt="CivLink"
+            className="size-8 object-contain hover:scale-110 active:scale-95 transition-transform drop-shadow-[0_0_12px_rgba(6,182,212,0.45)]"
+          />
           <span className="sr-only">CivLink Home</span>
         </Link>
 
