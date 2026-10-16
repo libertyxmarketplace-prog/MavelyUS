@@ -21,8 +21,8 @@ export interface SiteSettingsModalProps {
 }
 
 const ACCENT_THEMES = [
-  { id: 'mint', name: 'Mavely Mint', color: '#2ecc71', oklch: '0.75 0.14 160' },
-  { id: 'cyan', name: 'Cyber Cyan', color: '#06b6d4', oklch: '0.78 0.14 210' },
+  { id: 'cyan', name: 'CivLink Cyan', color: '#06b6d4', oklch: '0.78 0.14 210' },
+  { id: 'mint', name: 'Emerald Mint', color: '#2ecc71', oklch: '0.75 0.14 160' },
   { id: 'purple', name: 'Neon Purple', color: '#8b5cf6', oklch: '0.68 0.18 290' },
   { id: 'amber', name: 'Tactical Amber', color: '#f59e0b', oklch: '0.75 0.16 75' },
 ];

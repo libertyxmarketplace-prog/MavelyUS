@@ -161,11 +161,16 @@ function oauthClientId() {
 }
 
 function appOrigin() {
-  return (process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173')).replace(/\/$/, '');
+  return (process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? 'https://civlink.xyz' : 'http://localhost:3000')).replace(/\/$/, '');
 }
 
-function callbackUrl() {
-  return process.env.DISCORD_REDIRECT_URI || `${appOrigin()}/auth/discord/callback`;
+function callbackUrl(req) {
+  if (process.env.DISCORD_REDIRECT_URI) return process.env.DISCORD_REDIRECT_URI;
+  if (req) {
+    const host = req.get('host') || '';
+    if (host.includes('civlink.xyz')) return 'https://civlink.xyz/auth/discord/callback';
+  }
+  return `${appOrigin()}/auth/discord/callback`;
 }
 
 function safeReturnUrl(value) {
@@ -1040,13 +1045,39 @@ export function createDashboardRouter() {
 
 export function createDiscordCallbackRouter() {
   const router = Router();
+  router.get('/login', handleDiscordLogin);
+  router.get('/start', handleDiscordLogin);
   router.get('/', completeDiscordAuth);
   router.get('/callback', completeDiscordAuth);
   return router;
 }
 
+function handleDiscordLogin(req, res) {
+  const clientId = oauthClientId() || '1552165138017165372';
+  const host = req.get('host') || '';
+  const isCivlink = host.includes('civlink.xyz') || process.env.NODE_ENV === 'production';
+  const redirectUri = isCivlink
+    ? 'https://civlink.xyz/auth/discord/callback'
+    : (process.env.DISCORD_REDIRECT_URI || 'http://localhost:3000/auth/discord/callback');
+
+  const state = randomBytes(32).toString('hex');
+  const returnTo = req.query.returnTo || (isCivlink ? 'https://civlink.xyz/dashboard' : 'http://localhost:3000/dashboard');
+  oauthStates.set(state, { returnTo, redirectUri, expiresAt: Date.now() + 10 * 60 * 1000 });
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'identify guilds',
+    state,
+    prompt: 'consent'
+  });
+
+  return res.redirect(`https://discord.com/oauth2/authorize?${params}`);
+}
+
 async function completeDiscordAuth(req, res) {
-  const fallback = appOrigin() || 'http://localhost:5173';
+  const fallback = appOrigin() || 'http://localhost:3000';
   if (req.query.error) {
     console.warn('[WEB OAuth] Discord returned error:', req.query.error, req.query.error_description);
     return res.redirect(`${fallback}/login?auth_error=${encodeURIComponent(String(req.query.error_description || req.query.error))}`);

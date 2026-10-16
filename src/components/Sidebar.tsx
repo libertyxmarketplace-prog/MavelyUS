@@ -46,9 +46,11 @@ export function Sidebar() {
       <aside className="fixed left-0 top-0 bottom-0 z-50 w-14 sm:w-16 flex flex-col items-center justify-between py-5 border-r border-white/[0.08] bg-[#0b0c10]/95 backdrop-blur-md select-none">
       {/* Top Branding / Logo */}
       <div className="flex flex-col items-center gap-7">
-        <Link to="/" className="flex items-center justify-center p-0 hover:opacity-80 transition-opacity outline-none focus:outline-none" title="Mavely">
-          <img src="/mavely-mark.png" alt="Mavely" className="size-7 object-contain" />
-          <span className="sr-only">Mavely Home</span>
+        <Link to="/" className="flex items-center justify-center p-0 hover:opacity-90 transition-all outline-none focus:outline-none group relative" title="CivLink">
+          <div className="relative size-8 rounded-lg bg-gradient-to-br from-cyan-500/20 via-blue-500/20 to-transparent p-1 ring-1 ring-cyan-500/30 group-hover:ring-cyan-400/60 transition-all shadow-[0_0_15px_rgba(6,182,212,0.25)] flex items-center justify-center">
+            <img src="/civlink-mark.png" alt="CivLink" className="size-full object-contain" />
+          </div>
+          <span className="sr-only">CivLink Home</span>
         </Link>
 
         {/* Main Nav Icons */}
@@ -184,15 +186,7 @@ export function Sidebar() {
               </div>
             )}
           </div>
-        ) : (
-          <a
-            href="https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fauth%2Fdiscord%2Fcallback&scope=identify+guilds"
-            title="Sign in with Discord"
-            className="mt-1 flex size-8 items-center justify-center rounded-full bg-white/[0.04] border border-white/10 text-white/60 hover:text-white hover:border-white/20 hover:bg-white/[0.08] transition-all outline-none"
-          >
-            <Crown className="size-4 text-zinc-300" />
-          </a>
-        )}
+        ) : null}
       </div>
     </aside>
 

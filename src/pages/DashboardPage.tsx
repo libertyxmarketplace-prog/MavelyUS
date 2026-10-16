@@ -654,7 +654,7 @@ export function DashboardPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="text-xs font-semibold text-white truncate leading-tight">
-                    {selectedGuild?.name || 'Mavely Server'}
+                    {selectedGuild?.name || 'CivLink Server'}
                   </h3>
                   <p className="text-[11px] text-zinc-400 truncate mt-0.5">
                     {resources.roles.length ? `${resources.roles.length * 2 + 11} members` : '11 members'}
@@ -978,7 +978,7 @@ export function DashboardPage() {
                           <div className="space-y-1.5 text-[11px]">
                             <div className="flex justify-between text-zinc-400">
                               <span>Bot Application Tag:</span>
-                              <span className="font-mono text-zinc-200">{workspace?.botUser?.username || 'Mavely Core'}</span>
+                              <span className="font-mono text-zinc-200">{workspace?.botUser?.username || 'CivLink Core'}</span>
                             </div>
                             <div className="flex justify-between text-zinc-400">
                               <span>Privileged Intents:</span>
@@ -1581,12 +1581,12 @@ export function DashboardPage() {
                                 workspace?.botUser?.avatarUrl ||
                                 (selectedGuild?.icon
                                   ? `https://cdn.discordapp.com/icons/${selectedGuild.id}/${selectedGuild.icon}.png?size=96`
-                                  : '/mavely-mark.png')
+                                  : '/civlink-mark.png')
                               }
                               alt="Bot"
                               className="size-full object-cover"
                               onError={(e) => {
-                                (e.target as HTMLImageElement).src = '/mavely-mark.png';
+                                (e.target as HTMLImageElement).src = '/civlink-mark.png';
                               }}
                             />
                           </div>
@@ -1596,7 +1596,7 @@ export function DashboardPage() {
                             {/* Author Row */}
                             <div className="flex items-baseline gap-1.5 flex-wrap">
                               <span className="text-[16px] font-semibold text-white hover:underline cursor-pointer">
-                                {workspace?.botUser?.username || selectedGuild?.name || 'Mavely'}
+                                {workspace?.botUser?.username || selectedGuild?.name || 'CivLink'}
                               </span>
                               <span className="bg-[#5865f2] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-[3px] uppercase tracking-wider flex items-center gap-0.5">
                                 <Check className="size-2.5 stroke-[3]" />

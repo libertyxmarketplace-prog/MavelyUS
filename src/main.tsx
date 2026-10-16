@@ -35,35 +35,54 @@ try {
   // Ignore localStorage access issues
 }
 
-const OAUTH_URL =
-  'https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fauth%2Fdiscord%2Fcallback&scope=identify+guilds';
+export function getDiscordOAuthUrl() {
+  const isCivLink = typeof window !== 'undefined' && window.location.hostname.includes('civlink.xyz');
+  const redirectUri = isCivLink
+    ? 'https://civlink.xyz/auth/discord/callback'
+    : `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/auth/discord/callback`;
+  return `https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=identify+guilds`;
+}
 
 export function LoginPage() {
   const params = new URLSearchParams(window.location.search);
   const error = params.get('auth_error');
+  const oauthUrl = getDiscordOAuthUrl();
 
   useEffect(() => {
     if (!error) {
-      window.location.assign(OAUTH_URL);
+      window.location.assign(oauthUrl);
     }
-  }, [error]);
+  }, [error, oauthUrl]);
 
   return (
     <div className="min-h-screen bg-[#070707] flex items-center justify-center p-4 text-white">
       <div className="w-full max-w-sm rounded-xl border border-white/[0.1] bg-[#0e0e11] p-6 text-center space-y-4 shadow-2xl">
-        <img src="/mavely-mark.png" alt="Mavely" className="size-10 rounded mx-auto" />
+        <img src="/civlink-mark.png" alt="CivLink" className="size-10 rounded-lg mx-auto object-contain" />
         <div className="space-y-1">
           <h2 className="text-base font-semibold text-white">Sign In with Discord</h2>
           <p className="text-xs text-white/50">
-            {error ? `Notice: ${error.replace(/_/g, ' ')}` : 'Connecting your Discord account...'}
+            {error ? `Notice: ${error.replace(/_/g, ' ')}` : 'Connecting to your Discord account for CivLink...'}
           </p>
         </div>
         <Button asChild className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium text-xs">
-          <a href={OAUTH_URL}>
+          <a href={oauthUrl}>
             {error ? 'Retry Discord Login' : 'Continue to Discord'}
           </a>
         </Button>
       </div>
+    </div>
+  );
+}
+
+function DiscordLoginRedirect() {
+  useEffect(() => {
+    window.location.assign(getDiscordOAuthUrl());
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-[#070707] flex flex-col items-center justify-center gap-3 text-xs text-white/50">
+      <div className="size-5 rounded-full border-2 border-brand border-t-transparent animate-spin" />
+      <span>Redirecting to Discord authentication...</span>
     </div>
   );
 }
@@ -107,6 +126,8 @@ function App() {
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/docs" element={<DocsPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/discord/login" element={<DiscordLoginRedirect />} />
+          <Route path="/auth/login" element={<DiscordLoginRedirect />} />
           <Route path="/auth/discord/callback" element={<CallbackPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />

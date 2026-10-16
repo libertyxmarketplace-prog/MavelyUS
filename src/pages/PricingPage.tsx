@@ -54,8 +54,8 @@ export function PricingPage() {
         <footer className="mt-auto py-8 border-t border-white/[0.06] bg-[#090a0f] text-xs text-white/40">
           <div className="mx-auto max-w-6xl px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <img src="/mavely-mark.png" alt="Mavely" className="size-4 object-contain" />
-              <span className="font-medium text-white/70">Mavely</span>
+              <img src="/civlink-mark.png" alt="CivLink" className="size-4 object-contain" />
+              <span className="font-medium text-white/70">CivLink</span>
               <span>&copy; {new Date().getFullYear()}</span>
             </div>
             <div className="flex items-center gap-6">

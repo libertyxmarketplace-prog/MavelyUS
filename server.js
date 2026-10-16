@@ -44,6 +44,18 @@ app.use(express.json({ limit: '100kb' }));
 app.use('/api', createDashboardRouter());
 app.use('/auth/discord', createDiscordCallbackRouter());
 
+// Direct login redirect handlers ensuring no "Cannot GET /auth/discord/login"
+app.get(['/auth/discord/login', '/auth/login', '/login/discord'], (req, res) => {
+  const clientId = process.env.DISCORD_CLIENT_ID || '1552165138017165372';
+  const host = req.get('host') || '';
+  const isCivlink = host.includes('civlink.xyz');
+  const redirectUri = isCivlink
+    ? 'https://civlink.xyz/auth/discord/callback'
+    : (process.env.DISCORD_REDIRECT_URI || 'http://localhost:3000/auth/discord/callback');
+  const authUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=identify+guilds`;
+  return res.redirect(authUrl);
+});
+
 const startTime = Date.now();
 
 // ─── HEALTH & ECOSYSTEM STATUS ──────────────────────────────────────────────

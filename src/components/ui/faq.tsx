@@ -35,7 +35,7 @@ interface FaqProps extends Omit<
 const DEFAULT_ITEMS: FaqItem[] = [
   {
     id: "setup",
-    question: "How do I add Mavely to my Discord server?",
+    question: "How do I add CivLink to my Discord server?",
     answer:
       "Simply click 'Add your server' or 'Open Dashboard', authorize the bot with Administrator permissions in your server, and configure your modules through the web dashboard.",
   },
@@ -49,13 +49,13 @@ const DEFAULT_ITEMS: FaqItem[] = [
     id: "tickets",
     question: "How many ticket categories can I configure?",
     answer:
-      "Mavely supports 5 completely customizable ticket category slots, each with its own spawn category ID, claim permissions, ping roles, and HTML transcripts.",
+      "CivLink supports 5 completely customizable ticket category slots, each with its own spawn category ID, claim permissions, ping roles, and HTML transcripts.",
   },
   {
     id: "customer-bots",
     question: "Can I use my own custom bot token and branding?",
     answer:
-      "Yes! With Mavely's multi-tenant bot runner engine, you can run your community's own custom bot token, name, and avatar while using Mavely's backend systems.",
+      "Yes! With CivLink's multi-tenant bot runner engine, you can run your community's own custom bot token, name, and avatar while using CivLink's backend systems.",
   },
   {
     id: "staff-apps",
@@ -78,7 +78,7 @@ const DEFAULT_FOOTER = (
       href="https://discord.gg/UCqXrvHFqh"
       target="_blank"
       rel="noreferrer"
-      className="text-[#2ecc71] hover:underline font-medium outline-none"
+      className="text-cyan-400 hover:underline font-medium outline-none"
     >
       Join our Discord
     </a>
@@ -89,7 +89,7 @@ function Faq({
   className,
   eyebrow = "FAQ",
   title = "Frequently asked questions",
-  description = "Answers to common questions about configuring Mavely for your ER:LC community.",
+  description = "Answers to common questions about configuring CivLink for your ER:LC community.",
   items = DEFAULT_ITEMS,
   layout = "split",
   type = "single",
