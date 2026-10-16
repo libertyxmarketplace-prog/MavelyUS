@@ -9,7 +9,8 @@ import {
   MessageSquare,
   Settings,
   LogOut,
-  Shield
+  Shield,
+  User
 } from 'lucide-react';
 import { CivLinkIcon } from './CivLinkLogo';
 
@@ -165,14 +166,9 @@ export function Sidebar({
                 className="size-full object-cover rounded-full"
               />
             ) : (
-              <img
-                src="/mavely_avatar.png"
-                alt="User"
-                className="size-full object-cover rounded-full"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
+              <div className="size-full rounded-full bg-[#161c28] border border-[#2E90FA]/30 flex items-center justify-center text-[#2E90FA]">
+                <User className="size-4" />
+              </div>
             )}
           </button>
 
@@ -181,14 +177,17 @@ export function Sidebar({
             <div className="absolute left-12 bottom-0 w-64 rounded-xl bg-[#12141c] border border-white/10 shadow-2xl p-3 space-y-3 z-50">
               {/* Header User Profile Info */}
               <div className="flex items-center gap-2.5 pb-2.5 border-b border-white/[0.06]">
-                <img
-                  src={user?.avatarUrl || "/mavely_avatar.png"}
-                  alt={user?.username || "Guest"}
-                  className="size-9 object-cover rounded-full ring-1 ring-white/15"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
+                {user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.username}
+                    className="size-9 object-cover rounded-full ring-1 ring-white/15"
+                  />
+                ) : (
+                  <div className="size-9 rounded-full bg-[#182030] border border-[#2E90FA]/30 flex items-center justify-center text-[#2E90FA]">
+                    <User className="size-4" />
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-semibold text-white truncate">
                     {user?.displayName || user?.username || 'Guest Administrator'}

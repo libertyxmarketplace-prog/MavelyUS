@@ -9,40 +9,40 @@ import {
 
 const DEFAULT_ITEMS = [
   {
-    id: "trial",
-    question: "Is there a free trial?",
+    id: "erlc-link",
+    question: "How do I connect my ER:LC Private Server to CivLink?",
     answer:
-      "Yes. Every paid plan starts with a 14-day trial with all features included. No card is needed to start.",
+      "Join your Roblox ER:LC private server, open Server Settings from the main menu, and copy your Server-Key. Paste this key into the CivLink Dashboard settings under Roblox Integration. The bot will instantly link to your server's live PRC API telemetry.",
   },
   {
-    id: "change-plan",
-    question: "Can I change plans later?",
+    id: "whitelabel",
+    question: "Is this bot fully whitelabel with my community branding?",
     answer:
-      "You can upgrade or downgrade at any time from your account settings. Changes apply from the next billing period.",
+      "Yes, 100%. CivLink runs your own dedicated Discord bot application token. Your community members will see your server's custom bot name, custom avatar, and custom Rich Presence status.",
   },
   {
-    id: "team",
-    question: "How do I invite my team?",
+    id: "tickets",
+    question: "How do support ticket panels and transcripts work?",
     answer:
-      "Open the workspace settings and add people by Discord role or ID. They get instant access to your server dashboard.",
+      "You can design custom embed panels with buttons or category menus (e.g., General Support, Internal Affairs, Staff Inquiries). When clicked, CivLink generates a private ticket channel with role pings, button controls, and exports automatic HTML transcripts upon closing.",
   },
   {
-    id: "data",
-    question: "Where is my data stored?",
+    id: "shifts",
+    question: "Can CivLink track staff patrol shifts and radio voice channels?",
     answer:
-      "Your data and tokens are encrypted in transit and at rest, and backed up daily. You can export your bot configurations at any time.",
+      "Yes. Staff can clock in using slash commands or Discord message buttons. CivLink monitors on-duty durations, links to live dispatch voice radio channels, and logs patrol statistics for server administration reviews.",
   },
   {
-    id: "cancel",
-    question: "What happens if I cancel?",
+    id: "hosting",
+    question: "Is the bot hosted 24/7 or do I need to keep my computer on?",
     answer:
-      "Your workspace stays available until the end of the billing period. After that it switches to the free tier and nothing is deleted.",
+      "CivLink operates a 24/7 cloud runtime with automatic gateway reconnection. Once configured, your bot stays continuously online even when your PC is turned off.",
   },
   {
     id: "support",
-    question: "Do you offer support?",
+    question: "Where can I get help or report bugs?",
     answer:
-      "All plans include help via our official Discord community. Pro and Enterprise communities receive priority queueing.",
+      "Join our official Discord community for live assistance, feature requests, and server configuration guides from our engineering team.",
   },
 ];
 
@@ -53,136 +53,82 @@ const DEFAULT_FOOTER = (
       href="https://discord.gg/UCqXrvHFqh"
       target="_blank"
       rel="noreferrer"
-      className="text-white focus-visible:ring-ring/50 rounded font-medium underline underline-offset-4 outline-none hover:text-emerald-400 focus-visible:ring-[3px]"
+      className="text-white hover:text-[#2E90FA] font-medium underline underline-offset-4 transition-colors"
     >
-      Contact us on Discord
+      Join our Discord Support
     </a>
   </>
 );
 
 export function Faq({
   className = "",
-  eyebrow = "FAQ",
-  title = "Frequently asked questions",
-  description = "Answers to the questions we hear most. Cannot find what you are looking for? Reach out.",
+  eyebrow = "FREQUENTLY ASKED QUESTIONS",
+  title = "Everything you need to know about CivLink.",
+  description = "Common questions regarding Roblox ER:LC server integration, ticket panels, bot tokens, and shift telemetry.",
   items = DEFAULT_ITEMS,
-  layout = "split",
+  layout = "stacked",
   type = "single",
-  defaultValue,
+  defaultValue = "erlc-link",
   footer = DEFAULT_FOOTER,
   ...props
 }) {
-  const split = layout === "split";
-  const hasHeader =
-    eyebrow != null || title != null || description != null || footer != null;
-
   const entries = items.map((item, index) => (
     <AccordionItem
       key={item.id ?? index}
       value={item.id ?? `item-${index}`}
       data-slot="faq-item"
+      className="border-b border-white/[0.08]"
     >
-      <AccordionTrigger data-slot="faq-question" className="text-base text-zinc-200 hover:text-white">
+      <AccordionTrigger data-slot="faq-question" className="text-sm font-semibold text-zinc-200 hover:text-white py-4.5">
         {item.question}
       </AccordionTrigger>
       <AccordionContent
         data-slot="faq-answer"
-        className="text-zinc-400 text-sm leading-relaxed"
+        className="text-zinc-400 text-xs sm:text-sm leading-relaxed pb-4"
       >
         {item.answer}
       </AccordionContent>
     </AccordionItem>
   ));
 
-  const listClassName = cn(
-    "w-full",
-    !split && "mx-auto max-w-3xl",
-    !split && hasHeader && "mt-12",
-  );
-
   return (
     <section
       data-slot="faq"
-      data-layout={layout}
-      className={cn("py-16 sm:py-24", className)}
+      className={cn("py-16 sm:py-24 px-6 sm:px-12", className)}
       {...props}
     >
-      <div
-        data-slot="faq-container"
-        className={cn(
-          "mx-auto w-full max-w-6xl px-4 sm:px-6",
-          split && "grid gap-12 lg:grid-cols-[1fr_2fr]",
-        )}
-      >
-        {hasHeader ? (
-          <div
-            data-slot="faq-header"
-            className={cn("max-w-2xl", !split && "mx-auto text-center")}
-          >
-            {eyebrow != null ? (
-              <p
-                data-slot="faq-eyebrow"
-                className="text-zinc-400 text-sm font-semibold tracking-wider uppercase"
-              >
-                {eyebrow}
-              </p>
-            ) : null}
-            {title != null ? (
-              <h2
-                data-slot="faq-title"
-                className={cn(
-                  "text-3xl font-bold tracking-tight text-white sm:text-4xl",
-                  eyebrow != null && "mt-2",
-                )}
-              >
-                {title}
-              </h2>
-            ) : null}
-            {description != null ? (
-              <p
-                data-slot="faq-description"
-                className="text-zinc-400 mt-4 text-base leading-relaxed"
-              >
-                {description}
-              </p>
-            ) : null}
-            {footer != null ? (
-              <p
-                data-slot="faq-footer"
-                className="text-zinc-400 mt-6 text-sm"
-              >
-                {footer}
-              </p>
-            ) : null}
+      <div className="mx-auto w-full max-w-4xl">
+        <div className="text-center mb-12">
+          {eyebrow && (
+            <p className="text-[#2E90FA] text-xs font-mono font-bold tracking-[0.2em] uppercase mb-2">
+              {eyebrow}
+            </p>
+          )}
+          {title && (
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+              {title}
+            </h2>
+          )}
+          {description && (
+            <p className="text-zinc-400 mt-3 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
+              {description}
+            </p>
+          )}
+        </div>
+
+        <Accordion
+          type="single"
+          collapsible
+          className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 sm:p-8"
+          defaultValue={defaultValue}
+        >
+          {entries}
+        </Accordion>
+
+        {footer && (
+          <div className="text-center text-xs text-zinc-400 mt-8">
+            {footer}
           </div>
-        ) : null}
-        {type === "multiple" ? (
-          <Accordion
-            type="multiple"
-            data-slot="faq-list"
-            className={listClassName}
-            defaultValue={
-              defaultValue === undefined
-                ? undefined
-                : Array.isArray(defaultValue)
-                  ? defaultValue
-                  : [defaultValue]
-            }
-          >
-            {entries}
-          </Accordion>
-        ) : (
-          <Accordion
-            type="single"
-            collapsible
-            data-slot="faq-list"
-            className={listClassName}
-            defaultValue={
-              Array.isArray(defaultValue) ? defaultValue[0] : defaultValue
-            }
-          >
-            {entries}
-          </Accordion>
         )}
       </div>
     </section>
