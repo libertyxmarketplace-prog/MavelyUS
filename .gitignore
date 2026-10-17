@@ -41,4 +41,6 @@ src/assets/
 # Test / scratch scripts at root (not part of the bot).
 *.mjs
 patch-status.txt
+transcripts/
+
 

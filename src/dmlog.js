@@ -8,7 +8,7 @@
  *  Discord exposes no API to enumerate a bot's DM history, so without a record
  *  of the message ids there is no way to find those messages again.
  *
- *  File: bot_dms.json  —  { "<messageId>": { userId, at, kind } }
+ *  File: bot_dms.json  -  { "<messageId>": { userId, at, kind } }
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -36,7 +36,7 @@ export function initDmLog(file) {
 function persist() {
   if (!storeFile) return;
   try {
-    // Keep the file bounded — drop the oldest entries first.
+    // Keep the file bounded - drop the oldest entries first.
     if (log.size > MAX_ENTRIES) {
       const sorted = [...log.entries()].sort((a, b) => (a[1].at || 0) - (b[1].at || 0));
       for (const [id] of sorted.slice(0, log.size - MAX_ENTRIES)) log.delete(id);

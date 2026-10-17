@@ -1,11 +1,11 @@
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- *  AI CONVERSATIONS  —  multi-turn follow-up questions for the `-ai` engine.
+ *  AI CONVERSATIONS  -  multi-turn follow-up questions for the `-ai` engine.
  *
  *  When a resolved intent is missing something the action genuinely needs
  *  (a meeting time, the member to ban, the text to announce), the bot asks
  *  ONE question at a time and merges each answer into the pending intent.
- *  Anything already present — typed up front or supplied by the model — is
+ *  Anything already present - typed up front or supplied by the model - is
  *  never asked about, so `-ai ban @user for 3 days spamming` still runs
  *  instantly with no chatter.
  *
@@ -14,10 +14,10 @@
  *  the request, and a fresh `-ai ...` command always replaces a pending one.
  *  Sessions expire after AI_CONVERSATION_TTL_MS of silence.
  *
- *  State is in-memory only: a restart drops pending chats (safe — nothing was
+ *  State is in-memory only: a restart drops pending chats (safe - nothing was
  *  ever executed, so there is nothing to reconcile).
  *
- *  Nothing here imports index.js — index.js injects the Discord message and
+ *  Nothing here imports index.js - index.js injects the Discord message and
  *  executes the finished intent.
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -109,7 +109,7 @@ function coerceBanDays(value) {
   const parsed = parseDuration(text, { unit: 'day' });
   if (!parsed || parsed.permanent) return parsed?.permanent ? null : undefined;
   if (parsed.durationDays) return clampNumber(parsed.durationDays, 1, 36500, null);
-  // A sub-day answer ("12h") still bans — round it up to a day.
+  // A sub-day answer ("12h") still bans - round it up to a day.
   if (parsed.ms) return 1;
   return undefined;
 }
@@ -244,7 +244,7 @@ export const AI_SLOTS = {
       required: true,
       validate: (v, m) => !!coerceUserId(v, m),
       coerce: coerceUserId,
-      invalid: '❌ I need a mention or a user ID — who is it?'
+      invalid: '❌ I need a mention or a user ID - who is it?'
     }),
     slot('duration_days', '⏱ **How long?**\n> e.g. `3 days`, `permanent`, or say `skip` for permanent.', {
       skipValue: null,
@@ -264,7 +264,7 @@ export const AI_SLOTS = {
       required: true,
       validate: (v, m) => !!coerceUserId(v, m),
       coerce: coerceUserId,
-      invalid: '❌ I need a mention or a user ID — who is it?'
+      invalid: '❌ I need a mention or a user ID - who is it?'
     }),
     slot('reason', '🧾 **Reason?**\n> or say `skip`.', {
       skipValue: 'No reason provided',
@@ -278,7 +278,7 @@ export const AI_SLOTS = {
       required: true,
       validate: (v, m) => !!coerceUserId(v, m),
       coerce: coerceUserId,
-      invalid: '❌ I need a mention or a user ID — who is it?'
+      invalid: '❌ I need a mention or a user ID - who is it?'
     }),
     slot('minutes', '⏱ **For how long?**\n> e.g. `30 minutes`, `2 hours`, `3 days`.', {
       required: true,
@@ -298,7 +298,7 @@ export const AI_SLOTS = {
       required: true,
       validate: (v, m) => !!coerceUserId(v, m),
       coerce: coerceUserId,
-      invalid: '❌ I need a mention or a user ID — who is it?'
+      invalid: '❌ I need a mention or a user ID - who is it?'
     })
   ],
 
@@ -307,7 +307,7 @@ export const AI_SLOTS = {
       required: true,
       validate: (v, m) => !!coerceUserId(v, m),
       coerce: coerceUserId,
-      invalid: '❌ I need a user ID — who is it?'
+      invalid: '❌ I need a user ID - who is it?'
     })
   ],
 
@@ -316,7 +316,7 @@ export const AI_SLOTS = {
       required: true,
       validate: (v, m) => !!coerceUserId(v, m),
       coerce: coerceUserId,
-      invalid: '❌ I need a mention or a user ID — who is it?'
+      invalid: '❌ I need a mention or a user ID - who is it?'
     }),
     slot('text', '💬 **What should the DM say?**', {
       required: true,
@@ -398,7 +398,7 @@ export const AI_SLOTS = {
   ],
 
   infraction_revoke: [
-    slot('user_id', '📋 **Whose infraction should I revoke?**\n> Mention them — or say `skip` for the newest infraction overall.', {
+    slot('user_id', '📋 **Whose infraction should I revoke?**\n> Mention them - or say `skip` for the newest infraction overall.', {
       coerce: coerceUserId
     }),
     slot('reason', '🧾 **Reason for revoking?**\n> or say `skip`.', {
@@ -413,7 +413,7 @@ export const AI_SLOTS = {
       required: true,
       validate: (v, m) => !!coerceUserId(v, m),
       coerce: coerceUserId,
-      invalid: '❌ I need a mention or a user ID — who is it?'
+      invalid: '❌ I need a mention or a user ID - who is it?'
     }),
     slot('reason', '🧾 **Reason?**\n> or say `skip`.', {
       skipValue: 'Promotion revoked',
@@ -434,7 +434,7 @@ export const AI_SLOTS = {
       when: (a) => ['pm', 'jail', 'unjail', 'kick', 'ban', 'unban'].includes(a.verb),
       validate: (v) => /^@?[A-Za-z][A-Za-z0-9_]{2,19}$/.test(v.trim()),
       coerce: (v) => v.trim().replace(/^@/, '').slice(0, 20),
-      invalid: '❌ That does not look like a Roblox username — who is it?'
+      invalid: '❌ That does not look like a Roblox username - who is it?'
     }),
     slot('text', '💬 **What should I send?**', {
       required: true,
@@ -523,10 +523,10 @@ export function touchAiConvo(convo) {
  * Folds one answer into the session.
  *
  * @returns {{ status: 'next'|'done'|'retry'|'giveup', slot?: object, invalid?: string }}
- *   - `next`  — advance to `slot` (the following question)
- *   - `done`  — every slot is filled, the intent is ready to run
- *   - `retry` — the answer did not validate; ask the SAME slot again (`invalid`)
- *   - `giveup`— a required slot was dodged too often; abandon the chat
+ *   - `next`  - advance to `slot` (the following question)
+ *   - `done`  - every slot is filled, the intent is ready to run
+ *   - `retry` - the answer did not validate; ask the SAME slot again (`invalid`)
+ *   - `giveup`- a required slot was dodged too often; abandon the chat
  */
 export function applyAiAnswer(convo, slot, answer, message) {
   const text = String(answer ?? '').trim();
@@ -543,14 +543,14 @@ export function applyAiAnswer(convo, slot, answer, message) {
   if (slot.required && isAiSkipAnswer(text)) {
     convo.attempts += 1;
     if (convo.attempts > MAX_SLOT_ATTEMPTS) return { status: 'giveup' };
-    return { status: 'retry', slot, invalid: `I need this one to continue — ${slot.question}` };
+    return { status: 'retry', slot, invalid: `I need this one to continue - ${slot.question}` };
   }
 
   const valid = slot.validate ? slot.validate(text, message) : text.length > 0;
   if (!valid) {
     convo.attempts += 1;
     if (convo.attempts > MAX_SLOT_ATTEMPTS) return { status: 'giveup' };
-    return { status: 'retry', slot, invalid: slot.invalid ?? 'That did not look right — try again.' };
+    return { status: 'retry', slot, invalid: slot.invalid ?? 'That did not look right - try again.' };
   }
 
   convo.intent.args[slot.key] = slot.coerce ? slot.coerce(text, message) : text;

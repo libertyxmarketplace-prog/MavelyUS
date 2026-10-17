@@ -47,5 +47,29 @@
     "decisionDmSent": true,
     "concludedAt": 1791930874640,
     "concludedReason": "end date had already passed"
+  },
+  "1560509994015793254": {
+    "key": "1560509994015793254",
+    "userId": "1083910212697723021",
+    "userTag": "unknown86523",
+    "guildId": "1232495211490443284",
+    "logChannelId": "1232495214162214922",
+    "logMessageId": "1560509994015793254",
+    "actionMessageId": "1560510423663644754",
+    "roblox": "memesboyzzzzz",
+    "rank": "head moderator",
+    "start": "10/16/2026",
+    "end": "11/20/2026",
+    "reason": "work",
+    "endsAt": 1795158000000,
+    "status": "approved",
+    "createdAt": 1792124976896,
+    "removedRoleIds": [
+      "1341943709821829242"
+    ],
+    "originalNickname": "𝐇𝐌 | memesboyzzzzz",
+    "approvedBy": "1100907704807063724",
+    "approvedAt": 1792125079149,
+    "decisionDmSent": true
   }
 }

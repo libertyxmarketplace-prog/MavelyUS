@@ -3,7 +3,7 @@
   "meta": {
     "name": "Alabama State Roleplay Ticket Knowledge Base",
     "note": "Editable knowledge base. approved:true entries are served with zero API cost. Staff can add/edit/remove entries via /kb without editing bot source.",
-    "updatedAt": 1792025792
+    "updatedAt": 1792124712
   },
   "faqs": [
     {
@@ -116,7 +116,7 @@
         "apply staff",
         "staff requirements"
       ],
-      "answer": "Staff recruitment is handled through the official staff application panel in the **Staff Applications** channel. Do not ping staff for your application status. In-Game Staff patrol the ER:LC private server, enforce roleplay rules, answer moderation calls, and monitor safe zones. Requirements: at least **14 years old**, active each week in the ER:LC server or Discord, and a working microphone plus clip-recording software. **AI-generated application answers are not allowed** — answers must be written by you in your own words.",
+      "answer": "Staff recruitment is handled through the official staff application panel in the **Staff Applications** channel. Do not ping staff for your application status. In-Game Staff patrol the ER:LC private server, enforce roleplay rules, answer moderation calls, and monitor safe zones. Requirements: at least **14 years old**, active each week in the ER:LC server or Discord, and a working microphone plus clip-recording software. **AI-generated application answers are not allowed** - answers must be written by you in your own words.",
       "source": "server-material",
       "approved": true,
       "createdAt": 1791775704,
@@ -188,7 +188,7 @@
         "$25,000",
         "funds"
       ],
-      "answer": "The server material states that all departments receive **$25,000** with every payment. Beyond that, staff cannot confirm payment frequency or other financial rules — for anything more specific, please open a ticket so staff can review it.",
+      "answer": "The server material states that all departments receive **$25,000** with every payment. Beyond that, staff cannot confirm payment frequency or other financial rules - for anything more specific, please open a ticket so staff can review it.",
       "source": "server-material",
       "approved": true,
       "createdAt": 1791775704,
@@ -242,7 +242,7 @@
         "promote",
         "transfer"
       ],
-      "answer": "Partnership, mutual advertising, paid promotions, and staff transfers are handled in the **Partnership** ticket category. Please open a Partnership ticket so the right team can review your request. Staff will confirm acceptance and any pricing details with you — those are not set here.",
+      "answer": "Partnership, mutual advertising, paid promotions, and staff transfers are handled in the **Partnership** ticket category. Please open a Partnership ticket so the right team can review your request. Staff will confirm acceptance and any pricing details with you - those are not set here.",
       "source": "server-material",
       "approved": true,
       "createdAt": 1791775704,
@@ -261,7 +261,7 @@
         "internal affairs",
         "report staff"
       ],
-      "answer": "Thank you for reaching out. Internal Affairs handles staff reports and community concerns. Please share the details of your report — who was involved, what happened, when, and any evidence (screenshots, clips). A member of our staff team will review it. Please note: we do not decide whether allegations are true here, and we keep these reports confidential. An authorized staff member will take it from here.",
+      "answer": "Thank you for reaching out. Internal Affairs handles staff reports and community concerns. Please share the details of your report - who was involved, what happened, when, and any evidence (screenshots, clips). A member of our staff team will review it. Please note: we do not decide whether allegations are true here, and we keep these reports confidential. An authorized staff member will take it from here.",
       "source": "server-material",
       "approved": true,
       "createdAt": 1791775704,
@@ -297,7 +297,7 @@
         "co-owner",
         "shr"
       ],
-      "answer": "This ticket is for executive and administrative matters, IA+ reports, and administrative management. Please describe what you need so an authorized high-ranking staff member can review it. Decisions that require IA+ or executive authority must be made by an authorized staff member — I can't approve or decide those here. A staff member will take it from here.",
+      "answer": "This ticket is for executive and administrative matters, IA+ reports, and administrative management. Please describe what you need so an authorized high-ranking staff member can review it. Decisions that require IA+ or executive authority must be made by an authorized staff member - I can't approve or decide those here. A staff member will take it from here.",
       "source": "server-material",
       "approved": true,
       "createdAt": 1791775704,
@@ -767,7 +767,7 @@
     {
       "id": "ln_mv4yqxlb_2i06",
       "question": "thanks broski i wanna apply for staff",
-      "answer": "To apply for staff, please visit the **Staff Applications** channel: <#1539681421306896476>. Make sure you meet the requirements: at least **14 years old**, active each week in ER:LC/Discord, and have a working microphone plus clip-recording software. Remember, your application answers must be in your own words—AI-generated answers are not allowed. If you have any questions about the application process, feel free to ask!",
+      "answer": "To apply for staff, please visit the **Staff Applications** channel: <#1539681421306896476>. Make sure you meet the requirements: at least **14 years old**, active each week in ER:LC/Discord, and have a working microphone plus clip-recording software. Remember, your application answers must be in your own words-AI-generated answers are not allowed. If you have any questions about the application process, feel free to ask!",
       "category": "general",
       "keywords": [
         "thanks",
@@ -1245,6 +1245,83 @@
       "suppliedBy": null,
       "createdAt": 1792025792,
       "updatedAt": 1792025792
+    },
+    {
+      "id": "ln_mv8txpkg_yhmb",
+      "question": "I would wana report a high rank member for racial slurs",
+      "answer": "Thank you for reaching out. Internal Affairs handles staff reports and community concerns. Please share the details of your report - who was involved, what happened, when, and any evidence (screenshots, clips). A member of our staff team will review it. Please note: we do not decide whether allegations are true here, and we keep these reports confidential. An authorized staff member will take it from here.",
+      "category": "general",
+      "keywords": [
+        "wana",
+        "report",
+        "high",
+        "rank",
+        "member",
+        "racial",
+        "slurs"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1560094297079156800",
+      "suppliedBy": null,
+      "createdAt": 1792025873,
+      "updatedAt": 1792025873
+    },
+    {
+      "id": "ln_mv8ty2nw_dgr6",
+      "question": "no I wanna report here",
+      "answer": "I can certainly escalate this ticket for you. Could you please provide the reason for the escalation along with any details or screenshots regarding what happened so our staff team has full context to assist?",
+      "category": "general",
+      "keywords": [
+        "no",
+        "wanna",
+        "report"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1560094297079156800",
+      "suppliedBy": null,
+      "createdAt": 1792025890,
+      "updatedAt": 1792025890
+    },
+    {
+      "id": "ln_mvagrgar_y86t",
+      "question": "I wanna do a staff fast pass",
+      "answer": "Staff ranks are obtained through the application process in the **Staff Applications** channel <#1539681421306896476>. If you're looking for server shop perks or custom passes, those can be found in the **Server Shop & Purchases** channel <#1539680102449680495>. Please clarify if you need assistance with the application or the shop!",
+      "category": "general",
+      "keywords": [
+        "wanna",
+        "staff",
+        "fast",
+        "pass"
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1560508718800703600",
+      "suppliedBy": null,
+      "createdAt": 1792124678,
+      "updatedAt": 1792124678
+    },
+    {
+      "id": "ln_mvags6by_8rvp",
+      "question": "I wanna do like a staff fast pass applicaiton please.",
+      "answer": "To apply for a staff position, please visit the **Staff Applications** channel <#1539681421306896476>. There, you can find the requirements and submit your application. If you meant something else by 'staff fast pass', please clarify!",
+      "category": "general",
+      "keywords": [
+        "wanna",
+        "like",
+        "staff",
+        "fast",
+        "pass",
+        "applicaiton",
+        "please."
+      ],
+      "approved": false,
+      "origin": "ai",
+      "sourceTicketId": "1560508718800703600",
+      "suppliedBy": null,
+      "createdAt": 1792124712,
+      "updatedAt": 1792124712
     }
   ],
   "pending": [],

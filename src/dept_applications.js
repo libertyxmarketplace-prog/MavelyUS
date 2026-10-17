@@ -50,7 +50,7 @@ export const DEPT_BANNER_FALLBACK_URL =
 export const DEPT_AI_POLICY_NOTICE =
   '```ansi\n' +
   '\u001b[1;31m⛔ AI-GENERATED APPLICATIONS ARE NOT ACCEPTED\u001b[0m\n' +
-  '\u001b[1;33mAny section of your application written, edited, or expanded with AI results in an immediate and permanent blacklist — no warning, no appeal, no exceptions.\u001b[0m\n' +
+  '\u001b[1;33mAny section of your application written, edited, or expanded with AI results in an immediate and permanent blacklist - no warning, no appeal, no exceptions.\u001b[0m\n' +
   '\u001b[2;37mEvery answer must be written by you, in your own words, describing your own experience, availability, and personality. We review for authenticity.\u001b[0m\n' +
   '```';
 
@@ -474,7 +474,7 @@ export function buildStep2Modal(appId) {
         new TextInputBuilder().setCustomId('erlc_bans').setLabel('Ever banned from an ER:LC community?*').setPlaceholder('State communities, reasons, or "Never banned"').setStyle(TextInputStyle.Paragraph).setRequired(true)
       ),
       new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId('trust_authority').setLabel('Why should we trust you with authority?*').setPlaceholder('Do not just say "I am mature" — explain what makes someone trustworthy').setStyle(TextInputStyle.Paragraph).setRequired(true)
+        new TextInputBuilder().setCustomId('trust_authority').setLabel('Why should we trust you with authority?*').setPlaceholder('Do not just say "I am mature" - explain what makes someone trustworthy').setStyle(TextInputStyle.Paragraph).setRequired(true)
       )
     );
 }
@@ -589,7 +589,7 @@ export function buildDeptReviewCard(appData, pageIndex = 0) {
   if (page === 0) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## ${dept.name} Application Review — Page 1/6\n` +
+        `## ${dept.name} Application Review - Page 1/6\n` +
         `### Candidate Verification & Availability\n` +
         `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n` +
         `> **Department:** **${dept.name}**\n` +
@@ -603,7 +603,7 @@ export function buildDeptReviewCard(appData, pageIndex = 0) {
   } else if (page === 1) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## ${dept.name} Application Review — Page 2/6\n` +
+        `## ${dept.name} Application Review - Page 2/6\n` +
         `### Experience & Disciplinary Record\n` +
         `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
         `**Previous RP Experience:**\n` +
@@ -620,7 +620,7 @@ export function buildDeptReviewCard(appData, pageIndex = 0) {
   } else if (page === 2) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## ${dept.name} Application Review — Page 3/6\n` +
+        `## ${dept.name} Application Review - Page 3/6\n` +
         `### Protocol, Chain of Command & Standards\n` +
         `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
         `**Respected vs Trusted:**\n` +
@@ -638,7 +638,7 @@ export function buildDeptReviewCard(appData, pageIndex = 0) {
   } else if (page === 3) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## ${dept.name} Application Review — Page 4/6\n` +
+        `## ${dept.name} Application Review - Page 4/6\n` +
         `### Roleplay Knowledge & Server Rules\n` +
         `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
         `**Metagaming vs Powergaming:**\n` +
@@ -656,7 +656,7 @@ export function buildDeptReviewCard(appData, pageIndex = 0) {
   } else if (page === 4) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## ${dept.name} Application Review — Page 5/6\n` +
+        `## ${dept.name} Application Review - Page 5/6\n` +
         `### Scenario Examination\n` +
         `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
         `**Rude Traffic Stop Handling:**\n` +
@@ -679,7 +679,7 @@ export function buildDeptReviewCard(appData, pageIndex = 0) {
 
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## ${dept.name} Application Review — Page 6/6\n` +
+        `## ${dept.name} Application Review - Page 6/6\n` +
         `### Leadership, Accountability & Verdict\n` +
         `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n` +
         `> **Status:** ${statusText}\n` +

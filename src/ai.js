@@ -1,6 +1,6 @@
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- *  AI COMMAND ENGINE  —  natural-language staff control for Alabama Bot PRC.
+ *  AI COMMAND ENGINE  -  natural-language staff control for Alabama Bot PRC.
  *
  *  Uses the FreeTheAI OpenAI-compatible gateway
  *  (https://api.freetheai.org/v1/chat/completions) to translate a plain-English
@@ -9,21 +9,21 @@
  *
  *  DESIGN NOTES
  *  ─────────────
- *  • ACCESS   — prefix only (`-ai ...`). No slash command is registered, so the
+ *  • ACCESS   - prefix only (`-ai ...`). No slash command is registered, so the
  *               engine can never be triggered by an interaction payload.
- *  • OWNER    — 1341965114101731418 has every action.
- *  • DIRECTIVE— 1341931745351700534 gets the non-destructive set (status, desk
+ *  • OWNER    - 1341965114101731418 has every action.
+ *  • DIRECTIVE- 1341931745351700534 gets the non-destructive set (status, desk
  *               toggles, panels, votes, suggestions).
- *  • STAFF    — anyone holding the Staff Team role 1341965114101731418 gets the
+ *  • STAFF    - anyone holding the Staff Team role 1341965114101731418 gets the
  *               same non-destructive set as the directive tier.
- *  • SAFETY   — the model may only select from the closed ACTION_SCHEMA below,
+ *  • SAFETY   - the model may only select from the closed ACTION_SCHEMA below,
  *               and every action declares a `risk` level that is re-enforced by
  *               the executor. Anything unknown is refused, never guessed.
- *  • FALLBACK — if the gateway is unreachable (daily check-in, 429, 503 ...) a
+ *  • FALLBACK - if the gateway is unreachable (daily check-in, 429, 503 ...) a
  *               deterministic local parser handles the common phrasings so the
  *               command still works offline.
  *
- *  Nothing here imports index.js — index.js injects the runtime context, which
+ *  Nothing here imports index.js - index.js injects the runtime context, which
  *  keeps the dependency arrow one-directional.
  * ─────────────────────────────────────────────────────────────────────────────
  */
@@ -34,7 +34,7 @@ import { parseWhen } from './meetings.js';
 // ── Access control ────────────────────────────────────────────────────────────
 export const AI_OWNER_ID = '1341965114101731418';
 export const AI_DIRECTIVE_ID = '1341931745351700534';
-// Staff Team role — every member holding it may use the non-destructive set.
+// Staff Team role - every member holding it may use the non-destructive set.
 export const AI_STAFF_ROLE_ID = '1341965114101731418';
 
 /**
@@ -57,9 +57,9 @@ export function aiAccessTier(userId, roleIds = []) {
 // Three independent providers, tried in order. Whichever answers first wins; the
 // others cover for it when it is rate limited, out of credit or offline.
 //
-//   1. FreeTheAI  — free, but needs a daily check-in AND has a daily request cap.
-//   2. OpenRouter — cheap, very reliable, has a free/credit balance.
-//   3. HuggingFace — free inference router, good as a last resort.
+//   1. FreeTheAI  - free, but needs a daily check-in AND has a daily request cap.
+//   2. OpenRouter - cheap, very reliable, has a free/credit balance.
+//   3. HuggingFace - free inference router, good as a last resort.
 //
 // Each provider is skipped entirely once its circuit breaker trips, so a dead
 // provider costs nothing rather than a wasted round trip per request.
@@ -226,7 +226,7 @@ export const ACTION_SCHEMA = [
     action: 'provider_status',
     risk: 'directive',
     args: {},
-    desc: 'Live AI provider status (ready / rate-limited / retry timers). ONLY use when the user EXPLICITLY asks about providers, tokens, credits or the gateway — never proactively.'
+    desc: 'Live AI provider status (ready / rate-limited / retry timers). ONLY use when the user EXPLICITLY asks about providers, tokens, credits or the gateway - never proactively.'
   },
   // ── Staff records: infractions & promotions ─────────────────────────────────
   {
@@ -264,9 +264,9 @@ export const ACTION_SCHEMA = [
       location: 'voice channel id, invite/link, or null',
       attendees: "list of @users/user ids, or 'staff' (the staff role), or 'everyone'",
       agenda: 'string or null',
-      reminders: 'boolean — default true (7 days prior + the morning of)'
+      reminders: 'boolean - default true (7 days prior + the morning of)'
     },
-    desc: 'Plan a meeting: post ONE shared Components V2 panel with RSVP buttons (Joining / Maybe / Busy / Not going) in this channel — no DMs — and edit that panel in place for reminders, postpones and cancellation.'
+    desc: 'Plan a meeting: post ONE shared Components V2 panel with RSVP buttons (Joining / Maybe / Busy / Not going) in this channel - no DMs - and edit that panel in place for reminders, postpones and cancellation.'
   },
   {
     action: 'meeting_postpone',
@@ -370,7 +370,7 @@ function splitDuration(raw) {
 
 /**
  * Understands "5", "for 5 days", "10m", "2 hours", "permanent", "perm".
- * Returns { ms, durationDays, permanent } — ms/durationDays are null when the
+ * Returns { ms, durationDays, permanent } - ms/durationDays are null when the
  * duration is permanent. A bare number takes the caller's default unit
  * (days for bans, minutes for timeouts).
  */
@@ -471,7 +471,7 @@ function tripBreaker(provider, reason) {
   }
   breakers.set(provider.name, { until, reason });
   console.warn(
-    `[ai] ${provider.name} unavailable (${reason}) — skipping it until <t:${Math.floor(until / 1000)}:R>.`
+    `[ai] ${provider.name} unavailable (${reason}) - skipping it until <t:${Math.floor(until / 1000)}:R>.`
   );
 }
 
@@ -551,7 +551,7 @@ export async function callAIProvider(messages, { timeout = 10_000, maxTokens = 3
     }
   }
 
-  const err = new Error(`All AI providers failed — ${failures.join(' | ')}`);
+  const err = new Error(`All AI providers failed - ${failures.join(' | ')}`);
   err.code = 'ALL_FAILED';
   err.failures = failures;
   throw err;
@@ -630,7 +630,7 @@ function nowContext() {
  *
  * The schema is FILTERED to the caller's tier. Showing the directive team the
  * owner's actions only invites the model to propose one, which we then have to
- * reject — costing a wasted round trip and a slow refusal. Hiding them makes the
+ * reject - costing a wasted round trip and a slow refusal. Hiding them makes the
  * model answer "unsupported" immediately.
  *
  * The scope wording matters a lot: an earlier version said "you may ONLY use
@@ -744,7 +744,7 @@ function normalisePanelType(input) {
  *
  * This is deliberately a verbatim substring of what the user typed. A suggestion
  * card is posted publicly under the author's name, so the AI must never rewrite,
- * summarise or "improve" their words — the model does exactly that unprompted.
+ * summarise or "improve" their words - the model does exactly that unprompted.
  */
 export function extractSuggestionBody(raw) {
   const text = String(raw)
@@ -845,7 +845,7 @@ function reasonFromText(raw, tokens) {
     const escaped = String(token).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     text = text.replace(new RegExp(escaped, 'ig'), ' ');
   }
-  // Drop the duration clause ("for 3 days") — it is captured separately.
+  // Drop the duration clause ("for 3 days") - it is captured separately.
   text = text.replace(durationFromText(text) ?? '\u0000', ' ');
   text = text.replace(/\bfor\b/ig, ' ');
   // Tidy leftover mention punctuation. The id was already tokenised away, so a
@@ -948,7 +948,7 @@ export function parseLocally(request) {
     return {
       action: 'meeting_schedule',
       args: {
-        // Nulls — never guesses — so the conversational layer asks the human
+        // Nulls - never guesses - so the conversational layer asks the human
         // for whatever is genuinely missing. The executor still falls back to
         // 'Staff Meeting' / the Staff Team when a slot stays empty.
         title: title === 'Staff Meeting' ? null : title,
@@ -961,7 +961,7 @@ export function parseLocally(request) {
       reply: 'Scheduling the meeting and notifying everyone.'
     };
   }
-  // RSVP roll-call — BEFORE the desk "busy" rule below, otherwise "who is busy"
+  // RSVP roll-call - BEFORE the desk "busy" rule below, otherwise "who is busy"
   // would flip the desk to Busy instead of answering the question.
   if (
     (/\b(rsvp|responded|replied|accepted|declined|going|joining|attending|busy|join|attendance|coming|make it)\b/i.test(t) &&
@@ -1031,7 +1031,7 @@ export function parseLocally(request) {
     if (text) return { action: 'dm_user', args: { user_id: ticketUser, text }, reply: `DMing <@${ticketUser}>.` };
   }
 
-  // ── Usage / open tickets (before the help rule — "list open tickets" starts
+  // ── Usage / open tickets (before the help rule - "list open tickets" starts
   // with "list" and would otherwise be swallowed by it) ──────────────────────
   if (
     /\b(list|show|what|which|how many|open|active|current)\b/.test(t) &&
@@ -1055,7 +1055,7 @@ export function parseLocally(request) {
   if (/^(command directory|command guide|show commands|show (the )?command (directory|guide)|open (the )?command (directory|guide))\b/.test(t)) {
     return { action: 'commands_guide', args: {}, reply: 'Opening the interactive command directory.' };
   }
-  // ── Provider status — ONLY on an explicit ask (never shown otherwise) ──────
+  // ── Provider status - ONLY on an explicit ask (never shown otherwise) ──────
   if (/^(?:please\s+)?(providers?|provider status|ai providers|tokens?|credits?|api (status|health)|gateway status|ai (status|health))\b/.test(t)) {
     return { action: 'provider_status', args: {}, reply: 'Checking the AI providers.' };
   }
@@ -1235,7 +1235,7 @@ export function parseLocally(request) {
     if (question) {
       return { action: 'poll', args: { question, options: pollOptions.slice(0, 10) }, reply: 'Posting a poll.' };
     }
-    // Bare "-ai poll" — turn it into a chat ("what is the question?").
+    // Bare "-ai poll" - turn it into a chat ("what is the question?").
     return { action: 'poll', args: { question: null, options: [] }, reply: 'Setting up a poll.' };
   }
 
@@ -1295,16 +1295,16 @@ export function parseLocally(request) {
     if (erlc) return erlc;
   } else if (!ticketUser && /\b(kick|ban|hint|announce|broadcast)\b/.test(t) && !/^(kick|ban|mute|timeout|hint|announce|broadcast)\b[\s.,!]*$/.test(t)) {
     const erlc = parseErclLocally(raw, t);
-    // Only accept the in-game read when it found a REAL player name — not a
-    // pronoun/filler like "him" — or a message body for a broadcast.
+    // Only accept the in-game read when it found a REAL player name - not a
+    // pronoun/filler like "him" - or a message body for a broadcast.
     const nonName = /\b(him|her|them|they|that|this|guy|dude|user|member|person|someone|somebody|please|the|a|an|for|from|server|discord)\b/;
     if (erlc && ((erlc.args.player && !nonName.test(erlc.args.player.toLowerCase())) || erlc.args.text)) return erlc;
   }
 
   // ── Bare moderation verbs (no mention yet) ────────────────────────────────
   // These sit BEFORE the in-game branch below so a detail-less request
-  // ("-ai ban", "-ai timeout") becomes a chat — the conversational layer
-  // asks "who?" — instead of an in-game misfire or an instant refusal.
+  // ("-ai ban", "-ai timeout") becomes a chat - the conversational layer
+  // asks "who?" - instead of an in-game misfire or an instant refusal.
   // (The ER:LC branch runs first for real in-game phrasings: "ban him in
   // game", "jail RobloxName", mentions of roblox/erlc.)
   if (/\b(lift|remove|undo|revoke|unban)\b/.test(t) && /\bban\b/.test(t) && !ticketUser) {
@@ -1494,7 +1494,7 @@ export async function resolveIntent(request, { tier = 'owner' } = {}) {
   const local = localFallback();
 
   // Only surface a notice when EVERY provider is genuinely down. A partial
-  // outage — or one unusable answer — is not worth alarming anyone about, since
+  // outage - or one unusable answer - is not worth alarming anyone about, since
   // the local parser already handled the request silently.
   const down = AI_PROVIDERS.filter((p) => (breakers.get(p.name)?.until ?? 0) > Date.now());
   if (AI_PROVIDERS.length > 0 && down.length === AI_PROVIDERS.length) {
@@ -1503,10 +1503,10 @@ export async function resolveIntent(request, { tier = 'owner' } = {}) {
     if (daily) {
       local.gatewayNotice =
         `⏳ All AI providers are busy (${daily.name}'s free daily limit is used up, resets ` +
-        `<t:${Math.floor(breakers.get(daily.name).until / 1000)}:R>) — I used my built-in parser.`;
+        `<t:${Math.floor(breakers.get(daily.name).until / 1000)}:R>) - I used my built-in parser.`;
     } else if (checkin) {
       local.gatewayNotice =
-        `🔑 All AI providers are busy right now — I used my built-in parser. ` +
+        `🔑 All AI providers are busy right now - I used my built-in parser. ` +
         `(${checkin.name} needs its daily check-in at https://freetheai.org/checkin.)`;
     }
   }
@@ -1520,10 +1520,10 @@ export async function resolveIntent(request, { tier = 'owner' } = {}) {
  * index.js sends (DM-first, so only the requester sees it) and the plain-text
  * fallback below.
  *
- * Style rules: no emoji, no backticks — headings, bold group titles and
+ * Style rules: no emoji, no backticks - headings, bold group titles and
  * blockquotes only, so the card reads like a clean panel.
  *
- * Provider/token status is deliberately NOT part of help — it only appears
+ * Provider/token status is deliberately NOT part of help - it only appears
  * when someone explicitly asks for it (`-ai providers` -> provider_status).
  *
  * @returns {{ groups: Array<{title: string, items: string[]}>,
@@ -1559,14 +1559,14 @@ export function aiHelpSections(tier) {
 
   const examples = ['close this ticket', 'start a session vote with 5 users for 2 hours', 'schedule a meeting in 2 hours to discuss staffing'];
   const examplesOwner = [...examples, 'ban @user for 3 days for advertising'];
-  const note = 'Type -ai providers when you want live provider status — it is never shown otherwise.';
+  const note = 'Type -ai providers when you want live provider status - it is never shown otherwise.';
 
   return { groups, ownerGroups, examples, examplesOwner, note, tier };
 }
 
 /** Renders one help group as markdown lines. */
 function renderHelpGroup(group) {
-  return `> **${group.title}** — ${group.items.join(' · ')}`;
+  return `> **${group.title}** - ${group.items.join(' · ')}`;
 }
 
 /** Plain-text rendering of the help sections (fallback path). */
@@ -1602,7 +1602,7 @@ function auditLine(message, intent, ok, detail) {
     `> **Action:** \`${intent.action}\`${via}\n` +
     `> **Args:** \`${JSON.stringify(intent.args).slice(0, 500)}\`\n` +
     `> **Tier:** ${intent.tier}\n` +
-    `> **Result:** ${ok ? '✅ Success' : '❌ Failed'}${detail ? ` — ${detail}` : ''}\n` +
+    `> **Result:** ${ok ? '✅ Success' : '❌ Failed'}${detail ? ` - ${detail}` : ''}\n` +
     `> **Channel:** <#${message.channelId}> · <t:${Math.floor(Date.now() / 1000)}:f>`
   );
 }
@@ -1620,7 +1620,7 @@ export async function executeIntent(intent, ctx) {
   const args = intent.args ?? {};
   const owner = intent.tier === 'owner';
 
-  // Anything owner-only is re-checked here — the resolver check is not trusted.
+  // Anything owner-only is re-checked here - the resolver check is not trusted.
   if (!owner && OWNER_ONLY_ACTIONS.has(intent.action)) {
     return { ok: false, message: '❌ That action is restricted to the bot owner.' };
   }
@@ -1647,7 +1647,7 @@ export async function executeIntent(intent, ctx) {
         );
         return {
           ok: true,
-          message: `🔒 Session closed in <#${message.channelId}>${voterCount ? ` — **${delivered}/${voterCount}** voters DM'd.` : '.'}`
+          message: `🔒 Session closed in <#${message.channelId}>${voterCount ? ` - **${delivered}/${voterCount}** voters DM'd.` : '.'}`
         };
       }
 
@@ -1658,7 +1658,7 @@ export async function executeIntent(intent, ctx) {
           return { ok: false, message: `❌ Unknown panel type. Choose one of: ${[...PANEL_TYPES].join(', ')}.` };
         }
         // Session panels go to the dedicated session area unless the request
-        // pinned an explicit channel — other panels stay in the current one.
+        // pinned an explicit channel - other panels stay in the current one.
         const targetChannel = args.channel_id
           ? await ctx.client.channels.fetch(String(args.channel_id)).catch(() => null)
           : type === 'session'
@@ -1683,7 +1683,7 @@ export async function executeIntent(intent, ctx) {
         ctx.saveTicketDeskState();
         await ctx.refreshAllTicketPanels(ctx.client, message.channel);
         const icon = status === 'online' ? '🟢' : status === 'busy' ? '🟠' : '🔴';
-        const note = status === 'closed' ? ' Open tickets are untouched — `close this ticket` closes one.' : '';
+        const note = status === 'closed' ? ' Open tickets are untouched - `close this ticket` closes one.' : '';
         return { ok: true, message: `${icon} Ticket desk is now **${status}**. The panel has been refreshed.${note}` };
       }
 
@@ -1707,7 +1707,7 @@ export async function executeIntent(intent, ctx) {
           ok: true,
           message: open
             ? `🔓 Opened **${dept.replace(/_/g, ' ')}**.`
-            : `🔒 Locked **${dept.replace(/_/g, ' ')}** ticket-panel line — new tickets are blocked, open tickets are untouched (say \`close this ticket\` to close one).`
+            : `🔒 Locked **${dept.replace(/_/g, ' ')}** ticket-panel line - new tickets are blocked, open tickets are untouched (say \`close this ticket\` to close one).`
         };
       }
 
@@ -1718,7 +1718,7 @@ export async function executeIntent(intent, ctx) {
         return {
           ok: true,
           message:
-            `## Ticket Desk — ${statusLabel}\n` +
+            `## Ticket Desk - ${statusLabel}\n` +
             `> • **General Support:** ${yn(d.categories.general)}\n` +
             `> • **Internal Affairs:** ${yn(d.categories.ia)}\n` +
             `> • **High Rank Support:** ${yn(d.categories.highrank)}\n` +
@@ -1765,7 +1765,7 @@ export async function executeIntent(intent, ctx) {
         return {
           ok: true,
           message:
-            `## 📊 Alabama State Roleplay — Live\n` +
+            `## 📊 Alabama State Roleplay - Live\n` +
             `> • **Status:** ${status.label}\n` +
             `> • **Players:** **${ctx.playersText(stats)}**\n` +
             `> • **Queue:** ${ctx.queueText(stats)}\n` +
@@ -1793,7 +1793,7 @@ export async function executeIntent(intent, ctx) {
         };
       }
 
-      // Nothing matched — either the request is nonsense, or (for the directive
+      // Nothing matched - either the request is nonsense, or (for the directive
       // tier) it needed an action they are not allowed to use.
       case 'unsupported': {
         return {
@@ -1805,7 +1805,7 @@ export async function executeIntent(intent, ctx) {
       // ── Discord moderation ─────────────────────────────────────────────────
       case 'ban': {
         const userId = ctx.resolveUserId(args.user_id, message);
-        if (!userId) return { ok: false, message: '❌ I need a user to ban — mention them or give me their user ID.' };
+        if (!userId) return { ok: false, message: '❌ I need a user to ban - mention them or give me their user ID.' };
         if (userId === message.author.id) return { ok: false, message: '❌ You cannot ban yourself.' };
         const reason = String(args.reason || 'No reason provided').slice(0, 400);
         const deleteDays = clampNumber(args.delete_days, 0, 7, 0);
@@ -1817,7 +1817,7 @@ export async function executeIntent(intent, ctx) {
 
       case 'unban': {
         const userId = ctx.resolveUserId(args.user_id, message);
-        if (!userId) return { ok: false, message: '❌ I need a user to unban — give me their user ID.' };
+        if (!userId) return { ok: false, message: '❌ I need a user to unban - give me their user ID.' };
         const ban = await message.guild.bans.fetch(userId).catch(() => null);
         if (!ban) return { ok: false, message: '❌ That user is not banned.' };
         await message.guild.members.unban(userId, `${args.reason || 'Ban lifted'} (by ${message.author.tag})`);
@@ -1827,7 +1827,7 @@ export async function executeIntent(intent, ctx) {
 
       case 'kick': {
         const userId = ctx.resolveUserId(args.user_id, message);
-        if (!userId) return { ok: false, message: '❌ I need a member to kick — mention them or give me their user ID.' };
+        if (!userId) return { ok: false, message: '❌ I need a member to kick - mention them or give me their user ID.' };
         if (userId === message.author.id) return { ok: false, message: '❌ You cannot kick yourself.' };
         const reason = String(args.reason || 'No reason provided').slice(0, 400);
         return await ctx.kickUser({ guild: message.guild, userId, reason, by: message.author });
@@ -1835,7 +1835,7 @@ export async function executeIntent(intent, ctx) {
 
       case 'timeout': {
         const userId = ctx.resolveUserId(args.user_id, message);
-        if (!userId) return { ok: false, message: '❌ I need a member to time out — mention them or give me their user ID.' };
+        if (!userId) return { ok: false, message: '❌ I need a member to time out - mention them or give me their user ID.' };
         if (userId === message.author.id) return { ok: false, message: '❌ You cannot time yourself out.' };
         const parsed = parseDuration(args.minutes ?? args.duration, { unit: 'minute' });
         const minutes = clampNumber(parsed?.ms ? parsed.ms / 60_000 : 10, 1, 40320, 10);
@@ -1845,7 +1845,7 @@ export async function executeIntent(intent, ctx) {
 
       case 'untimeout': {
         const userId = ctx.resolveUserId(args.user_id, message);
-        if (!userId) return { ok: false, message: '❌ I need a member — mention them or give me their user ID.' };
+        if (!userId) return { ok: false, message: '❌ I need a member - mention them or give me their user ID.' };
         const member = await message.guild.members.fetch(userId).catch(() => null);
         if (!member) return { ok: false, message: '❌ That member is not in the server.' };
         if (!member.isCommunicationDisabled()) return { ok: false, message: '❌ That member is not timed out.' };
@@ -1925,7 +1925,7 @@ export async function executeIntent(intent, ctx) {
             }
           }
           // ...otherwise lock that department's panel line so no NEW ticket can
-          // be opened — the old behaviour claimed "closing" and did nothing.
+          // be opened - the old behaviour claimed "closing" and did nothing.
           if (!ticket && dept) {
             if (dept === 'applications') {
               ctx.appGateState.ingame = false;
@@ -1938,7 +1938,7 @@ export async function executeIntent(intent, ctx) {
             }
             return {
               ok: true,
-              message: `🔒 No open **${dept.replace(/_/g, ' ')}** ticket to archive — so I locked that line on the ticket panel instead. New **${dept.replace(/_/g, ' ')}** tickets are blocked now (say \`open ${dept.replace(/_/g, ' ')}\` to reverse).`
+              message: `🔒 No open **${dept.replace(/_/g, ' ')}** ticket to archive - so I locked that line on the ticket panel instead. New **${dept.replace(/_/g, ' ')}** tickets are blocked now (say \`open ${dept.replace(/_/g, ' ')}\` to reverse).`
             };
           }
         }
@@ -1954,7 +1954,7 @@ export async function executeIntent(intent, ctx) {
         await ctx.closeTicket(channel, ticket, message.author.tag, message.author.id);
         return {
           ok: true,
-          message: `🔒 **Closing ticket:** ${ticket.categoryName || 'Ticket'} (${closedWhat}) — the transcript is being archived and that channel deletes itself in a few seconds.`
+          message: `🔒 **Closing ticket:** ${ticket.categoryName || 'Ticket'} (${closedWhat}) - the transcript is being archived and that channel deletes itself in a few seconds.`
         };
       }
 
@@ -1964,7 +1964,7 @@ export async function executeIntent(intent, ctx) {
         const lines = rows.map((t, i) => {
           const age = Number.isFinite(t.createdAt) ? `<t:${Math.floor(t.createdAt)}:R>` : 'unknown';
           return (
-            `${i + 1}. **${t.categoryName || t.categoryKey || 'Ticket'}** — <#${t.channelId}>\n` +
+            `${i + 1}. **${t.categoryName || t.categoryKey || 'Ticket'}** - <#${t.channelId}>\n` +
             `> Opened by ${t.authorTag || `<@${t.authorId}>`} · ${age} · ${t.claimedBy ? `claimed by <@${t.claimedBy}>` : '*unclaimed*'}`
           );
         });
@@ -2074,7 +2074,7 @@ export async function executeIntent(intent, ctx) {
         if (options.length < 2) {
           return {
             ok: false,
-            message: '❌ A poll needs at least 2 options — separate them with `;`.\n> Example: `poll Friday or Saturday: session; no session`'
+            message: '❌ A poll needs at least 2 options - separate them with `;`.\n> Example: `poll Friday or Saturday: session; no session`'
           };
         }
         const emojis = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
@@ -2130,7 +2130,7 @@ export async function executeIntent(intent, ctx) {
         if (!user) return { ok: false, message: '❌ I could not find that user.' };
         const url = user.displayAvatarURL({ size: 512, dynamic: true });
         await message.channel.send({
-          embeds: [{ color: 0x5865f2, title: `Avatar — ${user.tag}`, url, image: { url } }],
+          embeds: [{ color: 0x5865f2, title: `Avatar - ${user.tag}`, url, image: { url } }],
           allowedMentions: { parse: [] }
         });
         return { ok: true, message: `🖼 Avatar for **${user.tag}** posted above.` };
@@ -2171,7 +2171,7 @@ export async function executeIntent(intent, ctx) {
 
       case 'provider_status': {
         const rows = providerStatus().map((p) => {
-          if (!p.open) return `> 🟢 **${p.name}** — ready (${p.models.length} model${p.models.length === 1 ? '' : 's'})`;
+          if (!p.open) return `> 🟢 **${p.name}** - ready (${p.models.length} model${p.models.length === 1 ? '' : 's'})`;
           const why = {
             'daily-limit': 'free daily limit used up',
             'rate-limited': 'rate limited',
@@ -2179,11 +2179,11 @@ export async function executeIntent(intent, ctx) {
             unauthorized: 'key rejected',
             error: 'unavailable'
           }[p.reason] ?? p.reason;
-          return `> 🔴 **${p.name}** — ${why}, retries <t:${Math.floor(p.retryAt / 1000)}:R>`;
+          return `> 🔴 **${p.name}** - ${why}, retries <t:${Math.floor(p.retryAt / 1000)}:R>`;
         });
         return {
           ok: true,
-          message: `## 🧠 AI Providers\n${rows.length ? rows.join('\n') : '> No provider keys are configured — the built-in parser handles everything.'}`
+          message: `## 🧠 AI Providers\n${rows.length ? rows.join('\n') : '> No provider keys are configured - the built-in parser handles everything.'}`
         };
       }
 
@@ -2207,7 +2207,7 @@ export async function executeIntent(intent, ctx) {
 
       case 'promotion_revoke': {
         const userId = ctx.resolveUserId(args.user_id, message);
-        if (!userId) return { ok: false, message: '❌ I need a member — mention them or give me their user id.' };
+        if (!userId) return { ok: false, message: '❌ I need a member - mention them or give me their user id.' };
         return await ctx.revokePromotion({
           guild: message.guild,
           userId,
@@ -2238,7 +2238,7 @@ export async function executeIntent(intent, ctx) {
           agenda: args.agenda ? String(args.agenda).slice(0, 800) : null,
           reminders: args.reminders !== false && args.reminders !== 'false',
           by: message.author,
-          // What the human actually typed — used to recover if the model
+          // What the human actually typed - used to recover if the model
           // invents a stale date for the meeting time.
           raw: message.content
         });
@@ -2277,7 +2277,7 @@ export async function executeIntent(intent, ctx) {
       // ── Owner extras ────────────────────────────────────────────────────────
       case 'nick': {
         const userId = ctx.resolveUserId(args.user_id, message);
-        if (!userId) return { ok: false, message: '❌ I need a member — mention them or give me their user id.' };
+        if (!userId) return { ok: false, message: '❌ I need a member - mention them or give me their user id.' };
         const member = await message.guild.members.fetch(userId).catch(() => null);
         if (!member) return { ok: false, message: '❌ That member is not in the server.' };
         const nickname = String(args.nickname ?? '').trim().slice(0, 32);
@@ -2296,7 +2296,7 @@ export async function executeIntent(intent, ctx) {
       case 'role_grant': {
         const op = args.op === 'remove' ? 'remove' : 'add';
         const userId = ctx.resolveUserId(args.user_id, message);
-        if (!userId) return { ok: false, message: '❌ I need a member — mention them or give me their user id.' };
+        if (!userId) return { ok: false, message: '❌ I need a member - mention them or give me their user id.' };
         const query = String(args.role ?? '').trim().replace(/^<@&|>$/g, '');
         if (!query) return { ok: false, message: '❌ Tell me which role to add or remove (name or id).' };
         const roles = message.guild.roles.cache;
@@ -2330,9 +2330,9 @@ export async function executeIntent(intent, ctx) {
   }
 }
 
-/** In-flight chat answers, keyed by callKey — twin instances share one call. */
+/** In-flight chat answers, keyed by callKey - twin instances share one call. */
 const aiChatInFlight = new Map();
-/** Finished chat answers, keyed by callKey (60s) — the loser reuses the text. */
+/** Finished chat answers, keyed by callKey (60s) - the loser reuses the text. */
 const aiChatCache = new Map();
 
 /**
@@ -2355,7 +2355,7 @@ export function sharedAiChatAnswer(callKey) {
  *
  * This is the safety net behind `-ai <anything>`: when the request maps to no
  * action and fills no conversational slot, the bot still talks back like an
- * assistant — explaining what it CAN do — instead of the dead-end refusal.
+ * assistant - explaining what it CAN do - instead of the dead-end refusal.
  * Returns null when no provider is reachable, so the caller falls back to the
  * standard refusal text.
  *
@@ -2367,12 +2367,12 @@ export async function chatAiAnswer(request, { tier = 'owner', callKey = null } =
   const question = String(request ?? '').trim().slice(0, 600);
   if (!question || !aiConfigured()) return null;
   if (callKey) {
-    // A finished twin already answered — reuse it, never re-ask.
+    // A finished twin already answered - reuse it, never re-ask.
     const cached = sharedAiChatAnswer(callKey);
     if (cached) return cached;
     const prior = aiChatInFlight.get(callKey);
     if (prior) {
-      // The twin instance is mid-ask — wait for ITS answer instead of a
+      // The twin instance is mid-ask - wait for ITS answer instead of a
       // second provider call.
       try {
         const shared = await prior;

@@ -1,6 +1,6 @@
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- *  TICKET AI  —  intelligent, self-learning support for Alabama State Roleplay.
+ *  TICKET AI  -  intelligent, self-learning support for Alabama State Roleplay.
  *
  *  Goal: answer ticket questions accurately from a persistent, editable
  *  knowledge base built from real server material, calling the existing AI
@@ -10,16 +10,16 @@
  *
  *  DESIGN
  *  ──────
- *  • STORAGE  — src/ticket_knowledge.json (durable). faqs[] + learned[] are
+ *  • STORAGE  - src/ticket_knowledge.json (durable). faqs[] + learned[] are
  *               "approved/reusable"; pending[] holds unanswered questions and
  *               staff-captured answers awaiting review. Fully editable.
- *  • RETRIEVE — exact match → keyword/full-text scoring → (optional) AI.
- *  • API COST — approved answers are served with ZERO provider calls. The
+ *  • RETRIEVE - exact match → keyword/full-text scoring → (optional) AI.
+ *  • API COST - approved answers are served with ZERO provider calls. The
  *               provider is only hit when the question is unknown/ambiguous.
- *  • SAFETY   — AI may only use confirmed KB facts as context and must output
+ *  • SAFETY   - AI may only use confirmed KB facts as context and must output
  *               a strict {action,answer} envelope. Sensitive categories are
  *               escalate-first. Never approves applications/roles/refunds.
- *  • PARTNERSHIP — AI is DISABLED for partnership & staff_partnership by owner
+ *  • PARTNERSHIP - AI is DISABLED for partnership & staff_partnership by owner
  *               request (settings.enabledCategories). Nothing is auto-answered
  *               for those; a human handles them.
  *
@@ -37,7 +37,7 @@ const KB_PATH = fileURLToPath(new URL('./ticket_knowledge.json', import.meta.url
 
 // Category guidance used to steer the AI tone and escalation bias.
 // `escalateFirst:true` categories only acknowledge + gather info, then hand
-// off to staff — they never make a decision.
+// off to staff - they never make a decision.
 const CATEGORY_GUIDE = {
   general: {
     label: 'General Support',
@@ -61,12 +61,12 @@ const CATEGORY_GUIDE = {
   },
   partnership: {
     label: 'Partnership',
-    note: 'Partnerships, mutual advertising, paid promotions, and staff transfers. AI is DISABLED here by owner request — a human staff member handles these.',
+    note: 'Partnerships, mutual advertising, paid promotions, and staff transfers. AI is DISABLED here by owner request - a human staff member handles these.',
     escalateFirst: false
   },
   staff_partnership: {
     label: 'Staff Partnership',
-    note: 'Staff transfers. AI is DISABLED here by owner request — a human staff member handles these.',
+    note: 'Staff transfers. AI is DISABLED here by owner request - a human staff member handles these.',
     escalateFirst: false
   }
 };
@@ -184,7 +184,7 @@ export function loadKB() {
     const parsed = JSON.parse(raw);
     KB = { ...defaultKB(), ...parsed, settings: { ...defaultKB().settings, ...(parsed.settings || {}) } };
   } catch (err) {
-    console.warn(`[ticket-ai] Could not read knowledge base (${err.message}) — starting empty.`);
+    console.warn(`[ticket-ai] Could not read knowledge base (${err.message}) - starting empty.`);
     KB = defaultKB();
   }
   return KB;
@@ -222,7 +222,7 @@ export function kbSettings() {
   return loadKB().settings;
 }
 
-/** Every reusable (approved) record — seed faqs plus staff-approved learned answers. */
+/** Every reusable (approved) record - seed faqs plus staff-approved learned answers. */
 function reusableRecords() {
   const db = loadKB();
   return [
@@ -340,20 +340,24 @@ function buildTicketSystemPrompt(category) {
     '- Community Media: <#1341896131398864916> | Content Creators: <#1540139740224032798> | Daily Positivity: <#1461825936260599818>',
     '',
     'YOUR BEHAVIOR:',
-    '- Be professional, direct, and concise. Do NOT be overly chatty, fluffy, or write walls of unnecessary text. Give the exact helpful information directly.',
+    '- Talk naturally, concisely, and practically like an experienced human Discord helper or admin assistant. NEVER sound like a generic AI, customer service chatbot, or ChatGPT template.',
+    '- NO EMDASHES: NEVER use em dashes (-). Always use standard hyphens (-) or colons (:) instead.',
+    '- NO EMOJIS: NEVER use ANY emojis anywhere in your responses, briefings, or statements. Keep all text completely emoji-free.',
+    '- NO BOT PREFIXES: NEVER prefix your responses with "Alabama Support Assistant:", "Assistant:", or roleplay labels. Start your message directly with the answer.',
+    '- NO ROBOTIC FILLER: Avoid repetitive AI customer-service clichés like "Certainly!", "I can certainly assist with that", "Please do not hesitate to reach out", "Rest assured", "I would be delighted to", "Feel free to", etc. Give the exact helpful information directly.',
     '- Whenever referring a user to a channel, always mention the channel directly using <#id> so they can click it instantly.',
     '- CRITICAL CONVERSATION MEMORY: Read the conversation history above from the ticket carefully. Memorize and keep track of everything previously sent by the user, staff members, and the assistant. If staff or the user already gave information or answered something above, use that context immediately. Never ask for information that was already provided in the chat.',
     '- CRITICAL: The user is ALREADY inside their active private ticket channel. NEVER tell the user to visit the ticket desk (<#1360798150910021735>) or use a ticket desk button to request support, assistance, or an agent. They are already here!',
     '- DEFAULT BEHAVIOR: Always answer the user\'s question and assist them directly with action "answer". Do NOT escalate or step aside for routine questions, inquiries, complaints, or discussions. Keep chatting and helping them.',
-    '- ASKING TO ESCALATE: If the user says they want or would like the ticket escalated and has NOT yet provided details: ask them why: "I can certainly escalate this ticket for you. Could you please provide the reason for the escalation along with any details or screenshots regarding what happened so our staff team has full context to assist?" Reply with JSON: {"action": "answer", "answer": "I can certainly escalate this ticket for you. Could you please provide the reason for the escalation along with any details or screenshots regarding what happened so our staff team has full context to assist?"}',
-    '- EXPLICIT ESCALATION: Return action "escalate" if: (1) The user explicitly demands a human only ("no ai", "human only", "stop ai"), (2) The user explicitly asked to escalate this ticket AND has provided the incident/reason or screenshots, or (3) The user\'s issue requires official staff escalation and statement documentation. In your JSON return: {"action": "escalate", "answer": "This will be escalated for review. Our staff team has been alerted with your case briefing and documented statement.", "statement": "<concise factual 1-2 sentence summary of what happened and any evidence submitted>"}',
+    '- ESCALATION & HUMAN STAFF REQUESTS: If the user asks to escalate, says "escalate this", "escalate", "call staff", "talk to human", "get me staff", or expresses frustration ("getting me mad", "annoying", etc.), ALWAYS immediately return action "escalate"! NEVER ask for player names or screenshots when a user just wants to speak with staff or is asking a general question. Return: {"action": "escalate", "answer": "I have escalated your ticket to our staff team. An authorized staff member will assist you shortly!", "statement": "<concise factual 1-2 sentence summary of what the user is asking about or requesting>"}',
+    '- STAFF PASS / GAME PASS INQUIRIES: Staff applications are completely free in <#1539681421306896476>. Server shop perks and custom passes are in <#1539680102449680495>. If the user is asking to purchase a staff pass or custom rank, clarify that staff ranks are obtained via application in <#1539681421306896476> or store perks in <#1539680102449680495>.',
     '- STAFF TAKEOVER / HANDOVER: If anyone says "I\'ll take it from here", "il take it from here", "I got this", "let me handle this", "let go of the ticket", or "step aside", you MUST return action "escalate" with answer: "I have stepped aside and let go of the ticket. The ticket is open for our staff team to claim and assist directly." NEVER claim you are closing the ticket!',
     '- SCREENSHOT / IMAGE EVIDENCE: When the inquiry or history indicates uploaded screenshot/image evidence (e.g. "[Uploaded screenshot/image evidence: ...]"), you CAN see it! Always acknowledge the screenshot evidence, reassure the user that their evidence has been recorded for staff review, and reference it in the statement.',
     '- NEVER CLOSE TICKETS UNLESS EXPLICITLY ASKED: NEVER say "I\'ll go ahead and close the ticket now" or close the ticket when someone says "thank you", "thanks", "i\'ll take it from here", or finishes asking a question. Only acknowledge closing if the user explicitly commanded to close the ticket.',
     '- If the user mentions that a button is not working or asks how to open a partnership or report ticket, let them know they can use the quick-action button attached below.',
     '- STAFF RETIREMENTS: Staff retirements are handled EXCLUSIVELY in High Rank Support or Internal Affairs tickets. If the ticket is in General Support, inform them that staff retirements can only be processed in High Rank Support or Internal Affairs, and advise them to create a ticket there. If the ticket IS in High Rank Support or Internal Affairs, ask them for: (1) Current rank, (2) Reason for retirement (optional), (3) Any final remarks or messages for the community, and let them know the request will be escalated to Senior High Rank for review.',
     '- If their request requires staff action (e.g. assigning roles, reviewing proof/applications, in-game ban appeals), acknowledge their request, let them know what details/screenshots to post, and reassure them staff has been notified.',
-    '- NEVER use the robot emoji (🤖) anywhere in your response.',
+    '- NEVER use emojis (including robot 🤖, bell 🔔, clipboard 📋, orange circle 🟠, etc.) anywhere in your response or statement.',
     '- Format your message cleanly using Discord Markdown (bolding, lists).',
     '- Keep your reply under 700 characters.',
     '- Reply with RAW JSON ONLY: {"action": "answer", "answer": "<your response to user>"} or {"action": "escalate", "answer": "<hand-off message>", "statement": "<case briefing summary>"}',
@@ -368,7 +372,7 @@ function buildTicketSystemPrompt(category) {
 function factsBlock(records) {
   if (!records || !records.length) return '(none available)';
   return records
-    .map((r, i) => `FACT ${i + 1} — Q: ${r.question}\nA: ${r.answer}`)
+    .map((r, i) => `FACT ${i + 1} - Q: ${r.question}\nA: ${r.answer}`)
     .join('\n\n')
     .slice(0, 3500);
 }
@@ -412,7 +416,7 @@ async function aiGenerate({ question, category, facts, history = [] }) {
     };
   }
 
-  // Could not parse JSON envelope — treat the raw text as an answer.
+  // Could not parse JSON envelope - treat the raw text as an answer.
   return { action: 'answer', answer: String(text).trim().slice(0, 1000), statement: null, provider, model };
 }
 
@@ -463,7 +467,7 @@ export function hasPending(question) {
 
 /**
  * Marks a pending question as awaiting staff review and attaches the staff
- * member's answer. Idempotent — only the first transition out of 'unanswered'
+ * member's answer. Idempotent - only the first transition out of 'unanswered'
  * is recorded, so a busy ticket can't overwrite an existing captured answer.
  */
 export function markPendingAwaiting(id, staffAnswer, staffId) {
@@ -486,7 +490,7 @@ export function markPendingAwaiting(id, staffAnswer, staffId) {
  * @returns {Promise<{text:string, source:'knowledge'|'ai'|'disabled'|'fallback', escalated:boolean, meta?:object}>}
  */
 export async function answerTicket({ question, category, history = [], ticketId = null, channelId = null, userId = null }) {
-  // 0) Category gate — partnership/staff_partnership are disabled by owner request.
+  // 0) Category gate - partnership/staff_partnership are disabled by owner request.
   if (!isCategoryEnabled(category)) {
     return { text: null, source: 'disabled', escalated: false };
   }
@@ -494,10 +498,17 @@ export async function answerTicket({ question, category, history = [], ticketId 
   const cleanQ = String(question ?? '').trim();
   const isDefaultReason = !cleanQ || cleanQ === 'Not specified' || cleanQ === 'No reason provided';
 
+  // Helper to remove any emojis from text
+  const sanitizeText = (str) =>
+    String(str || '')
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+      .replace(/🤖/g, '')
+      .trim();
+
   // If opening without a specific reason, provide a welcoming guidance greeting
   if (isDefaultReason) {
     return {
-      text: 'Hello and welcome to **Alabama State Roleplay Support**! 👋\n\nHow can we help you today? Please describe your inquiry, question, or issue in detail below, and provide any screenshots or usernames if applicable. An authorized staff member will also assist you shortly!',
+      text: 'Hello and welcome to **Alabama State Roleplay Support**!\n\nHow can we help you today? Please describe your inquiry, question, or issue in detail below, and provide any screenshots or usernames if applicable. An authorized staff member will also assist you shortly!',
       source: 'knowledge',
       escalated: false
     };
@@ -509,7 +520,7 @@ export async function answerTicket({ question, category, history = [], ticketId 
   const minConf = (history && history.length > 0) ? 0.85 : null;
   const hit = findBestAnswer(cleanQ, { category, minConfidence: minConf });
   if (hit) {
-    return { text: hit.record.answer, source: 'knowledge', escalated: false, meta: { confidence: hit.confidence, id: hit.record.id } };
+    return { text: sanitizeText(hit.record.answer), source: 'knowledge', escalated: false, meta: { confidence: hit.confidence, id: hit.record.id } };
   }
 
   // 2) AI generation using server context + relevant KB facts
@@ -520,17 +531,18 @@ export async function answerTicket({ question, category, history = [], ticketId 
 
     if (action === 'escalate') {
       return {
-        text: answer || 'I have stepped aside and notified our staff team to assist you directly.',
+        text: sanitizeText(answer) || 'I have stepped aside and notified our staff team to assist you directly.',
         source: 'ai',
         escalated: true,
-        statement: statement || null,
+        statement: statement ? sanitizeText(statement) : null,
         meta: { provider, model }
       };
     }
 
     if (answer && answer.trim()) {
-      captureAiCandidate({ question: cleanQ, answer, category, ticketId, userId });
-      return { text: answer.trim(), source: 'ai', escalated: false, meta: { provider, model } };
+      const cleanAnswer = sanitizeText(answer);
+      captureAiCandidate({ question: cleanQ, answer: cleanAnswer, category, ticketId, userId });
+      return { text: cleanAnswer, source: 'ai', escalated: false, meta: { provider, model } };
     }
   } catch (err) {
     console.error(`[ticket-ai] AI generation failed: ${err.message}`);

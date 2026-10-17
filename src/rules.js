@@ -1,5 +1,5 @@
 /**
- * Alabama State Roleplay — Game Rules.
+ * Alabama State Roleplay - Game Rules.
  * Every rule is written for Alabama State Roleplay and numbered R-1 upwards.
  * Grouped into pages so the panel stays readable.
  */

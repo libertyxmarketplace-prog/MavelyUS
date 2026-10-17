@@ -1,6 +1,6 @@
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- *  MEETING SCHEDULER  —  `-ai schedule a meeting ...`
+ *  MEETING SCHEDULER  -  `-ai schedule a meeting ...`
  *
  *  Staff plan a meeting, the bot:
  *    • DMs every attendee an RSVP card (Can attend / Cannot attend / Maybe)
@@ -150,7 +150,7 @@ export function parseWhen(input) {
   if (!text) return null;
   const now = new Date();
 
-  // 1. Relative — checked FIRST so a duration is never mistaken for a date.
+  // 1. Relative - checked FIRST so a duration is never mistaken for a date.
   //    Covers "in 2 hours", "2 hours", "in 3 days", "45 minutes", "3d".
   const rel = text.match(/\b(\d+(?:\.\d+)?)\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|wks?|w)\b/);
   // Ensure it's not preceded by a month name (e.g., "October 21st at 6:00 PM")
@@ -289,7 +289,7 @@ const divider = () =>
 /** True for an absolute http(s) link the card can turn into a button. */
 const isLink = (value) => /^https?:\/\/\S+$/i.test(String(value || '').trim());
 
-/** A link button — it opens the voice channel / invite. */
+/** A link button - it opens the voice channel / invite. */
 function joinRow(url) {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel('Join Meeting').setURL(url)
@@ -297,7 +297,7 @@ function joinRow(url) {
 }
 
 /**
- * The meeting card — a compact Components V2 panel without side accent border.
+ * The meeting card - a compact Components V2 panel without side accent border.
  * Always displays "Meeting Invitation" without redundant "Meeting Confirmed" headers.
  *
  * @param {object} meeting
@@ -309,7 +309,7 @@ function buildCard(meeting, variant = 'invite', viewerId = null) {
   const mine = viewerId ? meeting.rsvp?.[viewerId] : null;
   const isAccepted = mine?.status === 'yes';
 
-  // Headings — always Meeting Invitation (no "Meeting Confirmed" banner)
+  // Headings - always Meeting Invitation (no "Meeting Confirmed" banner)
   let heading = '## Meeting Invitation';
   if (variant === 'cancelled') heading = '## Meeting Cancelled';
   else if (variant === 'postponed') heading = '## Meeting Postponed';
@@ -336,7 +336,7 @@ function buildCard(meeting, variant = 'invite', viewerId = null) {
   if (meeting.postponedCount) {
     fields.push(
       `**Postponed**  ${meeting.postponedCount} time(s)` +
-        (meeting.lastPostponeReason ? ` — ${meeting.lastPostponeReason}` : '')
+        (meeting.lastPostponeReason ? ` - ${meeting.lastPostponeReason}` : '')
     );
   }
   if (variant === 'cancelled' && meeting.cancelReason) fields.push(`**Reason**  ${meeting.cancelReason}`);
@@ -347,9 +347,9 @@ function buildCard(meeting, variant = 'invite', viewerId = null) {
   if (viewerId && variant !== 'cancelled') {
     let mineLine = '**Your Status**  Awaiting response';
     if (isAccepted) {
-      mineLine = '<:checkmark:1549993561871618060> **Your Status**  Yes — Attending';
+      mineLine = '<:checkmark:1549993561871618060> **Your Status**  Yes - Attending';
     } else if (mine?.status === 'no') {
-      mineLine = '<:wrong:1549993610550714381> **Your Status**  No — Not attending';
+      mineLine = '<:wrong:1549993610550714381> **Your Status**  No - Not attending';
     }
     card.addSeparatorComponents(divider());
     card.addTextDisplayComponents(new TextDisplayBuilder().setContent(mineLine));
@@ -416,7 +416,7 @@ async function sendDm(userId, payload) {
   }
 }
 
-/** Edits a previously sent DM in place — used by postpone so nobody is re-pinged. */
+/** Edits a previously sent DM in place - used by postpone so nobody is re-pinged. */
 async function editDm(userId, messageId, payload) {
   if (!messageId) return false;
   try {
@@ -673,7 +673,7 @@ async function fireReminder(id, kind) {
  */
 export async function scheduleMeeting({ guild, channel, title, start, location, attendees, agenda, reminders, by, staffRoleId, raw }) {
   // Use the parsed/model value first. If it is unusable OR lands in the past,
-  // fall back to what the human actually typed — the model sometimes invents a
+  // fall back to what the human actually typed - the model sometimes invents a
   // stale date when it does not know what day it is.
   let when = parseWhen(start);
   const stale = !when || when - Date.now() < 60_000;
@@ -693,7 +693,7 @@ export async function scheduleMeeting({ guild, channel, title, start, location, 
       ok: false,
       message:
         `❌ I read that as <t:${Math.floor(when / 1000)}:F>, which has already passed.\n` +
-        `> Try a relative time instead — "in 2 hours" or "tomorrow at 7pm".`
+        `> Try a relative time instead - "in 2 hours" or "tomorrow at 7pm".`
     };
   }
 
@@ -892,7 +892,7 @@ export async function listMeetings({ guild } = {}) {
   const lines = rows.map((m, i) => {
     const status = m.status === 'scheduled' ? '' : ` **(${m.status})**`;
     return (
-      `${i + 1}. **${m.title}**${status} — <t:${Math.floor(m.startTs / 1000)}:F> (<t:${Math.floor(m.startTs / 1000)}:R>)\n` +
+      `${i + 1}. **${m.title}**${status} - <t:${Math.floor(m.startTs / 1000)}:F> (<t:${Math.floor(m.startTs / 1000)}:R>)\n` +
       `> Where: ${m.location || 'Not set'} · Host: <@${m.hostId}>\n` +
       `> Invited: ${(m.attendees || []).length} · Invited by DM` +
       (m.postponedCount ? ` · Postponed ${m.postponedCount} time(s)` : '')
@@ -986,14 +986,14 @@ export async function meetingRsvp({ guild, meetingId = null } = {}) {
 
   // Attendance breakdown
   const sections = [];
-  sections.push(`**Can Join — ${buckets.yes.length}**\n${formatList(yesNames)}`);
+  sections.push(`**Can Join - ${buckets.yes.length}**\n${formatList(yesNames)}`);
   if (buckets.maybe.length) {
-    sections.push(`**Maybe — ${buckets.maybe.length}**\n${formatList(maybeNames)}`);
+    sections.push(`**Maybe - ${buckets.maybe.length}**\n${formatList(maybeNames)}`);
   }
   if (cannotCount) {
-    sections.push(`**Cannot Join — ${cannotCount}**\n${formatList(cannotNames)}`);
+    sections.push(`**Cannot Join - ${cannotCount}**\n${formatList(cannotNames)}`);
   }
-  sections.push(`**Awaiting Response — ${buckets.pending.length}**\n${formatList(pendingNames)}`);
+  sections.push(`**Awaiting Response - ${buckets.pending.length}**\n${formatList(pendingNames)}`);
 
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(sections.join('\n\n'))
@@ -1008,7 +1008,7 @@ export async function meetingRsvp({ guild, meetingId = null } = {}) {
 
   // Fallback plain-text representation (clean usernames, no pings, no emojis)
   const plainFallback = [
-    `## Meeting Attendance — ${next.title}`,
+    `## Meeting Attendance - ${next.title}`,
     `> **When:** <t:${secs}:F> (<t:${secs}:R>)`,
     `> **Where:** ${next.location || 'To be announced'} · **Host:** <@${next.hostId}>`,
     ``,
@@ -1055,7 +1055,7 @@ export async function handleMeetingButton(interaction) {
     await interaction
       .reply({
         content:
-          'That meeting is no longer available — it may have been cancelled or the record has been cleared.\n' +
+          'That meeting is no longer available - it may have been cancelled or the record has been cleared.\n' +
           '> Ask the host for the current details.',
         flags: MessageFlags.Ephemeral
       })
@@ -1080,7 +1080,7 @@ export async function handleMeetingButton(interaction) {
   saveMeetings();
 
   // Shared channel panel: rebuild WITHOUT a viewer id, so "Your reply" (which
-  // is per-person) never leaks the last clicker's choice to everyone — the
+  // is per-person) never leaks the last clicker's choice to everyone - the
   // live tally below is the shared truth. In DMs (legacy cards) keep the
   // personalised "Your reply" line.
   const inDm = !interaction.guildId;

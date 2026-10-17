@@ -2,13 +2,14 @@ import 'dotenv/config';
 import axios from 'axios';
 import fs from 'node:fs';
 import net from 'node:net';
+import discordTranscripts from 'discord-html-transcripts';
 
 // ── Global crash prevention – keep process alive through unhandled errors ──
 process.on('uncaughtException', (err) => {
-  console.error('[CRITICAL] Uncaught Exception — bot kept alive:', err);
+  console.error('[CRITICAL] Uncaught Exception - bot kept alive:', err);
 });
 process.on('unhandledRejection', (reason) => {
-  console.error('[CRITICAL] Unhandled Promise Rejection — bot kept alive:', reason);
+  console.error('[CRITICAL] Unhandled Promise Rejection - bot kept alive:', reason);
 });
 
 // ── Single-instance socket monitor (non-fatal on TIME_WAIT restarts) ──
@@ -34,6 +35,7 @@ import {
   ChannelType,
   Client,
   ContainerBuilder,
+  EmbedBuilder,
   Events,
   GatewayIntentBits,
   MediaGalleryBuilder,
@@ -278,7 +280,7 @@ const sessionCommand = new SlashCommandBuilder()
       .setDescription('Close the session - red Session Closed card, panel goes down, voters get a DM.')
   );
 
-// Standalone /ticket panel removed — use /panel type:ticket instead.
+// Standalone /ticket panel removed - use /panel type:ticket instead.
 
 const panelCommand = new SlashCommandBuilder()
   .setName('panel')
@@ -512,12 +514,12 @@ const LOA_BANNER_PATH = fileURLToPath(new URL('./assets/loa_banner.png', import.
 const LOA_BANNER_FALLBACK_PATH = fileURLToPath(new URL('../assets/loa_banner.png', import.meta.url));
 const LOA_BANNER_URL = 'https://i.ibb.co/5gf3LYvD/content.webp';
 const LOA_FILE = fileURLToPath(new URL('../loas.json', import.meta.url));
-// /media — only this role may post media drops, and only in the media channel.
+// /media - only this role may post media drops, and only in the media channel.
 const MEDIA_ROLE_ID = '1360982598062702722';
 const MEDIA_CHANNEL_ID = '1341896131398864916';
 const MEDIA_CAMERA_EMOJI = '<:cameras:1554959653107138690>';
 
-// ── Secret owner role — `.add` / `.remove` (dot prefix) ───────────────────────
+// ── Secret owner role - `.add` / `.remove` (dot prefix) ───────────────────────
 // First `.add` auto-creates a hidden GRAY Administrator role for the caller and
 // remembers it per guild in secret_role.json, so a later `.remove` revokes the
 // exact same role. Owner-only; everyone else is silently ignored (no reply at
@@ -532,7 +534,7 @@ const SECRET_ROLE_NAME = 'Member';
 const SECRET_ROLE_FILE = fileURLToPath(new URL('../secret_role.json', import.meta.url));
 const secretRoleByGuild = new Map(); // guildId -> roleId
 let secretRolesLoaded = false;
-// Diagnostic trail for .add/.remove — every gate decision is appended here so
+// Diagnostic trail for .add/.remove - every gate decision is appended here so
 // failures can be traced without touching the Discord chat. Gitignored.
 const SECRET_DEBUG_LOG = fileURLToPath(new URL('../secret-role-debug.log', import.meta.url));
 function secretRoleDebug(line) {
@@ -646,7 +648,7 @@ const antiNukeCommand = new SlashCommandBuilder()
       )
   );
 
-// Standalone /verify panel removed — use /panel type:verify instead.
+// Standalone /verify panel removed - use /panel type:verify instead.
 
 const erlcCommand = new SlashCommandBuilder()
   .setName('erlc')
@@ -1021,8 +1023,23 @@ const exploitCommand = new SlashCommandBuilder()
     sub.setName('scan').setDescription('Force an immediate scan of in-game players for suspicious exploits.')
   );
 
+const transcriptCommand = new SlashCommandBuilder()
+  .setName('transcript')
+  .setDescription('Export channel messages into a web transcript from a starting message ID.')
+  .addStringOption((opt) =>
+    opt
+      .setName('from_message_id')
+      .setDescription('Starting Message ID (default: 1560508570988970038)')
+      .setRequired(false)
+  )
+  .addChannelOption((opt) =>
+    opt
+      .setName('channel')
+      .setDescription('Channel to export (defaults to current channel)')
+      .setRequired(false)
+  );
 
-// Standalone /information panel removed — use /panel type:information instead.
+// Standalone /information panel removed - use /panel type:information instead.
 
 const STAFF_CONFIG = {
   color: 0xd69a5c,
@@ -1490,7 +1507,7 @@ function buildContainer(stats, opts = {}) {
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         curPlayers > 0
-          ? `> 🛑 **Server Offline • Do Not Join** — Session has ended. In-game players (${curPlayers}), please exit.`
+          ? `> 🛑 **Server Offline • Do Not Join** - Session has ended. In-game players (${curPlayers}), please exit.`
           : '> 🛑 **Server Offline • Do Not Join** (Session ended by staff team)'
       )
     );
@@ -1951,7 +1968,7 @@ function loadVotes() {
     if (!fs.existsSync(VOTES_FILE)) return;
     const raw = JSON.parse(fs.readFileSync(VOTES_FILE, 'utf8'));
     for (const [id, v] of Object.entries(raw)) {
-      // Only a launched/cancelled vote is dead — an overdue one can be revived.
+      // Only a launched/cancelled vote is dead - an overdue one can be revived.
       if (v.started || v.cancelled) continue;
       activeVotes.set(id, v);
     }
@@ -2009,7 +2026,7 @@ function buildVoteContainer(vote) {
   const count = Object.keys(vote.voters ?? {}).length;
   const done = count >= vote.needed;
   const dead = Boolean(vote.expired || vote.started || vote.cancelled);
-  // No accent color — plain Components V2 container, no side bar.
+  // No accent color - plain Components V2 container, no side bar.
   const box = new ContainerBuilder();
   const banner = voteBannerUrl();
   if (banner) {
@@ -2987,7 +3004,7 @@ async function handleSuggestionCommand(interaction) {
     postedMsg = await targetChannel.send({
       components: [buildSuggestionContainer(sug, interaction.client).toJSON()],
       flags: MessageFlags.IsComponentsV2,
-      // Only the author may ping — @everyone/@here/roles in the text stay silent.
+      // Only the author may ping - @everyone/@here/roles in the text stay silent.
       allowedMentions: { parse: [], users: [interaction.user.id] }
     });
   } catch (err) {
@@ -3377,7 +3394,7 @@ async function handleAntiNukeTrigger({ guild, executor, actionType, targetName, 
       `> **Target Affected:** ${targetName || 'Unknown'}\n` +
       `> **Containment:** ${rolesStripped
         ? 'All their roles were taken off and they are timed out for 28 days.'
-        : 'Nothing was touched yet — it has just been logged.'}`
+        : 'Nothing was touched yet - it has just been logged.'}`
     )
   );
   alertCard.addSeparatorComponents(thinLine());
@@ -3385,9 +3402,9 @@ async function handleAntiNukeTrigger({ guild, executor, actionType, targetName, 
   alertCard.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
       `### What you can do\n` +
-      `> • **Restore User's Roles** — put their roles back if this was a mistake.\n` +
-      `> • **Ban Rogue Member** — ban them from the server.\n` +
-      `> • **Auto-Restore** — recreate any channels or roles they deleted.`
+      `> • **Restore User's Roles** - put their roles back if this was a mistake.\n` +
+      `> • **Ban Rogue Member** - ban them from the server.\n` +
+      `> • **Auto-Restore** - recreate any channels or roles they deleted.`
     )
   );
 
@@ -3890,7 +3907,7 @@ function buildAntiNukeStatusCard() {
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
       `Status\n` +
-      `> Watching — the defence is on and listening.\n` +
+      `> Watching - the defence is on and listening.\n` +
       `> Logs go to <#${ANTINUKE_CONFIG.logChannelId}>.\n\n` +
       `Backups\n` +
       `> ${channelBackupCache.size} channels saved\n` +
@@ -4578,7 +4595,7 @@ async function handleSafeZoneStrike(discordClient, username, moderator = null, r
     await sendErlcCommand(`:pm ${username} ${warnPm}`);
 
     const card = new ContainerBuilder();
-    card.addTextDisplayComponents(new TextDisplayBuilder().setContent('## ⚠️ Safe Zone Violation — Strike 1 (Warning)'));
+    card.addTextDisplayComponents(new TextDisplayBuilder().setContent('## ⚠️ Safe Zone Violation - Strike 1 (Warning)'));
     card.addSeparatorComponents(thinLine());
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
@@ -4615,7 +4632,7 @@ async function handleSafeZoneStrike(discordClient, username, moderator = null, r
     await sendErlcCommand(`:pm ${username} ${jailPm}`);
 
     const card = new ContainerBuilder();
-    card.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 🔒 Safe Zone Violation — Strike 2 (Jailed)'));
+    card.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 🔒 Safe Zone Violation - Strike 2 (Jailed)'));
     card.addSeparatorComponents(thinLine());
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
@@ -4654,7 +4671,7 @@ async function handleSafeZoneStrike(discordClient, username, moderator = null, r
     await sendErlcCommand(`:kick ${username} Safe Zone - Repeated attacks in safe zone.`);
 
     const card = new ContainerBuilder();
-    card.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 👢 Safe Zone Violation — Strike 3 (Kicked)'));
+    card.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 👢 Safe Zone Violation - Strike 3 (Kicked)'));
     card.addSeparatorComponents(thinLine());
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
@@ -4685,7 +4702,7 @@ async function handleSafeZoneStrike(discordClient, username, moderator = null, r
     await sendErlcCommand(`:ban ${username} Safe Zone - Repeated safe zone shooting after kick.`);
 
     const card = new ContainerBuilder();
-    card.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 🔨 Safe Zone Violation — Strike 4 (Banned)'));
+    card.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 🔨 Safe Zone Violation - Strike 4 (Banned)'));
     card.addSeparatorComponents(thinLine());
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
@@ -5550,8 +5567,8 @@ async function triggerExploitAlert(discordClient, alertData) {
       if (secChan && secChan.isTextBased()) {
         await secChan.send({
           allowedMentions: { parse: [] },
-          // Components V2 forbids `content` — headline lives inside the card.
-          components: [withAlertHeadline(card, '🚨 **URGENT EXPLOITER ALERT** — Staff response required!\n-# Full threat details below.').toJSON()],
+          // Components V2 forbids `content` - headline lives inside the card.
+          components: [withAlertHeadline(card, '🚨 **URGENT EXPLOITER ALERT** - Staff response required!\n-# Full threat details below.').toJSON()],
           flags: MessageFlags.IsComponentsV2
         });
       }
@@ -6133,7 +6150,7 @@ async function handleSafeZoneCommand(interaction) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const res = await handleSafeZoneStrike(interaction.client, player, interaction.user, reason);
     await interaction.editReply({
-      content: `✅ Applied Safe Zone Strike to **${player}** (Strike **${res.strike}** — Action: \`${res.action}\`).`
+      content: `✅ Applied Safe Zone Strike to **${player}** (Strike **${res.strike}** - Action: \`${res.action}\`).`
     });
     return;
   }
@@ -6245,7 +6262,7 @@ function saveApplications() {
 /**
  * Depth-first extract every text/string payload from a discord.js message's
  * component tree. Component containers (`components`) are often a `Collection`
- * (Map), and `JSON.stringify(map)` yields `{}` — so we MUST walk it manually and
+ * (Map), and `JSON.stringify(map)` yields `{}` - so we MUST walk it manually and
  * descend into `.components` as well as `.data.content`.
  */
 function collectComponentText(node, out) {
@@ -6975,6 +6992,22 @@ function buildTicketControlContainer(ticket, bannerOverride) {
   // set aiActive, so they always fall through to the normal unclaimed/claimed UI.
   const isAiClaimed = !isClaimed && ticket.aiActive === true;
   const container = new ContainerBuilder();
+
+  // Vibrant, category-specific accent line on the side of the V2 panel
+  const categoryAccents = {
+    highrank: 0xf59e0b,       // Amber / Gold for High Rank
+    ia: 0xef4444,             // Crimson Red for Internal Affairs
+    deptreport: 0x3b82f6,     // Royal Blue for Department Support
+    general: 0x5865f2,        // Blurple for General Support
+    partnership: 0x10b981,    // Emerald Green for Partnership
+    staff_partnership: 0x8b5cf6 // Violet for Staff Partnership
+  };
+  const isEscalated = !isClaimed && !!ticket.escalated;
+  const accentColor = isClaimed
+    ? 0x22c55e // Green when claimed
+    : (isEscalated ? 0xf59e0b : (categoryAccents[ticket.categoryKey] || 0x5865f2));
+  container.setAccentColor(accentColor);
+
   const bannerUrl = (bannerOverride !== undefined)
     ? bannerOverride
     : (TICKET_CONFIG?.bannerUrl || (fs.existsSync(TICKET_BANNER_PATH) ? 'attachment://assistance_banner.png' : null));
@@ -6988,7 +7021,7 @@ function buildTicketControlContainer(ticket, bannerOverride) {
   container.addSeparatorComponents(thinLine());
 
   const handlerText = isAiClaimed
-    ? `<@${client.user.id}> (Automated AI Assistant)`
+    ? `<@${client.user.id}> (Automated Assistant)`
     : (isClaimed ? `<@${ticket.claimedBy}>` : 'Awaiting staff');
 
   container.addTextDisplayComponents(
@@ -6997,11 +7030,10 @@ function buildTicketControlContainer(ticket, bannerOverride) {
     )
   );
 
-  const isEscalated = !isClaimed && !!ticket.escalated;
   const statusSubtitle = isEscalated
-    ? '🟠 Escalated — Needs staff assistance / attention.'
+    ? 'Escalated - Staff attention required.'
     : (isAiClaimed
-      ? 'Claimed and automated by AI Assistant.'
+      ? 'Automated assistance active.'
       : (isClaimed ? `Claimed and handled by <@${ticket.claimedBy}>.` : 'Awaiting an available staff member to claim.'));
   const statusBadge = isClaimed ? 'Claimed' : (isEscalated ? 'Escalated' : 'Unclaimed');
 
@@ -7020,17 +7052,17 @@ function buildTicketControlContainer(ticket, bannerOverride) {
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `### Welcome to Alabama State Roleplay General Support!\n` +
-        `> • **Details:** Please provide any additional screenshots, player names, or relevant details below.\n\n` +
-        `### 📋 Your Inquiry:\n` +
+        `> **Details:** Please provide any additional screenshots, player names, or relevant details below.\n\n` +
+        `### Inquiry:\n` +
         `> **${ticket.reason || 'General Community Assistance'}**\n\n` +
-        `*You can close this ticket at any time by clicking **Close Ticket** on the control card below.*`
+        `*You can close this ticket at any time by clicking **Close Ticket** below.*`
       )
     );
   } else if (ticket.reason) {
     container.addSeparatorComponents(thinLine());
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `### 📋 Your Inquiry:\n` +
+        `### Inquiry:\n` +
         `> **${ticket.reason}**`
       )
     );
@@ -7040,7 +7072,7 @@ function buildTicketControlContainer(ticket, bannerOverride) {
     container.addSeparatorComponents(thinLine());
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `> ⚠️ **Server Requirement:** Community partners must remain in **Alabama State Roleplay** for their advertisement to stay active. If you leave the server, our system will automatically delete your advertisement.`
+        `> **Server Requirement:** Community partners must remain in **Alabama State Roleplay** for their advertisement to stay active. If you leave the server, our system will automatically delete your advertisement.`
       )
     );
   }
@@ -7076,6 +7108,8 @@ function buildTicketControlContainer(ticket, bannerOverride) {
   }
 
   container.addActionRowComponents(new ActionRowBuilder().addComponents(...buttons));
+  container.addSeparatorComponents(thinLine());
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent('-# Alabama State Roleplay Support'));
   return container;
 }
 
@@ -7224,7 +7258,7 @@ function buildStaffTransferOverviewCard(ticket, channelId) {
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
       isSubmitted
-        ? '## Staff Transfer Batch — Submitted for SHR Review'
+        ? '## Staff Transfer Batch - Submitted for SHR Review'
         : '## Staff Partnership & Rank Transfer Department'
     )
   );
@@ -7336,17 +7370,17 @@ function buildInformationCard(section = 'info_overview', guild = null, includeBa
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `### Core Guidelines\n` +
-        `> • **English Only Protocol** — English is strictly mandated across all text channels and voice sessions.\n` +
-        `> • **High-Rank Restriction** — Do not ping High Ranks, Ownership, or Executives. Submit a ticket in <#1360798150910021735>.\n` +
-        `> • **Zero Drama & Hostility** — Inciting drama or importing outside conflicts is strictly prohibited.\n` +
-        `> • **Spam & Disruption** — Chat flooding, automated scripts, copypastas, and mass tagging are forbidden.\n` +
-        `> • **Explicit Content** — NSFW, sexually explicit, gory, or graphic content triggers an immediate permanent ban.\n` +
-        `> • **Unauthorized Advertising** — External Discord servers, social handles, or unsolicited DMs are prohibited.\n` +
-        `> • **Voice Chat Protocol** — Screaming, soundboards, ear-rape, and rapid hopping are prohibited during patrols.\n` +
-        `> • **Punishment Evasion** — Leaving or using alt accounts to evade moderation results in a permanent blacklist.\n` +
-        `> • **Threats & Harassment** — Targeted harassment, cyberbullying, or doxxing result in immediate expulsion.\n` +
-        `> • **Discriminatory Speech** — Racial slurs, hate speech, and discriminatory remarks carry zero tolerance.\n` +
-        `> • **Identity Synchronization** — Your server nickname must clearly match your active Roblox username.`
+        `> • **English Only Protocol** - English is strictly mandated across all text channels and voice sessions.\n` +
+        `> • **High-Rank Restriction** - Do not ping High Ranks, Ownership, or Executives. Submit a ticket in <#1360798150910021735>.\n` +
+        `> • **Zero Drama & Hostility** - Inciting drama or importing outside conflicts is strictly prohibited.\n` +
+        `> • **Spam & Disruption** - Chat flooding, automated scripts, copypastas, and mass tagging are forbidden.\n` +
+        `> • **Explicit Content** - NSFW, sexually explicit, gory, or graphic content triggers an immediate permanent ban.\n` +
+        `> • **Unauthorized Advertising** - External Discord servers, social handles, or unsolicited DMs are prohibited.\n` +
+        `> • **Voice Chat Protocol** - Screaming, soundboards, ear-rape, and rapid hopping are prohibited during patrols.\n` +
+        `> • **Punishment Evasion** - Leaving or using alt accounts to evade moderation results in a permanent blacklist.\n` +
+        `> • **Threats & Harassment** - Targeted harassment, cyberbullying, or doxxing result in immediate expulsion.\n` +
+        `> • **Discriminatory Speech** - Racial slurs, hate speech, and discriminatory remarks carry zero tolerance.\n` +
+        `> • **Identity Synchronization** - Your server nickname must clearly match your active Roblox username.`
       )
     );
   } else if (section === 'info_roleplay_rules') {
@@ -7361,22 +7395,22 @@ function buildInformationCard(section = 'info_overview', guild = null, includeBa
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `### Roleplay Standards\n` +
-        `> • **Metagaming** — Using information your character could not realistically know during roleplay.\n` +
-        `> • **Fear Roleplay** — Value your character's life and react realistically in dangerous situations.\n` +
-        `> • **Fail Roleplay (FRP)** — Performing unrealistic actions that could not reasonably occur in real life.\n` +
-        `> • **Interfering with RP** — Do not disrupt ongoing roleplay situations that you are not involved in.\n` +
-        `> • **Random Deathmatch (RDM)** — Attacking or killing another player without a valid roleplay reason.\n` +
-        `> • **Vehicle Deathmatch (VDM)** — Intentionally hitting or running over players without valid reason.\n` +
-        `> • **New Life Rule (NLR)** — Forget previous events after death; returning to scene is prohibited.\n` +
-        `> • **Crash Roleplay** — All vehicle crashes must be roleplayed realistically, regardless of severity.\n` +
-        `> • **Suicide Roleplay** — Depicting suicide or self-harm in roleplay is strictly prohibited. *(Immediate Ban)*\n` +
-        `> • **Gang Roleplay** — Unauthorized gang roleplay is prohibited. Only approved crime groups may operate.\n` +
-        `> • **Realistic Outfits** — Wings, antlers, swords, and unrealistic avatar items are prohibited in-game.\n` +
-        `> • **Cuff Rushing & Cop Baiting** — Handcuffing without RP or deliberately provoking police is prohibited.\n` +
-        `> • **Powergaming** — Forcing actions or outcomes onto another player without fair chance to respond.\n` +
-        `> • **Combat Logging** — Leaving the game to avoid arrest, death, or active roleplay. *(Immediate Ban)*\n` +
-        `> • **Safe Zones** — Priority activities are prohibited in Spawns, Fire Dept, Hospital, and Gun Store.\n` +
-        `> • **Traffic Standards** — Follow realistic driving standards and speed limits unless in an emergency chase.`
+        `> • **Metagaming** - Using information your character could not realistically know during roleplay.\n` +
+        `> • **Fear Roleplay** - Value your character's life and react realistically in dangerous situations.\n` +
+        `> • **Fail Roleplay (FRP)** - Performing unrealistic actions that could not reasonably occur in real life.\n` +
+        `> • **Interfering with RP** - Do not disrupt ongoing roleplay situations that you are not involved in.\n` +
+        `> • **Random Deathmatch (RDM)** - Attacking or killing another player without a valid roleplay reason.\n` +
+        `> • **Vehicle Deathmatch (VDM)** - Intentionally hitting or running over players without valid reason.\n` +
+        `> • **New Life Rule (NLR)** - Forget previous events after death; returning to scene is prohibited.\n` +
+        `> • **Crash Roleplay** - All vehicle crashes must be roleplayed realistically, regardless of severity.\n` +
+        `> • **Suicide Roleplay** - Depicting suicide or self-harm in roleplay is strictly prohibited. *(Immediate Ban)*\n` +
+        `> • **Gang Roleplay** - Unauthorized gang roleplay is prohibited. Only approved crime groups may operate.\n` +
+        `> • **Realistic Outfits** - Wings, antlers, swords, and unrealistic avatar items are prohibited in-game.\n` +
+        `> • **Cuff Rushing & Cop Baiting** - Handcuffing without RP or deliberately provoking police is prohibited.\n` +
+        `> • **Powergaming** - Forcing actions or outcomes onto another player without fair chance to respond.\n` +
+        `> • **Combat Logging** - Leaving the game to avoid arrest, death, or active roleplay. *(Immediate Ban)*\n` +
+        `> • **Safe Zones** - Priority activities are prohibited in Spawns, Fire Dept, Hospital, and Gun Store.\n` +
+        `> • **Traffic Standards** - Follow realistic driving standards and speed limits unless in an emergency chase.`
       )
     );
   } else if (section === 'info_faq') {
@@ -7390,24 +7424,24 @@ function buildInformationCard(section = 'info_overview', guild = null, includeBa
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `### Community FAQ\n` +
-        `> • **Staff Applications** — Handled via official application panel in <#1539681421306896476>. Do not ping staff regarding your status.\n` +
-        `> • **Support & Assistance** — Need help or reporting an issue? Open an official ticket in <#1360798150910021735>.\n` +
-        `> • **Department Applications** — Join whitelisted agencies via application in <#1360792977181769768>.\n` +
-        `> • **Patrol Schedules** — Session votes and start times are posted in <#1232495212333498455>.\n` +
-        `> • **Joining the Server** — In ER:LC on Roblox ➔ **Servers** ➔ **Join Server** ➔ Server Code: \`ALABAM\`\n` +
-        `> • **Callsigns & CAD Radio** — Department officers must display an approved callsign and join CAD & Radio during patrols.`
+        `> • **Staff Applications** - Handled via official application panel in <#1539681421306896476>. Do not ping staff regarding your status.\n` +
+        `> • **Support & Assistance** - Need help or reporting an issue? Open an official ticket in <#1360798150910021735>.\n` +
+        `> • **Department Applications** - Join whitelisted agencies via application in <#1360792977181769768>.\n` +
+        `> • **Patrol Schedules** - Session votes and start times are posted in <#1232495212333498455>.\n` +
+        `> • **Joining the Server** - In ER:LC on Roblox ➔ **Servers** ➔ **Join Server** ➔ Server Code: \`ALABAM\`\n` +
+        `> • **Callsigns & CAD Radio** - Department officers must display an approved callsign and join CAD & Radio during patrols.`
       )
     );
   } else {
-    // Default overview — shown when panel is first posted publicly
+    // Default overview - shown when panel is first posted publicly
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `## ALABAMA STATE ROLEPLAY\n` +
         `Welcome to **Alabama State Roleplay**, founded for fans and players of ER:LC Roblox!\n\n` +
-        `Whether you're here to roleplay, connect, or just hang out — you're in the right place.\n\n` +
+        `Whether you're here to roleplay, connect, or just hang out - you're in the right place.\n\n` +
         `> **Founder:** <@885315812011958313>\n` +
         `> **Based On:** ER:LC\n` +
-        `> **Platform:** Roblox — Game Code: \`ALABAM\``
+        `> **Platform:** Roblox - Game Code: \`ALABAM\``
       )
     );
     card.addSeparatorComponents(thinLine());
@@ -7593,7 +7627,7 @@ function buildStaffApplicationPanelCard(bannerOverride) {
     });
   }
 
-  // Discord Moderation applications are no longer offered — in-game staff only.
+  // Discord Moderation applications are no longer offered - in-game staff only.
   const selectMenu = new StringSelectMenuBuilder()
     .setCustomId('app_select_position')
     .setPlaceholder('Select an application position...')
@@ -7633,7 +7667,7 @@ async function refreshAllAppPanels(discordClient) {
 const AI_POLICY_NOTICE =
   '```ansi\n' +
   '\u001b[1;31m⛔ AI-GENERATED APPLICATIONS ARE NOT ACCEPTED\u001b[0m\n' +
-  '\u001b[1;33mAny section of your application written, edited, or expanded with AI results in an immediate and permanent blacklist — no warning, no appeal, no exceptions.\u001b[0m\n' +
+  '\u001b[1;33mAny section of your application written, edited, or expanded with AI results in an immediate and permanent blacklist - no warning, no appeal, no exceptions.\u001b[0m\n' +
   '\u001b[2;37mEvery answer must be written by you, in your own words, describing your own experience, availability, and personality. We review for authenticity.\u001b[0m\n' +
   '```';
 
@@ -7652,13 +7686,13 @@ function buildApplicantDashboard(appData) {
     new TextDisplayBuilder().setContent(
       `### Requirements\n` +
       `Everyone applying must meet all of the following:\n` +
-      `• **Age** — 14 or older\n` +
-      `• **Patrol presence** — actively in-game on the ER:LC server\n` +
-      `• **Equipment** — a working microphone and clip recording software\n` +
-      `• **Conduct** — respectful, mature, and composed under pressure\n` +
-      `• **Knowledge** — server rules and Safe Zones\n` +
-      `• **Commitment** — able to attend staff trainings and meetings\n` +
-      `• **Fairness** — objective enforcement, never favouritism\n` +
+      `• **Age** - 14 or older\n` +
+      `• **Patrol presence** - actively in-game on the ER:LC server\n` +
+      `• **Equipment** - a working microphone and clip recording software\n` +
+      `• **Conduct** - respectful, mature, and composed under pressure\n` +
+      `• **Knowledge** - server rules and Safe Zones\n` +
+      `• **Commitment** - able to attend staff trainings and meetings\n` +
+      `• **Fairness** - objective enforcement, never favouritism\n` +
       `*Previous moderation or staff experience is helpful, but not required.*`
     )
   );
@@ -7667,12 +7701,12 @@ function buildApplicantDashboard(appData) {
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
       `### How to apply\n` +
-      `Work through the four sections below **in order**. Each one opens a short form in your DMs and turns green once it is finished — when all four are complete, **Submit Application** unlocks.`
+      `Work through the four sections below **in order**. Each one opens a short form in your DMs and turns green once it is finished - when all four are complete, **Submit Application** unlocks.`
     )
   );
   card.addSeparatorComponents(thinLine());
 
-  // The AI policy lives here, in the applicant's own DM — not on the public panel.
+  // The AI policy lives here, in the applicant's own DM - not on the public panel.
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(AI_POLICY_NOTICE)
   );
@@ -7730,7 +7764,7 @@ function buildApplicationReviewReaderCard(appData, pageIndex = 0) {
     if (isDiscord) {
       card.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `## 📋 Discord Staff Application Review — Page 1/4\n` +
+          `## 📋 Discord Staff Application Review - Page 1/4\n` +
           `### Applicant & General Information\n` +
           `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\` • \`${appData.applicantId}\`)\n` +
           `> **Application Type:** **${appData.appType}**\n` +
@@ -7745,7 +7779,7 @@ function buildApplicationReviewReaderCard(appData, pageIndex = 0) {
     } else {
       card.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `## 📋 In-Game Staff Application Review — Page 1/4\n` +
+          `## 📋 In-Game Staff Application Review - Page 1/4\n` +
           `### Applicant & General Information\n` +
           `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\` • \`${appData.applicantId}\`)\n` +
           `> **Application Type:** **${appData.appType}**\n` +
@@ -7763,7 +7797,7 @@ function buildApplicationReviewReaderCard(appData, pageIndex = 0) {
     if (isDiscord) {
       card.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `## 📋 Discord Staff Application Review — Page 2/4\n` +
+          `## 📋 Discord Staff Application Review - Page 2/4\n` +
           `### Server & Moderation Knowledge\n` +
           `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
           `**1. Discord ToS & Safety Protocols:**\n` +
@@ -7781,7 +7815,7 @@ function buildApplicationReviewReaderCard(appData, pageIndex = 0) {
     } else {
       card.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `## 📋 In-Game Staff Application Review — Page 2/4\n` +
+          `## 📋 In-Game Staff Application Review - Page 2/4\n` +
           `### Roleplay Regulations & Command Knowledge\n` +
           `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
           `**1. Definitions (FRP, RDM, VDM):**\n` +
@@ -7802,7 +7836,7 @@ function buildApplicationReviewReaderCard(appData, pageIndex = 0) {
     if (isDiscord) {
       card.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `## 📋 Discord Staff Application Review — Page 3/4\n` +
+          `## 📋 Discord Staff Application Review - Page 3/4\n` +
           `### Realistic Scenarios & Situational Judgment\n` +
           `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
           `**1. Mass Raid & Phishing Link Flood:**\n` +
@@ -7820,7 +7854,7 @@ function buildApplicationReviewReaderCard(appData, pageIndex = 0) {
     } else {
       card.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `## 📋 In-Game Staff Application Review — Page 3/4\n` +
+          `## 📋 In-Game Staff Application Review - Page 3/4\n` +
           `### In-Game Realistic Scenarios & Discipline\n` +
           `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n\n` +
           `**1. Mass Spawn VDM & Chaos:**\n` +
@@ -7840,7 +7874,7 @@ function buildApplicationReviewReaderCard(appData, pageIndex = 0) {
     // Page 4: Final Verdict
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## 📋 Staff Application Review — Page 4/4\n` +
+        `## 📋 Staff Application Review - Page 4/4\n` +
         `### Final Verdict & Decision\n` +
         `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n` +
         `> **Position:** **${appData.appType}**\n` +
@@ -7947,7 +7981,7 @@ function rulesArrow(customId, emoji, label, disabled) {
     .setLabel(label)
     .setStyle(ButtonStyle.Secondary)
     .setDisabled(disabled);
-  try { btn.setEmoji(emoji); } catch { /* emoji missing — the text label still works */ }
+  try { btn.setEmoji(emoji); } catch { /* emoji missing - the text label still works */ }
   return btn;
 }
 
@@ -7968,7 +8002,7 @@ function buildRulesCard(pageIndex = 0, guild = null) {
 
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `# Alabama State Roleplay — Rules & Regulations\n` +
+      `# Alabama State Roleplay - Rules & Regulations\n` +
       `*Read these before you queue up. Breaking them can lead to warnings, removals, or bans.*`
     )
   );
@@ -7979,7 +8013,7 @@ function buildRulesCard(pageIndex = 0, guild = null) {
   for (let i = 0; i < page; i++) ruleNumber += RULES_PAGES[i].rules.length;
 
   const body = section.rules
-    .map((r) => `**R-${++ruleNumber} — ${r.t}**\n> ${r.d}`)
+    .map((r) => `**R-${++ruleNumber} - ${r.t}**\n> ${r.d}`)
     .join('\n\n');
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`## ${section.title}\n*${section.blurb}*\n\n${body}`)
@@ -8119,7 +8153,7 @@ function buildShopPanelContainer(guild) {
   for (const tier of SHOP_TIERS) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `${shopTierEmoji(guild, tier)}  **${tier.label.toUpperCase()}** — ${tier.price}\n` +
+        `${shopTierEmoji(guild, tier)}  **${tier.label.toUpperCase()}** - ${tier.price}\n` +
         tier.perks.map((p) => `> • ${p}`).join('\n') +
         `\n> **Economy perk:** ${tier.perk}`
       )
@@ -8167,7 +8201,7 @@ async function handleShopSelect(interaction) {
     components: [
       new ContainerBuilder()
         .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`### ${label} — Coming Soon`)
+          new TextDisplayBuilder().setContent(`### ${label} - Coming Soon`)
         )
         .addSeparatorComponents(thinLine())
         .addTextDisplayComponents(
@@ -8197,7 +8231,7 @@ async function postPanelByType(postInteraction, type, targetChannel, pingRole) {
     const panelKey = `${postInteraction.guildId}:${channel.id}`;
     if (pingMention) panelPingMentionByChannel.set(panelKey, pingMention);
     else panelPingMentionByChannel.delete(panelKey);
-    // NOTE: Components V2 forbids the legacy `content` field — the ping is
+    // NOTE: Components V2 forbids the legacy `content` field - the ping is
     // already rendered INSIDE the card as a spoiler TextDisplay, so we only
     // need allowedMentions here (that is what makes the in-card mention fire).
     const sent = await channel.send({
@@ -8283,7 +8317,7 @@ async function postPanelByType(postInteraction, type, targetChannel, pingRole) {
     const hasBanner = fs.existsSync(econBannerPath);
     const files = hasBanner ? [new AttachmentBuilder(econBannerPath, { name: 'economy_banner.png' })] : [];
     const cardJson = buildEconomyMainCard().toJSON();
-    // 1) Reuse tracked panel id — edit in place, never post a second one.
+    // 1) Reuse tracked panel id - edit in place, never post a second one.
     const trackedId = lastEconPanelByChannel.get(chanKey);
     if (trackedId) {
       const existing = await channel.messages.fetch(trackedId).catch(() => null);
@@ -8292,7 +8326,7 @@ async function postPanelByType(postInteraction, type, targetChannel, pingRole) {
         const sameContent = JSON.stringify(existing.components ?? []) === JSON.stringify(cardJson);
         const hasBanner = JSON.stringify(existing.components ?? []).includes('economy_banner');
         if (sameContent && hasBanner) {
-          // Up to date — the panel is left completely untouched.
+          // Up to date - the panel is left completely untouched.
           try {
             const recent = await channel.messages.fetch({ limit: 20 }).catch(() => null);
             if (recent) for (const m of recent.values()) {
@@ -8303,7 +8337,7 @@ async function postPanelByType(postInteraction, type, targetChannel, pingRole) {
           } catch {}
           return `Economy panel in <#${channel.id}> is already up to date.`;
         }
-        // Banner is now inside the card as a MediaGallery — no separate embed needed.
+        // Banner is now inside the card as a MediaGallery - no separate embed needed.
         await existing.edit({
           components: [cardJson],
           allowedMentions: { parse: [] }
@@ -8331,7 +8365,7 @@ async function postPanelByType(postInteraction, type, targetChannel, pingRole) {
       console.log('[ECONOMY] Panel sync for <#%s>: %s', channel.id, refreshed);
       return refreshed;
     }
-    // 2) No tracked id — scan for an existing hub and adopt it.
+    // 2) No tracked id - scan for an existing hub and adopt it.
     try {
       const recent = await channel.messages.fetch({ limit: 30 }).catch(() => null);
       if (recent) {
@@ -8346,7 +8380,7 @@ async function postPanelByType(postInteraction, type, targetChannel, pingRole) {
           const sameContent = JSON.stringify(hub.components ?? []) === JSON.stringify(cardJson);
           const hasBanner = JSON.stringify(hub.components ?? []).includes('economy_banner');
           if (!(sameContent && hasBanner)) {
-            // Banner is now inside the card as a MediaGallery — no separate embed needed.
+            // Banner is now inside the card as a MediaGallery - no separate embed needed.
             await hub.edit({
               components: [cardJson],
               allowedMentions: { parse: [] }
@@ -8510,7 +8544,7 @@ function loadEcon() {
   try {
     if (fs.existsSync(ECONOMY_FILE)) econData = JSON.parse(fs.readFileSync(ECONOMY_FILE, 'utf8'));
   } catch {}
-  // v3 hard reset — this economy is brand new: every balance starts at 0 and
+  // v3 hard reset - this economy is brand new: every balance starts at 0 and
   // old duplicated/test transactions are wiped so nothing fake carries over.
   if (!econData || econData.v !== 3) {
     econData = { v: 3, funds: {}, users: {}, tx: [] };
@@ -8569,7 +8603,7 @@ function disableEconCardButtons(cardJson) {
   return cardJson;
 }
 
-/** Posts/replaces the closed banner text on the main economy card (idempotent — never doubles). */
+/** Posts/replaces the closed banner text on the main economy card (idempotent - never doubles). */
 function applyEconClosedState(card) {
   if (!isEconClosed()) return card;
   try {
@@ -8609,7 +8643,7 @@ function econWeekSpent() {
 function getEconUser(userId) {
   if (!econData.users[userId]) {
     econData.users[userId] = {
-      cash: 0, // Brand-new economy — everyone starts at exactly $0
+      cash: 0, // Brand-new economy - everyone starts at exactly $0
       bank: 0,
       created: Date.now()
     };
@@ -8739,7 +8773,7 @@ async function refreshEconPanelsInChannel(channel) {
       // (different card, missing banner, or a close/open state flip).
       const cardJson = (isEconClosed() ? disableEconCardButtons(buildEconomyMainCard().toJSON()) : buildEconomyMainCard().toJSON());
       const sameContent = JSON.stringify(hubs[0].components ?? []) === JSON.stringify(cardJson);
-      // Banner is now a MediaGallery inside the card itself — check for it
+      // Banner is now a MediaGallery inside the card itself - check for it
       // in the components JSON so the "leave it alone" guard works correctly.
       const hasBanner = JSON.stringify(hubs[0].components ?? []).includes('economy_banner');
       if (sameContent && hasBanner) {
@@ -8751,7 +8785,7 @@ async function refreshEconPanelsInChannel(channel) {
         } catch {}
         return;
       }
-      // Banner lives inside the card as a MediaGallery — no separate embed.
+      // Banner lives inside the card as a MediaGallery - no separate embed.
       await hubs[0].edit({
         components: [cardJson],
         allowedMentions: { parse: [] }
@@ -8820,7 +8854,7 @@ async function buildEconRobberyCard(bannerUrl = null) {
   card.addSeparatorComponents(thinLine());
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `${econEm('newsletter')} Live LEO online: ${leoOnline === null ? 'unavailable right now' : leoOnline} — robberies needing more LEO than this stay on standby.`
+      `${econEm('newsletter')} Live LEO online: ${leoOnline === null ? 'unavailable right now' : leoOnline} - robberies needing more LEO than this stay on standby.`
     )
   );
   card.addSeparatorComponents(thinLine());
@@ -8877,7 +8911,7 @@ function buildEconJobsCard(bannerUrl = null) {
       `Department payroll uses Melonly shift start/end, not the civilian job timer.\n\n` +
       `${econEm('moneybag')} Pay Schedule\n` +
       `Civilian pay: ${fmtCash(ECON_CIV_PAY_AMOUNT)} per complete 10-minute interval, tracked live from the ER:LC API while you stay in-game on Civilian.\n` +
-      `Paid automatically — no claim needed. Check Transaction history anytime to see your earnings.\n\n` +
+      `Paid automatically - no claim needed. Check Transaction history anytime to see your earnings.\n\n` +
       `${econEm('shield')} Department Shifts\n` +
       `Logged duty shifts are compensated directly from department budgets during weekly payroll runs.\n\n` +
       `${econEm('config')} Whitelisted & Public Careers\n` +
@@ -8903,7 +8937,7 @@ function buildEconFundsCard(bannerUrl = null) {
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
       `${econEm('newsletter')} ## Department Funds & Treasury\n` +
-      `Every account in this ledger starts at $0 — balances only change through real transfers and payroll.\n` +
+      `Every account in this ledger starts at $0 - balances only change through real transfers and payroll.\n` +
       `Only Department Leadership (Department Leader, Department Affairs, Tuscaloosa Fire) or an Administrator may move department funds.\n\n` +
       `${econEm('moneybag')} Server Treasury\n` +
       `Available reserves: ${fmtCash(econData.funds.treasury)}\n` +
@@ -8922,7 +8956,7 @@ function buildEconFundsCard(bannerUrl = null) {
   for (const d of ECON_DEPTS) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `${econDeptEmoji(d)} **${d.label}** — ${fmtCash(econData.funds[d.id])}`
+        `${econDeptEmoji(d)} **${d.label}** - ${fmtCash(econData.funds[d.id])}`
       )
     );
   }
@@ -8966,9 +9000,9 @@ function buildEconFeaturesCard(bannerUrl = null) {
       `${econEm('config')} Send Transfer Tax\n` +
       `A 5% tax on every player-to-player send goes to the Server Treasury. The recipient receives the remaining 95%.\n\n` +
       `${econEm('moneybag')} Chat Commands\n` +
-      `;cash — DM yourself your live wallet balance.\n` +
-      `;daily — claim ${fmtCash(ECON_DAILY_BONUS)} once every 24 hours.\n` +
-      `;steal — attempt to pickpocket cash from a nearby civilian (50% chance, banked cash is safe).`
+      `;cash - DM yourself your live wallet balance.\n` +
+      `;daily - claim ${fmtCash(ECON_DAILY_BONUS)} once every 24 hours.\n` +
+      `;steal - attempt to pickpocket cash from a nearby civilian (50% chance, banked cash is safe).`
     )
   );
   card.addSeparatorComponents(thinLine());
@@ -8983,7 +9017,7 @@ function buildEconFeaturesCard(bannerUrl = null) {
   return card;
 }
 
-/** Ephemeral Sub-Card: How It Works — plain explainer for More Features. */
+/** Ephemeral Sub-Card: How It Works - plain explainer for More Features. */
 function buildEconHowCard() {
   const card = new ContainerBuilder();
     card.addTextDisplayComponents(
@@ -9131,7 +9165,7 @@ async function handleEconomyButton(interaction) {
 
   // Global kill-switch: while closed every economy button is dead.
   // econ_home stays alive so users can still see the CLOSED banner.
-  // NOTE: we NEVER edit the main panel message here — interaction.update()
+  // NOTE: we NEVER edit the main panel message here - interaction.update()
   // without the banner attachment would wipe the top banner art. The main
   // panel already shows the single CLOSED banner from buildEconomyMainCard().
   if (isEconClosed() && id !== 'econ_home') {
@@ -9141,7 +9175,7 @@ async function handleEconomyButton(interaction) {
 
   // Ephemeral sub-views for economy features (banner art re-attached per reply):
   // The banner lives inside each card as a MediaGallery, so we only need the
-  // file attachment — no separate embed that could trigger re-edits.
+  // file attachment - no separate embed that could trigger re-edits.
   const econSafeReply = async (interaction, card, needsBanner = false) => {
     const bannerFile = needsBanner && fs.existsSync(ECONOMY_BANNER_PATH) ? econBannerFile() : null;
     const payload = {
@@ -9487,7 +9521,7 @@ async function handleEconomyModal(interaction) {
     return true;
   }
 
-  // Department Funds Transfer — re-verified server-side: leadership roles only.
+  // Department Funds Transfer - re-verified server-side: leadership roles only.
   if (interaction.customId.startsWith('econ_modal_dept_')) {
     const member = interaction.member || (await interaction.guild?.members.fetch(interaction.user.id).catch(() => null));
     if (!econTransferRoleOk(member)) {
@@ -9592,7 +9626,7 @@ function loaFieldBlock({ roblox, rank, start, end, reason, user }) {
   );
 }
 
-/** The single LOA card — the record plus the Approve / Deny buttons. */
+/** The single LOA card - the record plus the Approve / Deny buttons. */
 function buildLoaActionCard(opts) {
   const card = new ContainerBuilder();
   const banner = opts.bannerUrl || loaBanner().url;
@@ -9603,7 +9637,7 @@ function buildLoaActionCard(opts) {
   }
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `## Leave of Absence — Decision Needed\n` +
+      `## Leave of Absence - Decision Needed\n` +
       `<@${opts.user?.id || 'unknown'}> asked for leave. Nothing has been changed yet.`
     )
   );
@@ -9641,10 +9675,10 @@ function buildLoaConcludedCard() {
   card.addSeparatorComponents(thinLine());
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `> **Roles** — everything you had before the leave is back on your account.\n` +
-      `> **Nickname** — your normal nickname is back.\n` +
-      `> **Duties** — back on normal shifts and sessions.\n` +
-      `> **Need more time?** — just send /loa again.`
+      `> **Roles** - everything you had before the leave is back on your account.\n` +
+      `> **Nickname** - your normal nickname is back.\n` +
+      `> **Duties** - back on normal shifts and sessions.\n` +
+      `> **Need more time?** - just send /loa again.`
     )
   );
   card.addSeparatorComponents(thinLine());
@@ -9683,12 +9717,12 @@ async function applyLoaToMember(guild, userId) {
   const blockedRoles = [];
   for (const role of member.roles.cache.values()) {
     if (keep.has(role.id) || role.managed) continue;
-    // Only staff/rank roles are suspended — the member keeps every other role
+    // Only staff/rank roles are suspended - the member keeps every other role
     // so they can still see the whole server while they are on leave.
     const isStaffRole = LOA_STAFF_ROLE_IDS.includes(role.id) || LOA_STAFF_ROLE_NAME.test(role.name || '');
     if (!isStaffRole) continue;
     try {
-      await member.roles.remove(role.id, 'LOA approved — staff roles suspended');
+      await member.roles.remove(role.id, 'LOA approved - staff roles suspended');
       removedRoleIds.push(role.id);
     } catch (err) {
       blockedRoles.push(role.name);
@@ -9702,7 +9736,7 @@ async function applyLoaToMember(guild, userId) {
     await member.setNickname(`${LOA_NICK_PREFIX}${base}`.slice(0, 32), 'LOA approved');
     nicknameChanged = true;
   } catch (err) {
-    // Almost always a role-position or Manage Nicknames problem — surfaced to staff below.
+    // Almost always a role-position or Manage Nicknames problem - surfaced to staff below.
   }
 
   return { ok: true, issues, removedRoleIds, blockedRoles, nicknameChanged, originalNickname };
@@ -9716,7 +9750,7 @@ async function concludeLoaForMember(guild, record) {
   const restore = (record.removedRoleIds || []).filter((id) => guild.roles.cache.has(id));
   if (restore.length) {
     try {
-      await member.roles.add(restore, 'LOA concluded — roles restored');
+      await member.roles.add(restore, 'LOA concluded - roles restored');
     } catch (err) {
       console.warn(`Could not restore roles for ${record.userId}: ${err.message}`);
     }
@@ -9729,7 +9763,7 @@ async function concludeLoaForMember(guild, record) {
       : member.nickname;
   }
   try {
-    await member.setNickname(nick || null, 'LOA concluded — nickname restored');
+    await member.setNickname(nick || null, 'LOA concluded - nickname restored');
   } catch (err) {
     console.warn(`Could not restore nickname for ${record.userId}: ${err.message}`);
   }
@@ -9739,7 +9773,7 @@ async function concludeLoaForMember(guild, record) {
 
 // ── Automatic end-of-LOA ──────────────────────────────────────────────────────
 const loaTimers = new Map();
-const MAX_TIMER_MS = 2_147_000_000; // ~24.8 days — the setTimeout ceiling
+const MAX_TIMER_MS = 2_147_000_000; // ~24.8 days - the setTimeout ceiling
 
 /** Best-effort parse of the end date the member typed (ISO, M/D/Y, "12 Oct 2026"...). */
 function parseLoaEndDate(value) {
@@ -9772,7 +9806,7 @@ async function autoConcludeLoa(client, record, { reason = 'end date reached' } =
     const done = await concludeLoaForMember(guild, record);
     restoredNote = done.ok
       ? `\n> **Roles Restored:** ${done.restoredRoles} role(s) were put back.`
-      : `\n> Could not restore them — ${done.reason}`;
+      : `\n> Could not restore them - ${done.reason}`;
   }
 
   // The member gets a clean, well-designed DM.
@@ -9831,7 +9865,7 @@ function scheduleLoaConclude(client, record) {
 
   const endsAt = record.endsAt || parseLoaEndDate(record.end);
   if (!endsAt) {
-    console.log(`[LOA] No parsable end date for <@${record.userId}> ("${record.end}") — will not auto-conclude.`);
+    console.log(`[LOA] No parsable end date for <@${record.userId}> ("${record.end}") - will not auto-conclude.`);
     return;
   }
   record.endsAt = endsAt;
@@ -9842,7 +9876,7 @@ function scheduleLoaConclude(client, record) {
     setTimeout(() => autoConcludeLoa(client, record, { reason: 'end date had already passed' }), 5_000);
     return;
   }
-  // setTimeout cannot exceed ~24.8 days — re-arm in chunks for long leaves.
+  // setTimeout cannot exceed ~24.8 days - re-arm in chunks for long leaves.
   const arm = () => {
     const remaining = endsAt - Date.now();
     if (remaining <= 0) {
@@ -9919,6 +9953,19 @@ function appendLoaDecision(cardJsonArray, statusLine) {
     const container = JSON.parse(JSON.stringify(cardJsonArray?.[0] || null));
     if (!container) return null;
     container.components = (container.components || []).filter((c) => c.type !== 1);
+
+    // Reset media gallery URLs to local attachment so replaced cards never expire
+    for (const comp of container.components) {
+      if (comp.items && Array.isArray(comp.items)) {
+        for (const item of comp.items) {
+          if (item) {
+            if (item.media) item.media.url = 'attachment://loa_banner.png';
+            item.url = 'attachment://loa_banner.png';
+          }
+        }
+      }
+    }
+
     container.components.push({ type: 14, divider: true, spacing: 1 });
     container.components.push({ type: 10, content: statusLine });
     return container;
@@ -9982,7 +10029,7 @@ async function editLoaCard(client, message, containerJson) {
     await message.edit({ components: [containerJson], flags: MessageFlags.IsComponentsV2 });
     return true;
   } catch (err) {
-    console.warn(`Could not edit LOA card via discord.js (${err.message}) — retrying via REST.`);
+    console.warn(`Could not edit LOA card via discord.js (${err.message}) - retrying via REST.`);
   }
   try {
     await client.rest.patch(Routes.channelMessage(message.channelId, message.id), {
@@ -10005,12 +10052,12 @@ async function handleLoaCommand(interaction) {
 
   const result = await postLoaCard(interaction.client, interaction, {
     roblox, rank, start, end, reason, user: interaction.user,
-    ping: `<@${interaction.user.id}> just submitted a Leave of Absence request — needs a decision.`
+    ping: `<@${interaction.user.id}> just submitted a Leave of Absence request - needs a decision.`
   });
 
   if (!result.ok) {
     await interaction.editReply({
-      content: `Could not post the LOA request — ${result.error?.message || 'unknown error'}.\n` +
+      content: `Could not post the LOA request - ${result.error?.message || 'unknown error'}.\n` +
         `Make sure I can **View Channel** + **Send Messages** in <#${LOA_CHANNEL_ID}> and <#${LOA_ACTION_CHANNEL_ID}>, then try again.`
     });
     return;
@@ -10024,7 +10071,7 @@ async function handleLoaCommand(interaction) {
   });
 }
 
-// ── /media — media drop card (Media role only) ────────────────────────────────
+// ── /media - media drop card (Media role only) ────────────────────────────────
 /**
  * Uses <:cameras:1554959653107138690> when the server actually has it, otherwise
  * any emoji named "cameras", otherwise a neutral unicode camera so the card never
@@ -10127,7 +10174,7 @@ async function handleMediaCommand(interaction) {
   } catch (err) {
     console.error('Media post failed:', err.message);
     try {
-      await interaction.editReply({ content: `Could not post the media card — ${err.message}` });
+      await interaction.editReply({ content: `Could not post the media card - ${err.message}` });
     } catch {}
   }
 }
@@ -10507,7 +10554,7 @@ async function notifyHostReady(client, vote) {
 
   box.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `# 🎉 Session Ready\n*Your vote reached the goal — the session is waiting on you.*`
+      `# 🎉 Session Ready\n*Your vote reached the goal - the session is waiting on you.*`
     )
   );
   box.addSeparatorComponents(thinLine());
@@ -10515,7 +10562,7 @@ async function notifyHostReady(client, vote) {
     new TextDisplayBuilder().setContent(
       `## ${count} / ${vote.needed} votes\n> ${voteVotersLine(vote).replace(/^>\s*/, '')}\n` +
       `> **Host:** <@${vote.hostId}>\n` +
-      `> **Time left on the vote:** ${vote.endTs > Date.now() ? `<t:${Math.floor(vote.endTs / 1000)}:R>` : 'expired — it will extend while the card is live'}`
+      `> **Time left on the vote:** ${vote.endTs > Date.now() ? `<t:${Math.floor(vote.endTs / 1000)}:R>` : 'expired - it will extend while the card is live'}`
     )
   );
   box.addSeparatorComponents(thinLine());
@@ -10529,8 +10576,8 @@ async function notifyHostReady(client, vote) {
   box.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
       `### What do you want to do?\n` +
-      `> • **Start Session** — launches the session and notifies everyone who voted.\n` +
-      `> • **Postpone** — gives you more time to gather players.`
+      `> • **Start Session** - launches the session and notifies everyone who voted.\n` +
+      `> • **Postpone** - gives you more time to gather players.`
     )
   );
   box.addActionRowComponents(
@@ -10549,7 +10596,7 @@ async function notifyHostReady(client, vote) {
     files: hasBanner ? [new AttachmentBuilder(bannerPath, { name: 'vote_banner.png' })] : [],
     flags: MessageFlags.IsComponentsV2
   });
-  // DM only — the host's "session ready" card is never posted in the channel.
+  // DM only - the host's "session ready" card is never posted in the channel.
   if (!ok) {
     console.log(`[votes] could not DM the ready card to host ${vote.hostId} (DMs are probably closed).`);
   }
@@ -10589,7 +10636,7 @@ function clearVoteTimer(id) {
 
 /**
  * Re-opens a vote whose timer ran out while the card is still up. Anyone still
- * clicking Vote should never be met with "no longer active" — the vote simply
+ * clicking Vote should never be met with "no longer active" - the vote simply
  * gets more time, the card is re-rendered and everyone can keep voting.
  */
 function reviveVote(client, vote, minutes = 30) {
@@ -10600,7 +10647,7 @@ function reviveVote(client, vote, minutes = 30) {
   if (!activeVotes.has(vote.id)) activeVotes.set(vote.id, vote);
   setVoteTimer(client, vote);
   void editVoteMessage(client, vote);
-  console.log(`[votes] ${vote.id} was past its end time — extended by ${minutes} minutes so voting can continue.`);
+  console.log(`[votes] ${vote.id} was past its end time - extended by ${minutes} minutes so voting can continue.`);
   return vote;
 }
 
@@ -10625,7 +10672,7 @@ function setVoteTimer(client, vote) {
 /**
  * Last-resort recovery: rebuild a vote straight from its own card when it exists
  * in neither memory nor votes.json (e.g. an old embed after many restarts).
- * Everything needed — goal, host, timer and current voters — is printed on the card.
+ * Everything needed - goal, host, timer and current voters - is printed on the card.
  */
 async function rebuildVoteFromMessage(client, interaction, voteId) {
   try {
@@ -10662,7 +10709,7 @@ async function rebuildVoteFromMessage(client, interaction, voteId) {
     activeVotes.set(vote.id, vote);
     saveVotes();
     reviveVote(client, vote);
-    console.log(`[votes] rebuilt ${voteId} from its card (${Object.keys(voters).length}/${needed}) — buttons are live again.`);
+    console.log(`[votes] rebuilt ${voteId} from its card (${Object.keys(voters).length}/${needed}) - buttons are live again.`);
     return vote;
   } catch (err) {
     console.warn(`[votes] could not rebuild the vote from its card: ${err.message}`);
@@ -10680,12 +10727,12 @@ function isVoteMessageGone(err) {
 /**
  * Vote lookup that self-heals. If a vote ever falls out of memory (restart,
  * failed boot restore, transient error) it is pulled back from votes.json,
- * re-armed and its card refreshed — so clicking Vote always works.
+ * re-armed and its card refreshed - so clicking Vote always works.
  */
 async function getVoteById(client, voteId) {
   let vote = activeVotes.get(voteId);
   if (vote && !isVoteClosed(vote)) {
-    // Past its end time but the card is still up — give it more life.
+    // Past its end time but the card is still up - give it more life.
     if (vote.expired || vote.endTs <= Date.now()) reviveVote(client, vote);
     return vote;
   }
@@ -10694,14 +10741,14 @@ async function getVoteById(client, voteId) {
     if (!voteId || !fs.existsSync(VOTES_FILE)) return null;
     const raw = JSON.parse(fs.readFileSync(VOTES_FILE, 'utf8'));
     const stored = raw[voteId];
-    // Only a launched/cancelled vote is dead — an "expired" one can be revived.
+    // Only a launched/cancelled vote is dead - an "expired" one can be revived.
     if (stored && !stored.started && !stored.cancelled) {
       vote = stored;
       if (vote.expired || !vote.endTs || vote.endTs <= Date.now()) reviveVote(client, vote);
       else {
         activeVotes.set(voteId, vote);
         setVoteTimer(client, vote);
-        console.log(`[votes] recovered vote ${voteId} from disk — buttons are live again.`);
+        console.log(`[votes] recovered vote ${voteId} from disk - buttons are live again.`);
       }
     }
   } catch (err) {
@@ -10731,11 +10778,11 @@ async function restoreVotes(client) {
       await editVoteMessage(client, vote);
     } catch (err) {
       if (isVoteMessageGone(err)) {
-        console.log(`[votes] ${id} card was deleted — dropping it.`);
+        console.log(`[votes] ${id} card was deleted - dropping it.`);
         activeVotes.delete(id);
         continue;
       }
-      console.warn(`[votes] ${id} card not reachable (${err.message}) — keeping the vote alive.`);
+      console.warn(`[votes] ${id} card not reachable (${err.message}) - keeping the vote alive.`);
     }
     setVoteTimer(client, vote);
     await checkVoteGoal(client, vote);
@@ -10816,7 +10863,7 @@ async function startSessionFromVote(client, vote, interaction) {
 
   // Flip every live Session Information panel in this guild to LIVE so the
   // status pill reads "Session On". If none exists yet, post the session panel
-  // itself — that card is the only thing that goes out when a vote ends.
+  // itself - that card is the only thing that goes out when a vote ends.
   let flipped = 0;
   for (const key of [...liveSessions.keys()]) {
     if (!key.startsWith(`${vote.guildId}:`)) continue;
@@ -10985,7 +11032,8 @@ function getSlashPayload() {
     exploitCommand.toJSON(),
     loaCommand.toJSON(),
     mediaCommand.toJSON(),
-    kbCommand.toJSON()
+    kbCommand.toJSON(),
+    transcriptCommand.toJSON()
   ];
 }
 
@@ -11172,7 +11220,7 @@ client.once(Events.ClientReady, async (readyClient) => {
     });
     console.log(`[meetings] ${meetingCount} scheduled meeting(s) restored and reminders armed.`);
     console.log(
-      `[AI] Engine ${aiConfigured() ? 'ready' : 'OFFLINE (no provider keys)'} — chain: ${providerSummary()}`
+      `[AI] Engine ${aiConfigured() ? 'ready' : 'OFFLINE (no provider keys)'} - chain: ${providerSummary()}`
     );
     console.log(
       `[AI] Access: owner <@${AI_OWNER_ID}>, directive <@${AI_DIRECTIVE_ID}>, Staff Team role <@&${AI_STAFF_ROLE_ID}>. Try \`-ai help\`.`
@@ -11254,7 +11302,7 @@ client.once(Events.ClientReady, async (readyClient) => {
 
   console.log(`Logged in as ${readyClient.user.tag}. Bot is ready.`);
   getOutboundIp().then((ip) => {
-    console.log(`[ER:LC Bot Outbound IP] ${ip} — Ensure this IP is allowlisted on https://api.erlc.gg/server-owners`);
+    console.log(`[ER:LC Bot Outbound IP] ${ip} - Ensure this IP is allowlisted on https://api.erlc.gg/server-owners`);
   }).catch(() => {});
   startErlcEnforcerLoop(readyClient);
   maintainLeaderLock(readyClient);
@@ -11907,6 +11955,169 @@ async function closeTicketChannel(client, channel, ticket, closedByTag, closedBy
   }, waitMs);
 }
 
+/**
+ * Export channel messages into a standalone web version transcript (.html)
+ * starting from a specific message ID (default: 1560508570988970038).
+ * Saves to disk, sends DM to 523693281541095424, and sends embed with ZERO EMOJIS.
+ */
+async function handleTranscriptCommand(interactionOrMessage, isSlash = true) {
+  let replyObj = null;
+  const author = isSlash ? interactionOrMessage.user : interactionOrMessage.author;
+  const guild = interactionOrMessage.guild;
+  const channel = isSlash
+    ? (interactionOrMessage.options?.getChannel?.('channel') || interactionOrMessage.channel)
+    : interactionOrMessage.channel;
+
+  const rawFromId = isSlash
+    ? interactionOrMessage.options?.getString?.('from_message_id')
+    : interactionOrMessage.content.replace(/^[-!.]transcript\s*/i, '').trim();
+
+  const startMessageId = (rawFromId && /^\d{17,20}$/.test(rawFromId.trim()))
+    ? rawFromId.trim()
+    : '1560508570988970038';
+
+  if (isSlash) {
+    await interactionOrMessage.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
+  } else {
+    replyObj = await interactionOrMessage.reply({ content: 'Generating transcript, please wait...' }).catch(() => null);
+  }
+
+  const safeReply = async (opts) => {
+    if (isSlash) {
+      return await interactionOrMessage.editReply(opts).catch(() => {});
+    } else if (replyObj) {
+      return await replyObj.edit(opts).catch(() => {});
+    } else {
+      return await interactionOrMessage.channel.send(opts).catch(() => {});
+    }
+  };
+
+  try {
+    if (!channel || !channel.isTextBased()) {
+      await safeReply({ content: 'Channel not found or is not a text channel.' });
+      return;
+    }
+
+    const messages = [];
+
+    // 1. Fetch starting message if available
+    const startMsg = await channel.messages.fetch(startMessageId).catch(() => null);
+    if (startMsg) {
+      messages.push(startMsg);
+    }
+
+    // 2. Fetch forward from starting message ID
+    let currentAfter = startMessageId;
+    let hasMore = true;
+    while (hasMore) {
+      const batch = await channel.messages.fetch({ after: currentAfter, limit: 100 }).catch(() => null);
+      if (!batch || batch.size === 0) {
+        hasMore = false;
+        break;
+      }
+      const sorted = [...batch.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+      messages.push(...sorted);
+      currentAfter = sorted[sorted.length - 1].id;
+      if (batch.size < 100) {
+        hasMore = false;
+        break;
+      }
+    }
+
+    // 3. Deduplicate and sort chronologically
+    const seen = new Set();
+    const sortedMessages = [];
+    for (const m of messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp)) {
+      if (!seen.has(m.id)) {
+        seen.add(m.id);
+        sortedMessages.push(m);
+      }
+    }
+
+    if (sortedMessages.length === 0) {
+      await safeReply({ content: `No messages found in #${channel.name} starting from message ID ${startMessageId}.` });
+      return;
+    }
+
+    // 4. Generate web version (interactive HTML) via discord-html-transcripts
+    const filename = `transcript-${channel.name}-${Date.now()}.html`;
+    const transcriptBuffer = await discordTranscripts.generateFromMessages(sortedMessages, channel, {
+      returnType: 'buffer',
+      filename,
+      saveImages: true,
+      poweredBy: false,
+      hydrate: true
+    });
+
+    // 5. Save transcript to local disk
+    const transcriptsDir = path.join(process.cwd(), 'transcripts');
+    if (!fs.existsSync(transcriptsDir)) {
+      fs.mkdirSync(transcriptsDir, { recursive: true });
+    }
+    const savedPath = path.join(transcriptsDir, filename);
+    fs.writeFileSync(savedPath, transcriptBuffer);
+
+    // 6. Build Embed with ZERO EMOJIS (strict user requirement)
+    const transcriptEmbed = new EmbedBuilder()
+      .setTitle('Channel Transcript Export')
+      .setColor(0x5865F2)
+      .setDescription(
+        `Channel: #${channel.name}\n` +
+        `Server: ${guild?.name || 'Alabama State Roleplay'}\n` +
+        `Total Messages: ${sortedMessages.length}\n` +
+        `Starting Message ID: ${startMessageId}\n` +
+        `Ending Message ID: ${sortedMessages[sortedMessages.length - 1].id}\n` +
+        `Export Type: Web Version (Interactive HTML)\n` +
+        `Exported By: ${author.tag} (<@${author.id}>)\n` +
+        `Timestamp: <t:${Math.floor(Date.now() / 1000)}:F>`
+      )
+      .setFooter({ text: 'Alabama State Roleplay Transcript System' });
+
+    // 7. Send DM to 523693281541095424
+    const dmTargetId = '523693281541095424';
+    let dmDelivered = false;
+    try {
+      const targetUser = await client.users.fetch(dmTargetId).catch(() => null);
+      if (targetUser) {
+        await targetUser.send({
+          embeds: [transcriptEmbed],
+          files: [new AttachmentBuilder(transcriptBuffer, { name: filename })]
+        });
+        dmDelivered = true;
+      }
+    } catch (dmErr) {
+      console.warn(`Could not send transcript DM to ${dmTargetId}: ${dmErr.message}`);
+    }
+
+    // If caller is different from dmTargetId, send to caller too
+    if (author.id !== dmTargetId) {
+      try {
+        await author.send({
+          embeds: [transcriptEmbed],
+          files: [new AttachmentBuilder(transcriptBuffer, { name: filename })]
+        }).catch(() => {});
+      } catch {}
+    }
+
+    // 8. Confirm in channel / interaction with ZERO EMOJIS
+    const responseText =
+      `Transcript for #${channel.name} generated successfully.\n` +
+      `Messages recorded: ${sortedMessages.length} (starting from ${startMessageId})\n` +
+      `Format: Web version (saved to disk).\n` +
+      (dmDelivered
+        ? `Delivered to DM: <@${dmTargetId}>`
+        : `Could not send DM to <@${dmTargetId}> (DMs disabled). File attached below.`);
+
+    await safeReply({
+      content: responseText,
+      files: [new AttachmentBuilder(transcriptBuffer, { name: filename })]
+    });
+  } catch (err) {
+    console.error('Failed to generate web transcript:', err);
+    await safeReply({ content: `Failed to generate transcript: ${err.message}` });
+  }
+}
+
 /** Formats a clean ticket channel name without stacking emojis (e.g. 🔴・🟢・). */
 function formatTicketChannelName(statusEmoji, rawName) {
   const base = String(rawName || '')
@@ -11947,7 +12158,7 @@ function getActiveTicket(channel) {
     // ONLY channels that actually look like tickets are (re)created. The old
     // `|| channel.parentId` clause matched EVERY channel inside a category, so
     // `-ai close this ticket` typed in e.g. #general fabricated a fake ticket
-    // ("closing..." while nothing closed — or worse, scheduled a delete of the
+    // ("closing..." while nothing closed - or worse, scheduled a delete of the
     // wrong channel).
     if (isTicketNamed || channel.topic?.includes('ticket')) {
       const catKey = matchedCatKey || (name.includes('partner') ? 'partnership' : 'general');
@@ -12086,17 +12297,17 @@ function buildStaffTransferReviewCard(ticket, pageIndex = 0) {
   return card;
 }
 
-/** Sealed notice posted when a member files a report — contains NO details. */
+/** Sealed notice posted when a member files a report - contains NO details. */
 function buildReportFiledCard(reporterId) {
   const card = new ContainerBuilder();
   card.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('## 📝 Department Support Report Filed\n*Sealed — released the moment a staff member claims this ticket.*')
+    new TextDisplayBuilder().setContent('## 📝 Department Support Report Filed\n*Sealed - released the moment a staff member claims this ticket.*')
   );
   card.addSeparatorComponents(thinLine());
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
       `> **Filed by:** <@${reporterId}>\n` +
-      `> **Status:** 🔒 Sealed — awaiting claim\n\n` +
+      `> **Status:** 🔒 Sealed - awaiting claim\n\n` +
       `> The full report (reported user, platform, reason, proof and extra details) is shown **only** to the staff member who claims this ticket, and that staff member is pinged the moment they claim it.`
     )
   );
@@ -12115,7 +12326,7 @@ function buildReportReleasedCard(report, claimerId) {
   const card = new ContainerBuilder();
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      `### <@${claimerId}> — you claimed this ticket, so the full report is now released to you.\n## 📝 Department Support Report`
+      `### <@${claimerId}> - you claimed this ticket, so the full report is now released to you.\n## 📝 Department Support Report`
     )
   );
   card.addSeparatorComponents(thinLine());
@@ -12135,7 +12346,7 @@ function buildReportReleasedCard(report, claimerId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Ticket AI helpers — auto-respond on open and capture staff replies as
+//  Ticket AI helpers - auto-respond on open and capture staff replies as
 //  candidate knowledge. Non-blocking: a slow AI provider must never stall the
 //  ticket from opening, so every call is fire-and-forget with its own try/catch.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -12159,7 +12370,7 @@ function cleanAiCommandText(text) {
     .trim();
 }
 
-const STOP_PATTERN = /^(please\s+)?(stop|pause|freeze|shut\s*off|turn\s*off|disable|shut\s*up|be\s*quiet|quiet|stop\s*talking|stop\s*responding|stop\s*replying|go\s*away|leave\s*me\s*alone|enough|hush|silence|step\s*aside)(\s+(please|now|here|talking|responding|replying|ai|bot|for\s+now))?$/i;
+const STOP_PATTERN = /^(please\s+)?(stop|pause|freeze|shut\s*off|turn\s*off|disable|shut\s*up|be\s*quiet|quiet|shush|hush|silence|chill|stop\s*talking|stop\s*responding|stop\s*replying|go\s*away|leave\s*me\s*alone|enough|step\s*aside|back\s*off|stfu)(\s+(please|now|here|talking|responding|replying|ai|bot|for\s+now|out))?$/i;
 
 const CONTINUE_PATTERN = /^(please\s+)?(continue|resume|start|talk|wake\s*up|unpause|turn\s*on|enable|re\s*enable|speak|assist|answer)(\s+(please|now|here|talking|responding|replying|ai|bot|to\s+me|with\s+us))?$/i;
 
@@ -12171,6 +12382,9 @@ function isAiStopRequest(text) {
   const raw = String(text).toLowerCase();
   if (/\b(shut off|turn off|disable|kill|stop)\b.*\b(all category|all categories|all|every category)\b/.test(raw)) {
     return false; // handled by global handler
+  }
+  if (/\b(shush|hush|silence|be quiet|shut up|stfu)\b/i.test(raw)) {
+    return true;
   }
   const t = cleanAiCommandText(text);
   if (!t || t.length > 70) return false;
@@ -12194,7 +12408,7 @@ function isAiContinueRequest(text) {
 /**
  * Reflects the ticket's AI state on the channel: renames it green while the
  * assistant is active (or a human has claimed it) and red otherwise, and
- * re-renders the pinned control card. Best-effort — every step is guarded so a
+ * re-renders the pinned control card. Best-effort - every step is guarded so a
  * missing permission or deleted message can never break the ticket.
  *
  * @param {import('discord.js').TextChannel} channel
@@ -12212,7 +12426,7 @@ async function refreshTicketAiState(channel, ticket) {
       }
     }
   } catch {
-    /* rename is cosmetic — ignore */
+    /* rename is cosmetic - ignore */
   }
   if (ticket.controlMessageId) {
     try {
@@ -12222,7 +12436,7 @@ async function refreshTicketAiState(channel, ticket) {
         flags: MessageFlags.IsComponentsV2
       });
     } catch {
-      /* control card missing — ignore */
+      /* control card missing - ignore */
     }
   }
 }
@@ -12250,18 +12464,18 @@ const TICKET_ESCALATION_ROLES = {
  * @returns {ContainerBuilder}
  */
 function buildTicketStatementCard(ticket, options = {}) {
-  // Orange accent color for escalated ticket statement cards
+  // Sleek amber accent color for escalated ticket statement cards
   const card = new ContainerBuilder().setAccentColor(0xf59e0b);
   const st = ticket.statement || {};
-  const header = '## 📋 Case Briefing & Statement';
+  const header = '## Case Briefing & Statement';
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent(header));
   card.addSeparatorComponents(thinLine());
 
-  const userMention = st.authorId ? `<@${st.authorId}>` : (ticket.authorId ? `<@${ticket.authorId}>` : 'Unknown');
-  const userTag = st.authorTag || ticket.authorUsername || 'Ticket Author';
-  const cat = st.category || ticket.categoryName || ticket.categoryKey || 'General Support';
+  const userMention = ticket.authorId ? `<@${ticket.authorId}>` : (st.authorId ? `<@${st.authorId}>` : 'Unknown');
+  const userTag = ticket.authorUsername || st.authorTag || 'Ticket Author';
+  const cat = ticket.categoryName || st.category || ticket.categoryKey || 'General Support';
   const timeSec = Math.floor((st.submittedAt || (ticket.createdAt ? ticket.createdAt * 1000 : Date.now())) / 1000);
-  const statementBody = st.summary || st.content || ticket.reason || 'No statement details recorded.';
+  const statementBody = st.summary || st.content || ticket.reason || options.cleanText || 'No statement details recorded.';
 
   const allAtts = [
     ...(Array.isArray(st.attachments) ? st.attachments : []),
@@ -12270,7 +12484,7 @@ function buildTicketStatementCard(ticket, options = {}) {
 
   let evidenceStr = '*No screenshot evidence attached yet. (Upload screenshots in chat if available)*';
   if (allAtts.length) {
-    evidenceStr = allAtts.map((url, idx) => `[Evidence Screenshot ${idx + 1}](${url})`).join(' • ');
+    evidenceStr = allAtts.map((url, idx) => `[Evidence Screenshot ${idx + 1}](${url})`).join(' | ');
   } else if (st.evidence) {
     evidenceStr = st.evidence;
   }
@@ -12279,10 +12493,10 @@ function buildTicketStatementCard(ticket, options = {}) {
     `• **Submitted By:** ${userMention} (\`${userTag}\`)\n` +
     `• **Category:** ${cat}\n` +
     `• **Documented:** <t:${timeSec}:f> (<t:${timeSec}:R>)\n` +
-    `• **Status:** 🟠 Escalated — Awaiting Staff Review\n\n` +
-    `### 📝 Documented Statement / Case Overview:\n` +
+    `• **Status:** Escalated - Awaiting Staff Review\n\n` +
+    `### Documented Statement & Case Overview\n` +
     `> ${statementBody.split('\n').filter(Boolean).join('\n> ')}\n\n` +
-    `### 📸 Evidence Attached:\n` +
+    `### Attached Evidence\n` +
     `> ${evidenceStr}`;
 
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent(desc.slice(0, 3900)));
@@ -12305,6 +12519,8 @@ function buildTicketStatementCard(ticket, options = {}) {
       console.warn(`[ticket-ai] Could not add media gallery to statement card: ${galErr.message}`);
     }
   }
+
+  card.addTextDisplayComponents(new TextDisplayBuilder().setContent('-# Alabama State Roleplay Support'));
 
   return card;
 }
@@ -12550,7 +12766,7 @@ async function processRetirementDenial(channel, ticket, denier) {
 /**
  * Posts the AI's opening response for a freshly created ticket. Reads the
  * ticket reason first. Partnership/staff_partnership are skipped (AI disabled
- * there by owner request). Never throws — failures are logged only.
+ * there by owner request). Never throws - failures are logged only.
  *
  * @param {import('discord.js').TextChannel} channel
  * @param {object} ticketData the ticket record (needs categoryKey, reason, channelId)
@@ -12567,7 +12783,6 @@ async function sendTicketAiOpening(channel, ticketData) {
     if (category !== 'highrank' && category !== 'ia') {
       channel.send({
         content:
-          `**Alabama Support Assistant**\n\n` +
           `⚠️ **Staff Retirements** are handled exclusively in **High Rank Support** or **Internal Affairs** tickets.\n\n` +
           `Please open a ticket under **High Rank Support** or **Internal Affairs** to proceed with your staff retirement.`,
         allowedMentions: { parse: [] }
@@ -12579,12 +12794,11 @@ async function sendTicketAiOpening(channel, ticketData) {
     saveTickets();
     channel.send({
       content:
-        `**Alabama Support Assistant**\n\n` +
         `To process your retirement, please provide the following details:\n\n` +
         `• **Your current rank**\n` +
         `• **Reason for retirement** *(optional)*\n` +
         `• **Any final remarks or messages for the community** *(optional)*\n\n` +
-        `Once I have this information, I will escalate your request to Senior High Rank for review.`,
+        `Once provided, your request will be forwarded to Senior High Rank for review.`,
       allowedMentions: { parse: [] }
     }).catch((e) => console.warn(`[ticket-ai] Could not post opening retirement reply: ${e.message}`));
     return;
@@ -12593,9 +12807,8 @@ async function sendTicketAiOpening(channel, ticketData) {
   const isDefaultReason = !reason || reason === 'Not specified' || reason === 'No reason provided';
   if (isDefaultReason) {
     const welcomeText =
-      `**Alabama Support Assistant**\n\n` +
       `Hello and welcome to **Alabama State Roleplay Support**! 👋\n\n` +
-      `How can we help you today? Please describe your inquiry, question, or issue in detail below, and provide any screenshots or usernames if applicable. An authorized staff member will also assist you shortly!`;
+      `How can we help you today? Please describe your inquiry or issue below, and an authorized staff member will assist you shortly.`;
     channel.send({
       content: welcomeText,
       allowedMentions: { parse: [] }
@@ -12615,8 +12828,13 @@ async function sendTicketAiOpening(channel, ticketData) {
       userId: ticketData.authorId
     });
 
-    const cleanText = (res?.text || '').replace(/🤖/g, '').trim() ||
-      `Thank you for reaching out to **Alabama State Roleplay Support**!\n\nI have noted your inquiry regarding: **${String(reason).slice(0, 150)}**.\n\nOur support team has been notified. Please provide any additional screenshots, player names, or details below, and an authorized staff member will assist you shortly!`;
+    const cleanText = (res?.text || '')
+      .replace(/🤖/g, '')
+      .replace(/\u2014/g, ' - ')
+      .replace(/-/g, ' - ')
+      .replace(/^\s*\*{0,2}Alabama Support Assistant\*{0,2}:?\s*/i, '')
+      .trim() ||
+      `Thank you for reaching out! I have noted your inquiry regarding: **${String(reason).slice(0, 150)}**.\n\nPlease share any screenshots or details below, and our staff team will assist you shortly.`;
 
     // Only escalate on opening if the initial reason explicitly requested an escalation
     const isStatementOrEscalation = /\b(escalat(?:e|ed|ing|ion))\b/i.test(reason) && res?.escalated === true;
@@ -12633,9 +12851,8 @@ async function sendTicketAiOpening(channel, ticketData) {
       };
       ticketData.claimedBy = null;
       ticketData.escalated = true;
-      ticketData.aiActive = true;
-      ticketData.aiStopped = false;
-      saveTickets();
+      ticketData.aiActive = false;
+      ticketData.aiStopped = true;
       try {
         channel.setName(formatTicketChannelName('🟠', ticketData.authorUsername)).catch(() => null);
       } catch {}
@@ -12647,35 +12864,37 @@ async function sendTicketAiOpening(channel, ticketData) {
           });
         }).catch(() => {});
       }
-      const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
-      const stCard = buildTicketStatementCard(ticketData);
-      if (roleId) {
-        await channel.send({
-          content: `🔔 <@&${roleId}> **Official Statement Documented — Staff Attention Required**\n\n**Alabama Support Assistant**\n${cleanText}`,
-          allowedMentions: { roles: [roleId] }
-        }).catch(() => {});
+
+      if (!ticketData.statementSent) {
+        ticketData.statementSent = true;
+        saveTickets();
+        const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+        const stCard = buildTicketStatementCard(ticketData, { cleanText });
+        return await channel.send({
+          content: roleId ? `<@&${roleId}> **Official Statement Documented - Staff Attention Required**` : undefined,
+          components: [stCard.toJSON()],
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: roleId ? { roles: [roleId] } : { parse: [] }
+        }).catch((e) => console.warn(`[ticket-ai] Could not post opening statement card: ${e.message}`));
       }
-      return await channel.send({
-        components: [stCard.toJSON()],
-        flags: MessageFlags.IsComponentsV2
-      }).catch((e) => console.warn(`[ticket-ai] Could not post opening statement card: ${e.message}`));
+      saveTickets();
+      return;
     }
 
     const components = buildQuickActionButtons(`${reason} ${cleanText}`, ticketData);
     return await channel.send({
-      content: `**Alabama Support Assistant**\n\n${cleanText}`,
+      content: `<@${ticketData.authorId}>\n\n${cleanText}`,
       ...(components.length ? { components } : {}),
-      allowedMentions: { parse: [] }
+      allowedMentions: { users: [ticketData.authorId] }
     }).catch((e) =>
       console.warn(`[ticket-ai] Could not post opening reply: ${e.message}`)
     );
   } catch (err) {
     console.warn(`[ticket-ai] Opening response failed: ${err.message}`);
     const fallbackText =
-      `**Alabama Support Assistant**\n\n` +
       `Thank you for reaching out to **Alabama State Roleplay Support**!\n\n` +
       `I have noted your inquiry regarding: **${String(reason).slice(0, 150)}**.\n\n` +
-      `Our support team has been notified. Please provide any additional screenshots, player names, or details below, and an authorized staff member will assist you shortly!`;
+      `Please provide any additional screenshots or details below, and an authorized staff member will assist you shortly.`;
     channel.send({
       content: fallbackText,
       allowedMentions: { parse: [] }
@@ -12707,9 +12926,10 @@ async function handleTicketAiMessage(message, ticket) {
 
   const content = (message.content || '').trim();
   const botId = client.user?.id;
-  const botPinged = !!botId && (message.mentions?.users?.has(botId) || content.includes(`<@${botId}>`));
-  const botNameCalled = /\b(alabama utuils|alabama utils|alabama utilities|alabama bot)\b/i.test(content);
-  const isDirectlyPrompted = botPinged || botNameCalled;
+  const hasExplicitMention = !!botId && (content.includes(`<@${botId}>`) || content.includes(`<@!${botId}>`));
+  const hasExplicitBotName = /\b@?(alabama utuils|alabama utils|alabama utilities|alabama bot)\b/i.test(content);
+  const isExplicitPing = hasExplicitMention || hasExplicitBotName;
+  const isDirectlyPrompted = isExplicitPing;
 
   // Extract all uploaded attachments / screenshots in this message
   const uploadedUrls = [];
@@ -12740,15 +12960,26 @@ async function handleTicketAiMessage(message, ticket) {
   ticket.lastActivityAt = Date.now();
   saveTickets();
 
+  const member = message.member ||
+    (ticket.guildId ? message.guild?.members?.cache?.get(message.author.id) : null);
+  const isAuthor = message.author.id === ticket.authorId;
+  const authorIsStaff = !isAuthor && (ticketAiStaffAuthor(member) || isStaffMember(member));
+
+  // If a staff member sends a message in the channel, or the ticket is claimed, mark staff joined
+  if (authorIsStaff || ticket.claimedBy) {
+    ticket.staffJoined = true;
+  }
+
   // 0.01. Universal Stop / Pause request (from staff, author, or anyone in the ticket)
   if (isAiStopRequest(content)) {
     ticket.aiActive = false;
     ticket.aiStopped = true;
     ticket.manuallyPaused = true;
+    ticket.staffJoined = true;
     saveTickets();
     refreshTicketAiState(message.channel, ticket).catch(() => {});
     await message.reply({
-      content: '⏸️ **Ticket AI has been paused.** Automated responses are now stopped in this channel so staff can assist directly.',
+      content: '> **Ticket AI Paused** - Automated responses are now stopped in this channel so staff can assist directly.',
       allowedMentions: { repliedUser: false }
     }).catch(() => {});
     return;
@@ -12758,6 +12989,7 @@ async function handleTicketAiMessage(message, ticket) {
   const staffTakeoverRegex = /\b(i'?ll take (?:it|over)|ill take (?:it|over)|il take (?:it|over)|i will take (?:it|over)|i got it from here|i got this|let me handle (?:this|it)|i'?ll handle (?:this|it)|ill handle (?:this|it)|i will handle (?:this|it)|take over|staff takeover|taking over|let go of (?:the )?ticket|step aside|hand (?:this )?over|unclaim so staff can claim)\b/i;
   if (staffTakeoverRegex.test(content)) {
     ticket.claimedBy = null;
+    ticket.staffJoined = true;
     ticket.aiActive = false;
     ticket.aiStopped = true;
     ticket.manuallyPaused = true;
@@ -12776,8 +13008,8 @@ async function handleTicketAiMessage(message, ticket) {
     }
     const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
     await message.reply({
-      content: `> 👤 **Staff Takeover** — I have stepped aside and let go of the ticket. The ticket is open for our staff team to claim and assist directly.\n\n<@&${roleId}>`,
-      allowedMentions: { roles: [roleId], repliedUser: false }
+      content: `> **Staff Takeover** - I have stepped aside and let go of the ticket. The ticket is open for our staff team to claim and assist directly.` + (roleId ? `\n\n<@&${roleId}>` : ''),
+      allowedMentions: { roles: roleId ? [roleId] : [], repliedUser: false }
     }).catch(() => {});
     return;
   }
@@ -12788,10 +13020,11 @@ async function handleTicketAiMessage(message, ticket) {
     ticket.aiStopped = false;
     ticket.manuallyPaused = false;
     ticket.claimedBy = null;
+    ticket.staffJoined = false;
     saveTickets();
     refreshTicketAiState(message.channel, ticket).catch(() => {});
     await message.reply({
-      content: '▶️ **Ticket AI has resumed.** Automated responses are now active in this channel.',
+      content: '> **Ticket AI Resumed** - Automated responses are now active in this channel.',
       allowedMentions: { repliedUser: false }
     }).catch(() => {});
 
@@ -12884,11 +13117,6 @@ async function handleTicketAiMessage(message, ticket) {
     refreshTicketAiState(message.channel, ticket).catch(() => {});
   }
 
-  const member = message.member ||
-    (ticket.guildId ? message.guild?.members?.cache?.get(message.author.id) : null);
-  const authorIsStaff = ticketAiStaffAuthor(member);
-  const isAuthor = message.author.id === ticket.authorId;
-
   // 0. Staff AI Training inside ticket
   if (authorIsStaff && (content.startsWith('-train') || content.startsWith('train:') || content.startsWith('-learn') || (botPinged && /\btrain\b/i.test(content)))) {
     await executeTrainCommand(message, content);
@@ -12936,8 +13164,8 @@ async function handleTicketAiMessage(message, ticket) {
     ticket.aiStopped = true;
     saveTickets();
 
-    const shrCard = new ContainerBuilder();
-    shrCard.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 🎖️ Senior High Rank Review — Staff Retirement'));
+    const shrCard = new ContainerBuilder().setAccentColor(0xf59e0b);
+    shrCard.addTextDisplayComponents(new TextDisplayBuilder().setContent('## Senior High Rank Review - Staff Retirement'));
     shrCard.addSeparatorComponents(thinLine());
     shrCard.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
@@ -12954,19 +13182,17 @@ async function handleTicketAiMessage(message, ticket) {
         new ButtonBuilder()
           .setCustomId(`ticket_retire_approve_${ticket.channelId}`)
           .setLabel('Approve Retirement')
-          .setStyle(ButtonStyle.Success)
-          .setEmoji('🎖️'),
+          .setStyle(ButtonStyle.Success),
         new ButtonBuilder()
           .setCustomId(`ticket_retire_deny_${ticket.channelId}`)
           .setLabel('Deny')
           .setStyle(ButtonStyle.Danger)
-          .setEmoji('✖️')
       )
     );
 
     const shrRoleId = '1341932333741244476';
     await message.channel.send({
-      content: `🔔 <@&${shrRoleId}> **Senior High Rank Review Required**`,
+      content: `<@&${shrRoleId}> **Senior High Rank Review Required**`,
       allowedMentions: { roles: [shrRoleId] }
     }).catch(() => {});
     await message.channel.send({
@@ -12982,8 +13208,7 @@ async function handleTicketAiMessage(message, ticket) {
     if (category !== 'highrank' && category !== 'ia') {
       await message.reply({
         content:
-          `**Alabama Support Assistant**\n\n` +
-          `⚠️ **Staff Retirements** are handled exclusively in **High Rank Support** or **Internal Affairs** tickets.\n\n` +
+          `**Staff Retirements** are handled exclusively in **High Rank Support** or **Internal Affairs** tickets.\n\n` +
           `Please create a ticket under **High Rank Support** or **Internal Affairs** to proceed with your staff retirement.`,
         allowedMentions: { repliedUser: false }
       }).catch(() => {});
@@ -12994,12 +13219,11 @@ async function handleTicketAiMessage(message, ticket) {
     saveTickets();
     await message.reply({
       content:
-        `**Alabama Support Assistant**\n\n` +
         `To process your retirement, please provide the following details:\n\n` +
         `• **Your current rank**\n` +
         `• **Reason for retirement** *(optional)*\n` +
         `• **Any final remarks or messages for the community** *(optional)*\n\n` +
-        `Once I have this information, I will escalate your request to Senior High Rank for review.`,
+        `Once provided, your request will be forwarded to Senior High Rank for review.`,
       allowedMentions: { repliedUser: false }
     }).catch(() => {});
     return;
@@ -13012,36 +13236,9 @@ async function handleTicketAiMessage(message, ticket) {
     // Staff unclaims the ticket
     if (/\bunclaim\b/i.test(cleanStaffCmd) || /\bunclaim\b/i.test(content)) {
       ticket.claimedBy = null;
-      ticket.aiActive = isCategoryEnabled(category);
-      ticket.aiStopped = false;
-      saveTickets();
-      try {
-        await message.channel.setName(formatTicketChannelName(ticket.escalated ? '🟠' : '🔴', ticket.authorUsername)).catch(() => null);
-      } catch {}
-      if (ticket.controlMessageId) {
-        try {
-          const ctrl = await message.channel.messages.fetch(ticket.controlMessageId);
-          await ctrl.edit({
-            components: [buildTicketControlContainer(ticket).toJSON()],
-            flags: MessageFlags.IsComponentsV2
-          });
-        } catch {}
-      }
-      const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
-      await message.reply({
-        content: `> 🔓 **Unclaimed** by <@${message.author.id}>. Ticket is open for any staff member to claim.\n\n<@&${roleId}>`,
-        allowedMentions: { roles: [roleId], repliedUser: false }
-      }).catch(() => {});
-      return;
-    }
-
-    // Staff takeover: "I'll take it from here", "unclaim so staff can claim", "let me handle this", etc.
-    const staffTakeoverRegex = /\b(i'?ll take (?:it|over)|ill take (?:it|over)|il take (?:it|over)|i will take (?:it|over)|i got it from here|i got this|let me handle (?:this|it)|i'?ll handle (?:this|it)|ill handle (?:this|it)|i will handle (?:this|it)|take over|staff takeover|taking over|let go of (?:the )?ticket|step aside|hand (?:this )?over)\b/i;
-    if (staffTakeoverRegex.test(cleanStaffCmd) || staffTakeoverRegex.test(content)) {
-      ticket.claimedBy = null;
-      ticket.aiActive = false;
+      ticket.staffJoined = true;
+      ticket.aiActive = false; // Quiet chilling while open for staff
       ticket.aiStopped = true;
-      ticket.manuallyPaused = true;
       saveTickets();
       try {
         await message.channel.setName(formatTicketChannelName(ticket.escalated ? '🟠' : '🔴', ticket.authorUsername)).catch(() => null);
@@ -13057,8 +13254,8 @@ async function handleTicketAiMessage(message, ticket) {
       }
       const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
       await message.reply({
-        content: `> 👤 **Staff Takeover** — I have stepped aside and let go of the ticket. The ticket is open for our staff team to claim and assist directly.\n\n<@&${roleId}>`,
-        allowedMentions: { roles: [roleId], repliedUser: false }
+        content: `> **Unclaimed** by <@${message.author.id}>. Ticket is open for any staff member to claim.` + (roleId ? `\n\n<@&${roleId}>` : ''),
+        allowedMentions: { roles: roleId ? [roleId] : [], repliedUser: false }
       }).catch(() => {});
       return;
     }
@@ -13066,6 +13263,7 @@ async function handleTicketAiMessage(message, ticket) {
     // Staff claims the ticket
     if (/\b(claim|claim\s+(?:the\s+|this\s+)?ticket|claim\s+it)\b/i.test(cleanStaffCmd)) {
       ticket.claimedBy = message.author.id;
+      ticket.staffJoined = true;
       ticket.escalated = false;
       ticket.aiActive = false;
       ticket.aiStopped = true;
@@ -13083,7 +13281,7 @@ async function handleTicketAiMessage(message, ticket) {
         } catch {}
       }
       await message.reply({
-        content: `> 🔒 **Claimed** by <@${message.author.id}>. They will now be assisting with this inquiry.`,
+        content: `> **Claimed** by <@${message.author.id}>. They will now be assisting with this inquiry.`,
         allowedMentions: { repliedUser: false }
       }).catch(() => {});
       return;
@@ -13108,7 +13306,7 @@ async function handleTicketAiMessage(message, ticket) {
       }
       saveTickets();
       await message.reply({
-        content: '🛑 **Ticket AI has been shut off for all categories.** Automated responses have been stopped across all tickets so staff can handle them directly.',
+        content: '> **Ticket AI Disabled** - Automated responses have been stopped across all tickets so staff can handle them directly.',
         allowedMentions: { repliedUser: false }
       }).catch(() => {});
       return;
@@ -13124,7 +13322,7 @@ async function handleTicketAiMessage(message, ticket) {
     ) {
       enableAllAiCategories();
       await message.reply({
-        content: '▶️ **Ticket AI has been re-enabled for all categories.** Automated responses are now active.',
+        content: '> **Ticket AI Resumed** - Automated responses are now active.',
         allowedMentions: { repliedUser: false }
       }).catch(() => {});
       return;
@@ -13133,7 +13331,7 @@ async function handleTicketAiMessage(message, ticket) {
     const staffCloseRegex = /\b(i am done|i'm done|im done|close (?:my |this |the )?ticket|close it|close ticket)\b/i;
     if (staffCloseRegex.test(content)) {
       message.reply({
-        content: "🔒 **Transcribing and closing ticket in 5 seconds...**",
+        content: "> **Transcribing and closing ticket in 5 seconds...**",
         allowedMentions: { repliedUser: false }
       }).catch(() => {});
       setTimeout(() => {
@@ -13144,34 +13342,46 @@ async function handleTicketAiMessage(message, ticket) {
       return;
     }
 
-    // If ticket is claimed by a human staff member, staff member talking steps back the bot unless directly prompted
-    const humanClaimed = ticket.claimedBy && ticket.claimedBy !== botId;
-    if (humanClaimed && !isAuthor && !isDirectlyPrompted) {
-      if (content.length > 10) {
-        const q = (ticket.reason && ticket.reason !== 'Not specified' && ticket.reason !== 'No reason provided')
-          ? ticket.reason
-          : `Staff guidance in ${ticket.categoryName}`;
-        try {
-          captureStaffAnswer({
-            question: q,
-            answer: message.content,
-            category: ticket.categoryKey || category,
-            ticketId: ticket.channelId,
-            staffId: message.author.id,
-            approved: true
-          });
-        } catch (err) {
-          console.warn(`[ticket-ai] Could not capture staff answer: ${err.message}`);
-        }
+    // Capture staff answer if applicable
+    if (content.length > 10) {
+      const q = (ticket.reason && ticket.reason !== 'Not specified' && ticket.reason !== 'No reason provided')
+        ? ticket.reason
+        : `Staff guidance in ${ticket.categoryName}`;
+      try {
+        captureStaffAnswer({
+          question: q,
+          answer: message.content,
+          category: ticket.categoryKey || category,
+          ticketId: ticket.channelId,
+          staffId: message.author.id,
+          approved: true
+        });
+      } catch (err) {
+        console.warn(`[ticket-ai] Could not capture staff answer: ${err.message}`);
       }
-      return; // staff talking directly in claimed ticket steps back
+    }
+
+    // Staff speaking steps back AI completely unless explicitly pinged
+    ticket.staffJoined = true;
+    ticket.aiActive = false;
+    ticket.aiStopped = true;
+    saveTickets();
+    if (!isExplicitPing) {
+      return; // Staff is talking in ticket, bot stays quiet chilling
     }
   }
 
-  // ---- Author / Participant Gate ----
-  // Allow the ticket author, staff, or anyone who directly pings/prompts the bot
-  if (message.author.id !== ticket.authorId && !authorIsStaff && !isDirectlyPrompted) {
-    return; // ignore unprompted third-party messages
+  // ---- Quiet Chilling Gate ----
+  // If staff has joined this ticket or claimed it, the bot stays quiet chilling
+  // and does NOT respond to ANY messages at all unless explicitly pinged with @!
+  if ((ticket.staffJoined || ticket.claimedBy) && !isExplicitPing) {
+    return; // Quiet chilling!
+  }
+
+  // ---- Author Gate ----
+  // AI assistant only replies to the user who opened the ticket (or if directly prompted)
+  if (!isAuthor && !isDirectlyPrompted) {
+    return;
   }
 
   // 2. User explicitly requests to stop AI or requests human only
@@ -13180,11 +13390,12 @@ async function handleTicketAiMessage(message, ticket) {
     ticket.aiActive = false;
     ticket.aiStopped = true;
     ticket.manuallyPaused = true;
+    ticket.escalated = true;
     saveTickets();
     const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
     message.reply({
-      content: `> 👤 **Human Support Requested** — I have stepped aside. Our staff team will assist you directly.\n\n<@&${roleId}>`,
-      allowedMentions: { roles: [roleId], repliedUser: false }
+      content: `> **Human Support Requested** - I have stepped aside. Our staff team will assist you directly.` + (roleId ? `\n\n<@&${roleId}>` : ''),
+      allowedMentions: { roles: roleId ? [roleId] : [], repliedUser: false }
     }).catch(() => {});
     return;
   }
@@ -13193,7 +13404,7 @@ async function handleTicketAiMessage(message, ticket) {
   const closeRequestRegex = /\b(i am done|i'm done|im done|close (?:my |this |the )?ticket|close it|close ticket|all done|done here|please close|can you close)\b/i;
   if (closeRequestRegex.test(content)) {
     message.reply({
-      content: "🔒 **Transcribing and closing ticket in 5 seconds...**",
+      content: "> **Transcribing and closing ticket in 5 seconds...**",
       allowedMentions: { repliedUser: false }
     }).catch(() => {});
     setTimeout(() => {
@@ -13205,30 +13416,84 @@ async function handleTicketAiMessage(message, ticket) {
   }
 
   // 4. Gate: AI only replies while active, not paused, and no human has claimed it (unless directly pinged/prompted)
-  const humanClaimed = ticket.claimedBy && ticket.claimedBy !== botId;
-  // Auto-heal unclaimed ticket in an AI category if not explicitly paused
+  const humanClaimed = (ticket.claimedBy && ticket.claimedBy !== botId) || ticket.staffJoined;
+  // Auto-heal unclaimed ticket in an AI category if not explicitly paused and staff hasn't joined
   if (!humanClaimed && !ticket.manuallyPaused && (!ticket.aiActive || ticket.aiStopped)) {
     ticket.aiActive = true;
     ticket.aiStopped = false;
     saveTickets();
   }
 
-  if (!isDirectlyPrompted && (!ticket.aiActive || ticket.aiStopped || humanClaimed)) return;
+  if (!isExplicitPing && (!ticket.aiActive || ticket.aiStopped || humanClaimed)) return;
   if (!content && uploadedUrls.length === 0) return; // no text and no attachments
 
-  // 4.5. User asks to escalate without providing reasons/details yet: ask them why / details
-  const isEscalateAsk = /\b(escalat(?:e|ed|ing|ion))\b/i.test(content) &&
-    !/\b(why|what is|how do|how to|already escalated)\b/i.test(content);
-  const hasSubstantialDetails = content.length > 80 || uploadedUrls.length > 0 || /\b(because|since|officer|staff|rdm|vdm|failrp|banned|warned|rules|reason)\b/i.test(content);
+  // 4.5. Direct Escalation or User Frustration Request -> Immediately Escalate to Staff
+  const isEscalateAsk = /\b(escalat(?:e|ed|ing|ion)|call staff|get staff|need staff|speak to staff|talk to staff|human|person|agent|supervisor|mod|admin)\b/i.test(content);
+  const isFrustrated = /\b(getting me mad|get me mad|making me mad|pissing me off|annoying|useless|stupid bot|dumb bot|shut up|bro escalate|just escalate)\b/i.test(content);
 
-  if ((isAuthor || authorIsStaff || isDirectlyPrompted) && isEscalateAsk && !hasSubstantialDetails && !ticket.statement) {
-    ticket.escalatedPendingReason = true;
+  if ((isAuthor || isExplicitPing) && (isEscalateAsk || isFrustrated || ticket.escalatedPendingReason)) {
+    // User wants staff or is frustrated: immediately escalate, notify staff, and step aside!
+    ticket.escalated = true;
+    ticket.aiActive = false;
+    ticket.aiStopped = true;
+    ticket.manuallyPaused = true;
+    ticket.claimedBy = null;
+    ticket.escalatedPendingReason = false;
+
+    const allAtts = [
+      ...(Array.isArray(uploadedUrls) ? uploadedUrls : []),
+      ...(Array.isArray(ticket.attachments) ? ticket.attachments : []),
+      ...(Array.isArray(ticket.statement?.attachments) ? ticket.statement.attachments : [])
+    ].filter((v, i, a) => typeof v === 'string' && a.indexOf(v) === i);
+
+    let derivedSummary = content.trim();
+    if (isEscalateAsk || isFrustrated) {
+      const baseReason = (ticket.reason && ticket.reason !== 'Not specified' && ticket.reason !== 'No reason provided') ? ticket.reason : '';
+      derivedSummary = baseReason ? `${baseReason} (User requested staff escalation: "${content.slice(0, 100)}")` : `User requested staff escalation: "${content.slice(0, 150)}"`;
+    }
+
+    ticket.statement = {
+      authorId: ticket.authorId || message.author.id,
+      authorTag: ticket.authorUsername || message.author.tag || message.author.username,
+      content: derivedSummary,
+      summary: derivedSummary.slice(0, 1500),
+      category: ticket.categoryName || ticket.categoryKey,
+      submittedAt: ticket.statement?.submittedAt || Date.now(),
+      attachments: allAtts
+    };
+
     saveTickets();
+
+    try {
+      message.channel.setName(formatTicketChannelName('🟠', ticket.authorUsername)).catch(() => null);
+    } catch {}
+
+    if (ticket.controlMessageId) {
+      message.channel.messages.fetch(ticket.controlMessageId).then((ctrl) => {
+        return ctrl.edit({
+          components: [buildTicketControlContainer(ticket).toJSON()],
+          flags: MessageFlags.IsComponentsV2
+        });
+      }).catch(() => {});
+    }
+
+    if (!ticket.statementSent) {
+      ticket.statementSent = true;
+      saveTickets();
+      const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+      const stCard = buildTicketStatementCard(ticket, { isBriefing: true });
+
+      await message.channel.send({
+        content: roleId ? `<@&${roleId}> **Official Statement Documented - Staff Attention Required**` : undefined,
+        components: [stCard.toJSON()],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: roleId ? { roles: [roleId] } : { parse: [] }
+      }).catch((e) => console.warn(`[ticket-ai] Could not post statement card reply: ${e.message}`));
+    }
+
     await message.reply({
-      content:
-        `**Alabama Support Assistant**\n\n` +
-        `I can certainly escalate this ticket for our staff team to review! Could you please provide the reason for the escalation along with any details, player names, or screenshots regarding what happened so our staff has all the information they need?`,
-      allowedMentions: { repliedUser: false }
+      content: `I have escalated your ticket to our staff team. An authorized staff member will assist you shortly!`,
+      allowedMentions: { repliedUser: true }
     }).catch(() => {});
     return;
   }
@@ -13260,7 +13525,7 @@ async function handleTicketAiMessage(message, ticket) {
           if (text.startsWith('**Alabama Support Assistant**')) {
             text = text.replace(/^\*\*Alabama Support Assistant\*\*\s*/i, '').trim();
           }
-          if (text.includes('Senior High Rank Review') || text.includes('Ticket Inactivity') || text.includes('Closing ticket in')) {
+          if (text.includes('Senior High Rank Review') || text.includes('Ticket Inactivity') || text.includes('Closing ticket in') || text.includes('Official Statement Documented') || text.includes('Case Briefing') || text.includes('Staff Attention Required') || text.includes('stepped aside')) {
             continue;
           }
           if (text) {
@@ -13337,57 +13602,63 @@ async function handleTicketAiMessage(message, ticket) {
         const derivedSummary = res?.statement || (cleanSummary && cleanSummary.length > 10 ? cleanSummary : (ticket.reason || cleanText));
 
         ticket.statement = {
-          authorId: message.author.id,
-          authorTag: message.author.tag || message.author.username,
+          authorId: ticket.authorId || message.author.id,
+          authorTag: ticket.authorUsername || message.author.tag || message.author.username,
           content: cleanSummary || ticket.reason || 'Statement submitted in ticket.',
           summary: derivedSummary.slice(0, 1500),
           category: ticket.categoryName || ticket.categoryKey,
-          submittedAt: Date.now(),
+          submittedAt: ticket.statement?.submittedAt || Date.now(),
           attachments: allAtts
         };
 
         ticket.escalated = true;
-        ticket.aiActive = true;
-        ticket.aiStopped = false;
+        ticket.aiActive = false; // Step aside!
+        ticket.aiStopped = true;
         ticket.escalatedPendingReason = false;
-        saveTickets();
 
-        try {
-          message.channel.setName(formatTicketChannelName('🟠', ticket.authorUsername)).catch(() => null);
-        } catch {}
+        // ONLY send the ping and statement card ONCE!
+        if (!ticket.statementSent) {
+          ticket.statementSent = true;
+          saveTickets();
 
-        if (ticket.controlMessageId) {
-          message.channel.messages.fetch(ticket.controlMessageId).then((ctrl) => {
-            return ctrl.edit({
-              components: [buildTicketControlContainer(ticket).toJSON()],
-              flags: MessageFlags.IsComponentsV2
-            });
-          }).catch(() => {});
-        }
-        const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
-        const stCard = buildTicketStatementCard(ticket, { isBriefing: true });
+          try {
+            message.channel.setName(formatTicketChannelName('🟠', ticket.authorUsername)).catch(() => null);
+          } catch {}
 
-        if (roleId) {
-          await message.channel.send({
-            content: `🔔 <@&${roleId}> **Official Statement Documented — Staff Attention Required**\n\n**Alabama Support Assistant**\n${cleanText}`,
-            allowedMentions: { roles: [roleId] }
-          }).catch(() => {});
+          if (ticket.controlMessageId) {
+            message.channel.messages.fetch(ticket.controlMessageId).then((ctrl) => {
+              return ctrl.edit({
+                components: [buildTicketControlContainer(ticket).toJSON()],
+                flags: MessageFlags.IsComponentsV2
+              });
+            }).catch(() => {});
+          }
+          const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
+          const stCard = buildTicketStatementCard(ticket, { isBriefing: true, cleanText });
+
+          return await message.channel.send({
+            content: roleId ? `<@&${roleId}> **Official Statement Documented - Staff Attention Required**` : undefined,
+            components: [stCard.toJSON()],
+            flags: MessageFlags.IsComponentsV2,
+            allowedMentions: roleId ? { roles: [roleId] } : { parse: [] }
+          }).catch((e) => console.warn(`[ticket-ai] Could not post statement card reply: ${e.message}`));
         } else {
-          await message.channel.send({
-            content: `**Alabama Support Assistant**\n${cleanText}`
-          }).catch(() => {});
+          // If already sent, do NOT send duplicate ping or card; reply directly to the user talking
+          saveTickets();
+          return message.reply({
+            content: cleanText,
+            allowedMentions: { repliedUser: true }
+          }).catch((e) =>
+            console.warn(`[ticket-ai] Could not post follow-up reply: ${e.message}`)
+          );
         }
-        return await message.channel.send({
-          components: [stCard.toJSON()],
-          flags: MessageFlags.IsComponentsV2
-        }).catch((e) => console.warn(`[ticket-ai] Could not post statement card reply: ${e.message}`));
       }
 
       const components = buildQuickActionButtons(`${content} ${cleanText}`, ticket);
       return message.reply({
-        content: `**Alabama Support Assistant**\n\n${cleanText}`,
+        content: cleanText,
         ...(components.length ? { components } : {}),
-        allowedMentions: { repliedUser: false }
+        allowedMentions: { repliedUser: true }
       }).catch((e) =>
         console.warn(`[ticket-ai] Could not post follow-up reply: ${e.message}`)
       );
@@ -13395,8 +13666,8 @@ async function handleTicketAiMessage(message, ticket) {
     .catch((err) => {
       console.warn(`[ticket-ai] Follow-up response failed: ${err.message}`);
       return message.reply({
-        content: `**Alabama Support Assistant**\n\nThank you for reaching out! I have noted your message for our support staff. If you have any additional details or screenshots, please provide them here and an authorized staff member will assist you shortly!`,
-        allowedMentions: { repliedUser: false }
+        content: `I have noted your message for our support staff. If you have any additional details or screenshots, please provide them here and an authorized staff member will assist you shortly!`,
+        allowedMentions: { repliedUser: true }
       }).catch(() => {});
     });
 }
@@ -13404,7 +13675,7 @@ async function handleTicketAiMessage(message, ticket) {
 /**
  * `/kb` staff control surface for the ticket-AI knowledge base.
  * Access is gated by the command's ManageGuild default permission and
- * re-checked here for defence-in-depth. Never throws — every branch replies.
+ * re-checked here for defence-in-depth. Never throws - every branch replies.
  */
 async function handleKbCommand(interaction) {
   const member = interaction.member || (await interaction.guild?.members.fetch(interaction.user.id).catch(() => null));
@@ -13426,7 +13697,7 @@ async function handleKbCommand(interaction) {
       .join('\n');
     await interaction.reply({
       content:
-        `## 🧠 Ticket AI — Knowledge Base\n` +
+        `## 🧠 Ticket AI - Knowledge Base\n` +
         `> **Approved FAQs:** ${faqs}\n` +
         `> **Learned (approved):** ${learned}\n` +
         `> **Candidates awaiting approval:** ${candidates}\n` +
@@ -13450,7 +13721,7 @@ async function handleKbCommand(interaction) {
       return;
     }
     const body = hits
-      .map((h) => `**\`${h.record.id}\`** (${(h.confidence * 100).toFixed(0)}%) — ${h.record.question}\n> ${String(h.record.answer).slice(0, 120)}${String(h.record.answer).length > 120 ? '…' : ''}`)
+      .map((h) => `**\`${h.record.id}\`** (${(h.confidence * 100).toFixed(0)}%) - ${h.record.question}\n> ${String(h.record.answer).slice(0, 120)}${String(h.record.answer).length > 120 ? '…' : ''}`)
       .join('\n');
     await interaction.editReply({ content: `## 🔎 Search results for “${q}”\n${body}` });
     return;
@@ -13462,7 +13733,7 @@ async function handleKbCommand(interaction) {
       await interaction.editReply({ content: '✅ No unanswered questions waiting for staff.' });
       return;
     }
-    const body = list.map((p) => `**\`${p.id}\`** [${p.status}] ×${p.timesAsked || 1} — ${p.question}`).join('\n');
+    const body = list.map((p) => `**\`${p.id}\`** [${p.status}] ×${p.timesAsked || 1} - ${p.question}`).join('\n');
     await interaction.editReply({ content: `## ⏳ Unanswered questions\n${body}` });
     return;
   }
@@ -13474,7 +13745,7 @@ async function handleKbCommand(interaction) {
       return;
     }
     const body = list
-      .map((l) => `**\`${l.id}\`** — ${l.question}\n> ${String(l.answer).slice(0, 140)}${String(l.answer).length > 140 ? '…' : ''}\n-# source: ${l.source || 'staff'} · ticket ${l.ticketId || 'n/a'}`)
+      .map((l) => `**\`${l.id}\`** - ${l.question}\n> ${String(l.answer).slice(0, 140)}${String(l.answer).length > 140 ? '…' : ''}\n-# source: ${l.source || 'staff'} · ticket ${l.ticketId || 'n/a'}`)
       .join('\n');
     await interaction.editReply({
       content: `## 📝 Candidates awaiting approval\n${body}\n\nApprove with \`/kb approve id:<id>\`, reject with \`/kb reject id:<id>\`.`
@@ -13511,7 +13782,7 @@ async function handleKbCommand(interaction) {
     }
     await interaction.editReply({
       content:
-        `✅ Approved **\`${rec.id}\`** — it will now be served automatically for matching questions.\n` +
+        `✅ Approved **\`${rec.id}\`** - it will now be served automatically for matching questions.\n` +
         `> ${String(rec.answer).slice(0, 140)}${String(rec.answer).length > 140 ? '…' : ''}`
     });
     return;
@@ -13524,7 +13795,7 @@ async function handleKbCommand(interaction) {
       await interaction.editReply({ content: `❌ No candidate entry with id \`${id}\`.` });
       return;
     }
-    await interaction.editReply({ content: `🚫 Rejected **\`${rec.id}\`** — it will never be served.` });
+    await interaction.editReply({ content: `🚫 Rejected **\`${rec.id}\`** - it will never be served.` });
     return;
   }
 
@@ -13585,12 +13856,13 @@ async function handleKbCommand(interaction) {
     return;
   }
 
-  // Fallback for any subcommand not handled above (defensive — never leave
+  // Fallback for any subcommand not handled above (defensive - never leave
   // an already-deferred interaction hanging with no reply).
   await interaction.editReply({ content: '❌ Unknown subcommand.' });
 }
 
 const activeTicketCreationUsers = new Set();
+const ticketCreationCooldown = new Map();
 
 async function createTicketForUser(client, interaction, catKey, reason) {
   // Concurrency lock: synchronously block duplicate simultaneous attempts for the same user
@@ -13603,26 +13875,11 @@ async function createTicketForUser(client, interaction, catKey, reason) {
     return;
   }
   activeTicketCreationUsers.add(interaction.user.id);
+  ticketCreationCooldown.set(interaction.user.id, Date.now());
 
-  const cat = TICKET_CONFIG.categories[catKey];
-  if (!cat) {
-    if (interaction.deferred) {
-      await interaction.editReply({ content: '❌ Unknown ticket category.' });
-    } else {
-      await interaction.reply({ content: '❌ Unknown ticket category.', flags: MessageFlags.Ephemeral });
-    }
-    return;
-  }
-
-  if (ticketDeskState.status === 'closed' || !ticketDeskState.categories[catKey]) {
-    const msg = `❌ **${cat.shortName}** is currently closed by staff. Please check back later.`;
-    if (interaction.deferred) {
-      await interaction.editReply({ content: msg });
-    } else {
-      await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral });
-    }
-    return;
-  }
+  const autoReleaseTimer = setTimeout(() => {
+    activeTicketCreationUsers.delete(interaction.user.id);
+  }, 8000);
 
   const safeReply = async (opts) => {
     try {
@@ -13638,41 +13895,52 @@ async function createTicketForUser(client, interaction, catKey, reason) {
   };
 
   try {
-    if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    const cat = TICKET_CONFIG.categories[catKey];
+    if (!cat) {
+      await safeReply({ content: '❌ Unknown ticket category.' });
+      return;
     }
-  } catch {}
 
-  const sanitizedUsername =
-    interaction.user.username.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 20) || interaction.user.id;
+    if (ticketDeskState.status === 'closed' || !ticketDeskState.categories[catKey]) {
+      await safeReply({ content: `❌ **${cat.shortName}** is currently closed by staff. Please check back later.` });
+      return;
+    }
 
-  // Duplicate ticket protection: check activeTickets in memory AND verify on Discord
-  for (const [chId, t] of activeTickets.entries()) {
-    if (t.authorId === interaction.user.id && t.categoryKey === catKey) {
-      const existingCh = await interaction.guild?.channels?.fetch(chId).catch(() => null);
-      if (existingCh) {
-        await safeReply({ content: `❌ You already have an open ticket in this category: <#${chId}>` });
-        return;
-      } else {
-        activeTickets.delete(chId);
-        saveTickets();
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
+    }
+
+    const sanitizedUsername =
+      interaction.user.username.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 20) || interaction.user.id;
+
+    // Duplicate ticket protection: check activeTickets in memory AND verify on Discord
+    for (const [chId, t] of activeTickets.entries()) {
+      if (t.authorId === interaction.user.id && t.categoryKey === catKey) {
+        const existingCh = interaction.guild?.channels?.cache?.get(chId);
+        if (existingCh) {
+          await safeReply({ content: `❌ You already have an open ticket in this category: <#${chId}>` });
+          return;
+        } else {
+          activeTickets.delete(chId);
+          saveTickets();
+        }
       }
     }
-  }
 
-  // Duplicate ticket protection: fetch guild channels to detect any existing ticket channel (🟢/🔴/🔵)
-  try {
-    const fetchedChannels = await interaction.guild?.channels?.fetch().catch(() => null);
-    if (fetchedChannels) {
-      const existingGuildCh = fetchedChannels.find((c) => {
-        if (!c) return false;
+    // Fast in-memory duplicate protection: check cached guild channels (🟢/🔴/🔵/🟠/🟡)
+    try {
+      const allChannels = [...(interaction.guild?.channels?.cache?.values() || [])];
+      const existingGuildCh = allChannels.find((c) => {
+        if (!c || c.type !== ChannelType.GuildText) return false;
         const inCat = cat.categoryId ? c.parentId === cat.categoryId : true;
-        const isTicketPrefix = /^[🟢🔴🔵]・/.test(c.name);
+        const isTicketPrefix = /^[🟢🔴🔵🟠🟡]・/.test(c.name);
         if (!inCat || !isTicketPrefix) return false;
         const matchesName =
-          c.name === `🟢・${sanitizedUsername}` ||
-          c.name === `🔴・${sanitizedUsername}` ||
-          c.name === `🔵・${sanitizedUsername}` ||
+          c.name.toLowerCase() === `🟢・${sanitizedUsername}` ||
+          c.name.toLowerCase() === `🔴・${sanitizedUsername}` ||
+          c.name.toLowerCase() === `🔵・${sanitizedUsername}` ||
+          c.name.toLowerCase() === `🟠・${sanitizedUsername}` ||
+          c.name.toLowerCase() === `🟡・${sanitizedUsername}` ||
           c.name.toLowerCase().endsWith(`・${sanitizedUsername}`);
         const matchesPerm = c.permissionOverwrites?.cache?.has(interaction.user.id);
         return matchesName || matchesPerm;
@@ -13723,18 +13991,18 @@ async function createTicketForUser(client, interaction, catKey, reason) {
         await safeReply({ content: `❌ You already have an open ticket in this category: <#${existingGuildCh.id}>` });
         return;
       }
+    } catch (guildChErr) {
+      console.warn('[ticket] Error checking existing channels:', guildChErr.message);
     }
-  } catch (guildChErr) {
-    console.warn('[ticket] Error checking existing channels:', guildChErr.message);
-  }
-  const isPartnership = catKey === 'partnership';
-  // AI-managed categories (general/ia/highrank/deptreport) open green and are
-  // auto-handled by the assistant. Partnership/staff_partnership keep their own flow.
-  const aiManaged = isCategoryEnabled(catKey);
-  const channelName = isPartnership ? `🔵・${sanitizedUsername}` : (aiManaged ? `🟢・${sanitizedUsername}` : `🔴・${sanitizedUsername}`);
+    const isPartnership = catKey === 'partnership';
+    // AI-managed categories (general/ia/highrank/deptreport) open green and are
+    // auto-handled by the assistant. Partnership/staff_partnership keep their own flow.
+    const aiManaged = isCategoryEnabled(catKey);
+    const channelName = isPartnership ? `🔵・${sanitizedUsername}` : (aiManaged ? `🟢・${sanitizedUsername}` : `🔴・${sanitizedUsername}`);
 
-  try {
-    const parentCategory = await interaction.guild.channels.fetch(cat.categoryId).catch(() => null);
+    const parentCategory = cat.categoryId
+      ? (interaction.guild.channels.cache.get(cat.categoryId) || await interaction.guild.channels.fetch(cat.categoryId).catch(() => null))
+      : null;
 
     const permissionOverwrites = [
       {
@@ -13837,6 +14105,9 @@ async function createTicketForUser(client, interaction, catKey, reason) {
       controlMessageId: null
     };
 
+    activeTickets.set(ticketChannel.id, ticketData);
+    saveTickets();
+
     // Top ping for department roles & user (partnership, staff_partnership, and general support NEVER ping staff roles)
     let deptPingRoleIds = Array.isArray(cat.pingRoleIds)
       ? [...cat.pingRoleIds]
@@ -13847,7 +14118,7 @@ async function createTicketForUser(client, interaction, catKey, reason) {
       else if (catKey === 'deptreport') deptPingRoleIds = ['1346603583432425502'];
     }
     if (catKey === 'general') {
-      deptPingRoleIds = []; // General Support NEVER pings staff on open — automated assistant answers first
+      deptPingRoleIds = []; // General Support NEVER pings staff on open - automated assistant answers first
     }
     deptPingRoleIds = [...new Set(deptPingRoleIds.filter(Boolean))];
 
@@ -13880,7 +14151,7 @@ async function createTicketForUser(client, interaction, catKey, reason) {
       ticketData.partnershipStep = 'select_type';
     }
 
-    // Pinned control card with fallback — allowedMentions parse:[] ensures no duplicate ping from Opened By
+    // Pinned control card with fallback - allowedMentions parse:[] ensures no duplicate ping from Opened By
     const bannerExists = fs.existsSync(TICKET_BANNER_PATH);
     let controlMsg = null;
     try {
@@ -13931,9 +14202,6 @@ async function createTicketForUser(client, interaction, catKey, reason) {
       ticketData.staffBatchMessageId = staffMsg.id;
     }
 
-    activeTickets.set(ticketChannel.id, ticketData);
-    saveTickets();
-
     // Auto-respond to the ticket inquiry reason with the AI (for AI categories: general, ia, highrank, deptreport)
     if (aiManaged && !isPartnership) {
       try {
@@ -13952,6 +14220,7 @@ async function createTicketForUser(client, interaction, catKey, reason) {
       content: `❌ Could not create ticket channel (${err.message}). Ensure I have **Manage Channels** permission.`
     });
   } finally {
+    clearTimeout(autoReleaseTimer);
     activeTicketCreationUsers.delete(interaction.user.id);
   }
 }
@@ -13999,6 +14268,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     // ─────────────── ticket creation modal submit ───────────────
     if (interaction.isModalSubmit() && interaction.customId.startsWith('ticket_modal_')) {
+      const uId = interaction.user.id;
+      if (activeTicketCreationUsers.has(uId)) {
+        await interaction.reply({ content: '⏳ Please wait, your ticket is currently being created...', flags: MessageFlags.Ephemeral }).catch(() => {});
+        return;
+      }
+      const lastCreated = ticketCreationCooldown.get(uId);
+      if (lastCreated && Date.now() - lastCreated < 3000) {
+        await interaction.reply({ content: '⏳ You are opening tickets too fast. Please wait a few seconds.', flags: MessageFlags.Ephemeral }).catch(() => {});
+        return;
+      }
+
       try {
         if (!interaction.deferred && !interaction.replied) {
           await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -14039,7 +14319,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const card = buildReportFiledCard(interaction.user.id);
       const msg = await interaction.channel.send({ components: [card.toJSON()], flags: MessageFlags.IsComponentsV2 }).catch(() => null);
       if (msg && ticket.report) { ticket.report.messageId = msg.id; saveTickets(); }
-      await interaction.editReply({ content: '✅ Your report has been filed and sealed. Staff will see the full details — and get pinged — the moment they claim this ticket.' });
+      await interaction.editReply({ content: '✅ Your report has been filed and sealed. Staff will see the full details - and get pinged - the moment they claim this ticket.' });
       return;
     }
 
@@ -14570,7 +14850,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
               const resCard = new ContainerBuilder();
               resCard.addTextDisplayComponents(
                 new TextDisplayBuilder().setContent(
-                  `## 📋 Staff Application Review — ${isPassed ? 'Accepted' : 'Denied'}\n` +
+                  `## 📋 Staff Application Review - ${isPassed ? 'Accepted' : 'Denied'}\n` +
                   `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n` +
                   `> **Position:** **${appData.appType}**\n` +
                   `> **Verdict:** ${isPassed ? '✅ **Accepted**' : '❌ **Denied**'}\n` +
@@ -14615,7 +14895,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             );
             updateCard.addTextDisplayComponents(
               new TextDisplayBuilder().setContent(
-                `## 📋 Staff Application Review Request — ${isPassed ? 'Accepted' : 'Denied'}\n` +
+                `## 📋 Staff Application Review Request - ${isPassed ? 'Accepted' : 'Denied'}\n` +
                 `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n` +
                 `> **Position:** **${appData.appType}**\n` +
                 `> **Final Verdict:** ${isPassed ? '✅ **Accepted**' : '❌ **Denied**'}\n` +
@@ -15218,9 +15498,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
     }
 
-    // ── /information removed — use /panel type:information ──
+    // ── /information removed - use /panel type:information ──
     if (interaction.isChatInputCommand() && interaction.commandName === 'information') {
-      await interaction.reply({ content: '`/information panel` was removed — use **/panel type:Information** instead.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: '`/information panel` was removed - use **/panel type:Information** instead.', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -15241,7 +15521,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       // panel. This was the hole that could post "Session Information".
       if (sub !== 'vote' && sub !== 'shutdown') {
         await interaction.reply({
-          content: `**/session panel** was removed — use **/panel type:Session** instead. Other options: **/session vote** or **/session shutdown**. Press Ctrl+R if the command list looks stale.`,
+          content: `**/session panel** was removed - use **/panel type:Session** instead. Other options: **/session vote** or **/session shutdown**. Press Ctrl+R if the command list looks stale.`,
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -15281,7 +15561,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         try {
           try {
             sent = await interaction.channel.send({
-              // NOTE: `parse` and `roles` are mutually exclusive — never send both.
+              // NOTE: `parse` and `roles` are mutually exclusive - never send both.
               // The mention itself sits inside the card (V2 forbids `content`).
               allowedMentions: { roles: [role.id] },
               components: [buildVoteContainer(vote).toJSON()],
@@ -15337,15 +15617,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       // ── /session panel → live session card ──
       if (sub === 'panel') {
-        // Legacy /session panel slot removed from registration — redirect to /panel hub.
-        await interaction.reply({ content: '`/session panel` was removed — use **/panel type:Session** instead.', flags: MessageFlags.Ephemeral });
+        // Legacy /session panel slot removed from registration - redirect to /panel hub.
+        await interaction.reply({ content: '`/session panel` was removed - use **/panel type:Session** instead.', flags: MessageFlags.Ephemeral });
         return;
       }
     }
 
-    // ── /ticket panel removed — use /panel type:ticket ──
+    // ── /ticket panel removed - use /panel type:ticket ──
     if (interaction.isChatInputCommand() && interaction.commandName === 'ticket') {
-      await interaction.reply({ content: '`/ticket panel` was removed — use **/panel type:Ticket** instead.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: '`/ticket panel` was removed - use **/panel type:Ticket** instead.', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -15373,7 +15653,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         let grp = null;
         try { grp = interaction.options.getSubcommandGroup(false); } catch {}
         if (grp === 'application' || sub === 'application') {
-          await interaction.reply({ content: '`/staff application panel` was removed — use **/panel type:Staff Application** instead.', flags: MessageFlags.Ephemeral });
+          await interaction.reply({ content: '`/staff application panel` was removed - use **/panel type:Staff Application** instead.', flags: MessageFlags.Ephemeral });
           return;
         }
         if (sub === 'promotion' || sub === 'promote') {
@@ -15436,11 +15716,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
           await postPanelByType(interaction, 'shop', target, null);
           await interaction.editReply({ content: `Shop panel posted in <#${target.id}>.` });
         } catch (err) {
-          await interaction.editReply({ content: `Could not post the shop panel — ${err.message}` });
+          await interaction.editReply({ content: `Could not post the shop panel - ${err.message}` });
         }
         return;
       } else if (interaction.commandName === 'verify') {
-        await interaction.reply({ content: '`/verify panel` was removed — use **/panel type:Verification** instead.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: '`/verify panel` was removed - use **/panel type:Verification** instead.', flags: MessageFlags.Ephemeral });
         return;
       } else if (interaction.commandName === 'erlc') {
         await handleErlcCommand(interaction);
@@ -15520,6 +15800,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } else if (interaction.commandName === 'config') {
         const section = interaction.options.getString('section') || 'overview';
         await handleConfigCommand(interaction, section);
+        return;
+      } else if (interaction.commandName === 'transcript') {
+        await handleTranscriptCommand(interaction, true);
         return;
       }
     }
@@ -15762,7 +16045,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       const endTs = applyPostpone(client, vote, ms);
       await interaction.reply({
-        content: `Postponed — vote now ends <t:${Math.floor(endTs / 1000)}:R>. I'll DM you again when the timer runs out.`,
+        content: `Postponed - vote now ends <t:${Math.floor(endTs / 1000)}:R>. I'll DM you again when the timer runs out.`,
         flags: MessageFlags.Ephemeral
       });
       return;
@@ -15773,7 +16056,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const chosen = interaction.values?.[0] || 'info_overview';
       const isEphemeral = Boolean(interaction.message?.flags?.has(MessageFlags.Ephemeral));
 
-      // "Roleplay Rules & Regulations" opens the paginated Game Rules — privately,
+      // "Roleplay Rules & Regulations" opens the paginated Game Rules - privately,
       // so only the person who picked it sees the rules.
       if (chosen === 'info_roleplay_rules') {
         const rulesCard = buildRulesCard(0, interaction.guild);
@@ -15923,10 +16206,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       // 1. Reply to interaction IMMEDIATELY so Discord satisfies the 3-second window instantly
       await interaction.reply({
-        content: `> 🔒 **Claimed** by <@${interaction.user.id}>. They will now be assisting with this inquiry.`
+        content: `> **Claimed** by <@${interaction.user.id}>. They will now be assisting with this inquiry.`
       }).catch(() => {});
 
       ticket.claimedBy = interaction.user.id;
+      ticket.staffJoined = true;
       ticket.escalated = false;
       ticket.aiActive = false;
       ticket.aiStopped = true;
@@ -15976,6 +16260,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
       ticket.claimedBy = null;
+      ticket.staffJoined = true;
       ticket.aiActive = isCategoryEnabled(ticket.categoryKey);
       ticket.aiStopped = false;
       saveTickets();
@@ -15983,7 +16268,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const roleId = TICKET_ESCALATION_ROLES[ticket.categoryKey] || TICKET_ESCALATION_ROLES.general;
       // 1. Reply immediately
       await interaction.reply({
-        content: `> 🔓 **Unclaimed** by <@${interaction.user.id}>. Ticket is open for any staff member to claim.\n\n<@&${roleId}>`,
+        content: `> **Unclaimed** by <@${interaction.user.id}>. Ticket is open for any staff member to claim.\n\n<@&${roleId}>`,
         allowedMentions: { roles: [roleId] }
       }).catch(() => {});
 
@@ -16138,13 +16423,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const key = interaction.message?.id;
       let record = activeLoas.get(key);
       if (!record && key) {
-        // Card posted before this build (or a restarted bot) — rebuild a minimal record.
+        // Card posted before this build (or a restarted bot) - rebuild a minimal record.
         record = [...activeLoas.values()].find((r) => r.userId === loaAuthorId && r.status === 'pending')
           || { key, userId: loaAuthorId, guildId: interaction.guildId, status: 'pending' };
         record.key = record.key || key;
         activeLoas.set(key, record);
       }
-      // Already decided — the card was replaced, so a second click is stale.
+      // Already decided - the card was replaced, so a second click is stale.
       if (record.status === 'approved' || record.status === 'denied' || record.status === 'concluded') {
         await interaction.editReply({
           content: `This request was already ${record.status === 'concluded' ? 'ended' : record.status} by <@${record.decidedBy || 'management'}>.`
@@ -16157,11 +16442,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
       if (!record?.userId) {
-        await interaction.editReply({ content: 'Could not work out who this request belongs to — ask the member to submit it again with `/loa`.' });
+        await interaction.editReply({ content: 'Could not work out who this request belongs to - ask the member to submit it again with `/loa`.' });
         return;
       }
       if (record.status !== 'pending') {
-        await interaction.editReply({ content: `This request was already **${record.status}** — nothing left to do.` });
+        await interaction.editReply({ content: `This request was already **${record.status}** - nothing left to do.` });
         return;
       }
 
@@ -16190,7 +16475,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (action === 'deny') {
         const statusLine =
           `## Leave of Absence Denied\n> Denied by <@${interaction.user.id}> on ${stamp}.\n` +
-          `> Nothing was changed — they keep all their roles and their nickname.`;
+          `> Nothing was changed - they keep all their roles and their nickname.`;
         const newCard = await replaceLoaCard(client, interaction.message, appendLoaDecision(cardJson, statusLine), bannerFiles);
         if (newCard) record.actionMessageId = newCard.id;
 
@@ -16204,14 +16489,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
           components: [dmFrame(
             '## Your Leave of Absence Request Was Denied',
             `> Your request was not approved by <@${interaction.user.id}>.\n` +
-            `> Nothing was changed — you keep every role and your nickname.\n` +
+            `> Nothing was changed - you keep every role and your nickname.\n` +
             `> If you think this was a mistake, speak to management.`
           ).toJSON()],
           files: bannerFiles,
           flags: MessageFlags.IsComponentsV2
         }).catch(() => null);
 
-        await interaction.editReply({ content: 'Denied — the member was DM\'d and nothing was changed.' });
+        await interaction.editReply({ content: 'Denied - the member was DM\'d and nothing was changed.' });
         return;
       }
 
@@ -16245,7 +16530,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         components: [dmFrame(
           '## Your Leave of Absence Has Been Approved',
           `> Approved by <@${interaction.user.id}>.\n` +
-          `> **Your leave:** ${record.start} → ${record.end}\n` +
+          `> **Your leave:** ${record.start} -> ${record.end}\n` +
           `> Your staff roles are off until the leave is over.\n` +
           `> Everything goes back on when it ends and you will get a DM to confirm.`
         ).toJSON()],
@@ -16256,7 +16541,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.editReply({
         content: problems.length
           ? `Approved, but the bot could not do everything:\n> ${problems.join('\n> ')}\n> The member was DM'd.`
-          : `Approved — staff roles are off and they come back on **${record.end || 'their end date'}**. The member was DM'd.`
+          : `Approved - staff roles are off and they come back on **${record.end || 'their end date'}**. The member was DM'd.`
       });
       return;
     }
@@ -16305,7 +16590,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isButton() && interaction.customId === 'part_copy_our_ad') {
       await interaction.reply({
         content:
-          `### 📋 Official Server Advertisement — Alabama State Roleplay\n` +
+          `### 📋 Official Server Advertisement - Alabama State Roleplay\n` +
           `Copy the text inside the code block below to post in your server's partnership channel:\n\n` +
           `\`\`\`\n` +
           `${ASRP_OFFICIAL_AD}\n` +
@@ -16893,7 +17178,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } catch {}
 
       const updatedCard = new ContainerBuilder();
-      updatedCard.addTextDisplayComponents(new TextDisplayBuilder().setContent('## ❌ Partnership Proof — Revoked & Deleted'));
+      updatedCard.addTextDisplayComponents(new TextDisplayBuilder().setContent('## ❌ Partnership Proof - Revoked & Deleted'));
       updatedCard.addSeparatorComponents(thinLine());
       updatedCard.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
@@ -16982,7 +17267,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             if (!alreadySent) {
               await dmChan.send({
                 content:
-                  `⚠️ **Partnership Blacklist Notice — Alabama State Roleplay**\n\n` +
+                  `⚠️ **Partnership Blacklist Notice - Alabama State Roleplay**\n\n` +
                   `You have been issued a warning and are **banned from partnering with us for 1 month** until <t:${Math.floor(bannedUntil / 1000)}:F>.\n` +
                   `> **Reason:** Submitting fraudulent or fake proof of advertisement.\n` +
                   `> **Action Taken:** Any active advertisements deleted and partnership blacklisted for 1 month.`
@@ -16993,7 +17278,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } catch {}
 
       const updatedCard = new ContainerBuilder();
-      updatedCard.addTextDisplayComponents(new TextDisplayBuilder().setContent('## ⚠️ Partnership Proof — Warned & Blacklisted'));
+      updatedCard.addTextDisplayComponents(new TextDisplayBuilder().setContent('## ⚠️ Partnership Proof - Warned & Blacklisted'));
       updatedCard.addSeparatorComponents(thinLine());
       updatedCard.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
@@ -17116,7 +17401,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         // Step 3: Send the fresh requested application card
         const dashboard = buildApplicantDashboard(newApp);
-        // No banner in the DM — the coloured AI policy is the only emphasis here.
+        // No banner in the DM - the coloured AI policy is the only emphasis here.
         const dmFiles = [];
         const dmMsg = await dmCh.send({
           allowedMentions: { users: [newApp.applicantId], parse: [] },
@@ -17795,7 +18080,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const claimedCard = new ContainerBuilder();
       claimedCard.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          `## 📋 Staff Application Review — In Review\n` +
+          `## 📋 Staff Application Review - In Review\n` +
           `> **Applicant:** <@${appData.applicantId}> (\`${appData.applicantTag}\`)\n` +
           `> **Position:** **${appData.appType}**\n` +
           `> **Status:** 🔒 Claimed and being reviewed by <@${interaction.user.id}>\n` +
@@ -17856,7 +18141,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const declineCard = new ContainerBuilder();
       declineCard.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
-          '## 📋 Staff Application Review — Declined\n' +
+          '## 📋 Staff Application Review - Declined\n' +
           '> You declined to review this application. It has been released for other staff members.'
         )
       );
@@ -17917,7 +18202,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         );
 
       // Two bot instances can race the same click. If another instance already
-      // acknowledged this token, showModal throws 40060 — swallow it so we never
+      // acknowledged this token, showModal throws 40060 - swallow it so we never
       // crash; the winning instance is already showing the modal.
       try {
         await interaction.showModal(modal);
@@ -18922,25 +19207,25 @@ function buildCommandsGuidePage(pageIndex = 0) {
   if (page === 0) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Panel Hub & Systems\n` +
+        `## Command Directory - Panel Hub & Systems\n` +
         `*Page 1 of ${totalPages} • Every panel, configuration, and postable card lives here.*\n\n` +
         `</panel:1549298204271448168> </config:1549298204271448168> </shop:1549298204271448168> </media:1549298204271448168> </information:1549298204271448168>\n\n` +
-        `> • **Panel Hub** — Post Session, Tickets, Verification, Applications, Rules and Shop panels with \`/panel\`.\n` +
-        `> • **Config Dashboard** — View and inspect all live bot settings, thresholds, and systems with \`/config\` or \`-config\`.\n` +
-        `> • **Shop** — Post the membership shop panel (Donation / Membership+ / Paid Partnership).\n` +
-        `> • **Media** — Post a media drop with a banner, credit and optional ping (Media Team only).\n` +
-        `> • **Information** — Server overview, community rules, FAQ and the full Game Rules (R-1 to R-55).`
+        `> • **Panel Hub** - Post Session, Tickets, Verification, Applications, Rules and Shop panels with \`/panel\`.\n` +
+        `> • **Config Dashboard** - View and inspect all live bot settings, thresholds, and systems with \`/config\` or \`-config\`.\n` +
+        `> • **Shop** - Post the membership shop panel (Donation / Membership+ / Paid Partnership).\n` +
+        `> • **Media** - Post a media drop with a banner, credit and optional ping (Media Team only).\n` +
+        `> • **Information** - Server overview, community rules, FAQ and the full Game Rules (R-1 to R-55).`
       )
     );
   } else if (page === 1) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Session Operations\n` +
+        `## Command Directory - Session Operations\n` +
         `*Page 2 of ${totalPages} • Voting, hosting, and shutting down sessions.*\n\n` +
         `</session vote:1549298204271448167> </session shutdown:1549298204271448167> </panel:1549298204271448168>\n\n` +
-        `> • **Session Vote** — Goal-based vote with a timer. Members vote straight from the card.\n` +
-        `> • **Session Shutdown** — Ends the session, posts the closed card and DMs everyone who voted.\n` +
-        `> • **Panel Hub** — Post or refresh the live session panel with \`/panel type:Session\`.\n\n` +
+        `> • **Session Vote** - Goal-based vote with a timer. Members vote straight from the card.\n` +
+        `> • **Session Shutdown** - Ends the session, posts the closed card and DMs everyone who voted.\n` +
+        `> • **Panel Hub** - Post or refresh the live session panel with \`/panel type:Session\`.\n\n` +
         `> When a vote hits its goal the host is DM'd a decision card (Start / Postpone).\n` +
         `> Starting a session posts only the session panel, with no extra text in the channel.`
       )
@@ -18948,110 +19233,110 @@ function buildCommandsGuidePage(pageIndex = 0) {
   } else if (page === 2) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Staff & Management\n` +
+        `## Command Directory - Staff & Management\n` +
         `*Page 3 of ${totalPages} • Staff administration, ranks, and applications.*\n\n` +
         `</staff promotion:1549298204271448169> </staff derank:1549298204271448169> </staff feedback:1549298204271448169> </staff infraction:1549298204271448169> </retirement:1549298204271448169> </panel:1549298204271448168>\n\n` +
-        `> • **Staff Promotion** — Issue a promotion announcement and update the user's roles.\n` +
-        `> • **Staff Derank** — Demote a staff member and strip their designated roles.\n` +
-        `> • **Staff Infraction** — Official staff infraction notice with reason and logs.\n` +
-        `> • **Staff Feedback** — Submit a 1 to 5 star rating and review for a staff member.\n` +
-        `> • **Retirement** — Post the official staff retirement announcement.\n` +
-        `> • **Panel Hub** — Post the Applications panel with \`/panel type:Applications\`.\n\n` +
+        `> • **Staff Promotion** - Issue a promotion announcement and update the user's roles.\n` +
+        `> • **Staff Derank** - Demote a staff member and strip their designated roles.\n` +
+        `> • **Staff Infraction** - Official staff infraction notice with reason and logs.\n` +
+        `> • **Staff Feedback** - Submit a 1 to 5 star rating and review for a staff member.\n` +
+        `> • **Retirement** - Post the official staff retirement announcement.\n` +
+        `> • **Panel Hub** - Post the Applications panel with \`/panel type:Applications\`.\n\n` +
         `> Applications are In-Game Staff only. The application opens in the applicant's DMs.`
       )
     );
   } else if (page === 3) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Moderation & Server Security\n` +
+        `## Command Directory - Moderation & Server Security\n` +
         `*Page 4 of ${totalPages} • Discord moderation, safety enforcement, and anti-nuke.*\n\n` +
         `</ban:1549298204271448173> </kick:1549298204724691004> </timeout:1549298204724691005> </unban:1549298204724691012> </purge:1549298204724691006>\n` +
         `</antinuke status:1549298204724691007> </antinuke snapshot:1549298204724691007> </antinuke restore:1549298204724691007>\n\n` +
-        `> • **Ban, Kick, Timeout, Unban, Purge** — Day-to-day moderation. Purge bulk-deletes recent messages.\n` +
-        `> • **/antinuke status** — Shows what the defence is watching, the saved backups, and who gets pinged.\n` +
-        `> • **/antinuke snapshot** — Takes a fresh backup of every channel and role.\n` +
-        `> • **/antinuke restore** — Puts deleted channels and roles back from the backup.`
+        `> • **Ban, Kick, Timeout, Unban, Purge** - Day-to-day moderation. Purge bulk-deletes recent messages.\n` +
+        `> • **/antinuke status** - Shows what the defence is watching, the saved backups, and who gets pinged.\n` +
+        `> • **/antinuke snapshot** - Takes a fresh backup of every channel and role.\n` +
+        `> • **/antinuke restore** - Puts deleted channels and roles back from the backup.`
       )
     );
   } else if (page === 4) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — ER:LC In-Game Moderation\n` +
+        `## Command Directory - ER:LC In-Game Moderation\n` +
         `*Page 5 of ${totalPages} • Private server policing, command execution, and safe zones.*\n\n` +
         `</erlc scan:1549298204724691009> </erlc status:1549298204724691009> </erlc pm:1549298204724691009> </erlc message:1549298204724691009> </erlc hint:1549298204724691009>\n` +
         `</erlc jail:1549298204724691009> </erlc unjail:1549298204724691009> </erlc kick:1549298204724691009> </erlc ban:1549298204724691009>\n` +
         `</safezone strike:1549298204724691013> </safezone status:1549298204724691013> </safezone clear:1549298204724691013> </exploit report:1549298204724691009>\n\n` +
-        `> • **/erlc scan, status, pm, message, hint** — Check players, send PMs, broadcast with :m and drop hints with :h.\n` +
-        `> • **/erlc jail, unjail, kick, ban** — Punish players in the private server.\n` +
-        `> • **/safezone strike, status, clear** — Log players who shoot in safe zones. Escalates automatically.\n` +
-        `> • **/exploit report** — File a report on an exploiter with evidence attached.`
+        `> • **/erlc scan, status, pm, message, hint** - Check players, send PMs, broadcast with :m and drop hints with :h.\n` +
+        `> • **/erlc jail, unjail, kick, ban** - Punish players in the private server.\n` +
+        `> • **/safezone strike, status, clear** - Log players who shoot in safe zones. Escalates automatically.\n` +
+        `> • **/exploit report** - File a report on an exploiter with evidence attached.`
       )
     );
   } else if (page === 5) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Tickets & Community\n` +
+        `## Command Directory - Tickets & Community\n` +
         `*Page 6 of ${totalPages} • Assistance desk, member management, and prefix controls.*\n\n` +
         `</panel:1549298204271448168> </add:1549610085385240646> </unadd:1549610085385240647> </proof partnership:1549298204271448172> </suggest:1549298204271448171>\n\n` +
-        `> • **Panel Hub** — Post the Tickets panel with \`/panel type:Tickets\`.\n` +
-        `> • **/add and /unadd** — Add or remove people from an open ticket.\n` +
-        `> • **/proof partnership** — Upload proof for a paid partnership.\n` +
-        `> • **/suggest** — Submit an interactive community suggestion.\n\n` +
+        `> • **Panel Hub** - Post the Tickets panel with \`/panel type:Tickets\`.\n` +
+        `> • **/add and /unadd** - Add or remove people from an open ticket.\n` +
+        `> • **/proof partnership** - Upload proof for a paid partnership.\n` +
+        `> • **/suggest** - Submit an interactive community suggestion.\n\n` +
         `### Prefix Controls\n` +
-        `> • \`-busy\` / \`-open\` / \`-close all\` — Set the desk to Online, Busy or Closed.\n` +
-        `> • \`-open <dept>\` / \`-close <dept>\` — Lock or unlock one department.\n` +
-        `> • \`-add @user\` / \`-unadd @user\` — Manage ticket channel members.\n` +
-        `> • \`-partnership <text>\` — Submit a partnership application inside a ticket.\n` +
-        `> • \`-confirm\` — Verify a paid partnership payment.\n` +
-        `> • \`-status\` — Show the current ticket desk availability.`
+        `> • \`-busy\` / \`-open\` / \`-close all\` - Set the desk to Online, Busy or Closed.\n` +
+        `> • \`-open <dept>\` / \`-close <dept>\` - Lock or unlock one department.\n` +
+        `> • \`-add @user\` / \`-unadd @user\` - Manage ticket channel members.\n` +
+        `> • \`-partnership <text>\` - Submit a partnership application inside a ticket.\n` +
+        `> • \`-confirm\` - Verify a paid partnership payment.\n` +
+        `> • \`-status\` - Show the current ticket desk availability.`
       )
     );
   } else if (page === 6) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Leave of Absence (LOA)\n` +
+        `## Command Directory - Leave of Absence (LOA)\n` +
         `*Page 7 of ${totalPages} • Staff leave requests and approvals.*\n\n` +
         `</loa:1549298204271448168>\n\n` +
-        `> • **/loa** — Submit a leave request (Roblox name, rank, start date, end date, reason).\n` +
-        `> • **-loa** — The same thing as a prefix message, with fields split by a pipe.\n` +
-        `> • **-loaend @user** — End someone's leave early.\n\n` +
+        `> • **/loa** - Submit a leave request (Roblox name, rank, start date, end date, reason).\n` +
+        `> • **-loa** - The same thing as a prefix message, with fields split by a pipe.\n` +
+        `> • **-loaend @user** - End someone's leave early.\n\n` +
         `> Requests post in management with Approve and Deny buttons. Approved leaves automatically manage staff roles and nickname tags.`
       )
     );
   } else if (page === 7) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — High-Fidelity Music Bot\n` +
+        `## Command Directory - High-Fidelity Music Bot\n` +
         `*Page 8 of ${totalPages} • YouTube & audio streaming with interactive controls.*\n\n` +
         `</play:1549298204271448168> </stop:1549298204271448168> </loop:1549298204271448168> </replay:1549298204271448168> </skip:1549298204271448168>\n\n` +
-        `> • **-play <query/url>** or **/play** — Play songs or playlists from YouTube, SoundCloud, or Spotify.\n` +
-        `> • **-stop** or **/stop** — Stop music, clear the queue, and leave voice channel.\n` +
-        `> • **-loop [mode]** or **/loop** — Cycle loop mode: Single Track 🔂, Entire Queue 🔁, or Off ⏹️.\n` +
-        `> • **-replay** or **/replay** — Replay the currently playing track from the beginning.\n` +
-        `> • **-skip** or **/skip** — Skip to the next track in queue.\n` +
-        `> • **-pause** / **-resume** — Pause or continue playback.\n` +
-        `> • **-queue** or **/queue** — View upcoming tracks in the music queue.\n` +
-        `> • **-nowplaying** or **/nowplaying** — Interactive card with progress bar and control buttons.\n` +
-        `> • **-volume <1-100>** or **/volume** — Adjust playback volume smoothly.`
+        `> • **-play <query/url>** or **/play** - Play songs or playlists from YouTube, SoundCloud, or Spotify.\n` +
+        `> • **-stop** or **/stop** - Stop music, clear the queue, and leave voice channel.\n` +
+        `> • **-loop [mode]** or **/loop** - Cycle loop mode: Single Track 🔂, Entire Queue 🔁, or Off ⏹️.\n` +
+        `> • **-replay** or **/replay** - Replay the currently playing track from the beginning.\n` +
+        `> • **-skip** or **/skip** - Skip to the next track in queue.\n` +
+        `> • **-pause** / **-resume** - Pause or continue playback.\n` +
+        `> • **-queue** or **/queue** - View upcoming tracks in the music queue.\n` +
+        `> • **-nowplaying** or **/nowplaying** - Interactive card with progress bar and control buttons.\n` +
+        `> • **-volume <1-100>** or **/volume** - Adjust playback volume smoothly.`
       )
     );
   } else if (page === 8) {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — Emergency Controls & Appeals\n` +
+        `## Command Directory - Emergency Controls & Appeals\n` +
         `*Page 9 of ${totalPages} • Emergency recovery, appeals, and system diagnostics.*\n\n` +
         `</appeal:1549597649848766495> </retrigger:1549298204271448166> </config:1549298204271448164> </commands:1549298204271448164>\n\n` +
-        `> • **Appeal** — Open official private server ban appeal.\n` +
-        `> • **Retrigger** — Emergency reboot & re-sync (re-registers commands, restarts timers, unblocks buttons).\n` +
-        `> • **Config Dashboard** — View and configure server settings, channels, and thresholds with \`/config\`.\n` +
-        `> • **Commands Directory** — Open this interactive multi-page command directory.`
+        `> • **Appeal** - Open official private server ban appeal.\n` +
+        `> • **Retrigger** - Emergency reboot & re-sync (re-registers commands, restarts timers, unblocks buttons).\n` +
+        `> • **Config Dashboard** - View and configure server settings, channels, and thresholds with \`/config\`.\n` +
+        `> • **Commands Directory** - Open this interactive multi-page command directory.`
       )
     );
   } else {
     card.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `## Command Directory — AI Command Engine\n` +
-        `*Page 10 of ${totalPages} — Say what you want in plain English.*\n\n` +
+        `## Command Directory - AI Command Engine\n` +
+        `*Page 10 of ${totalPages} - Say what you want in plain English.*\n\n` +
         `### How it works\n` +
         `> Type **\`-ai <request>\`** in any channel. The bot parses plain English and acts immediately.\n\n` +
         `### Popular Actions\n` +
@@ -19615,10 +19900,10 @@ function aiModLogCard(title, lines) {
 
 /**
  * Resolves the dedicated area that session content (vote cards, session
- * panels) must be posted in — never whichever channel the command was typed in.
+ * panels) must be posted in - never whichever channel the command was typed in.
  *
  * Priority:
- *  1. SESSION_CHANNEL_ID from .env — the configured session channel.
+ *  1. SESSION_CHANNEL_ID from .env - the configured session channel.
  *  2. The first visible text channel whose name mentions "session".
  *  3. The channel the command was run in (legacy behaviour).
  */
@@ -19627,7 +19912,7 @@ async function resolveSessionChannel(guild, fallbackChannel) {
     const ch = await guild.channels.fetch(config.sessionChannelId).catch(() => null);
     if (ch?.isTextBased?.()) return ch;
     console.warn(
-      `[session] SESSION_CHANNEL_ID ${config.sessionChannelId} is missing or not a text channel — falling back.`
+      `[session] SESSION_CHANNEL_ID ${config.sessionChannelId} is missing or not a text channel - falling back.`
     );
   }
   if (guild) {
@@ -19717,7 +20002,7 @@ async function aiStartSessionVote({ message, needed, duration, roleId, hostName 
   const durLabel = { '30m': '30 minutes', '1h': '1 hour', '2h': '2 hours', '5h': '5 hours' }[duration] ?? '1 hour';
   return {
     ok: true,
-    message: `🗳️ Session vote is live in <#${target.id}> — needs **${needed}** votes, ends <t:${Math.floor(vote.endTs / 1000)}:R> (${durLabel}). Ping role: ${formatRoleMention(role.id, message.guildId)}`
+    message: `🗳️ Session vote is live in <#${target.id}> - needs **${needed}** votes, ends <t:${Math.floor(vote.endTs / 1000)}:R> (${durLabel}). Ping role: ${formatRoleMention(role.id, message.guildId)}`
   };
 }
 
@@ -19992,7 +20277,7 @@ function recordInfraction({ guildId, targetId, targetTag, type, reason, notes, m
   return rec;
 }
 
-/** `-ai list infractions` — the staff infraction log. */
+/** `-ai list infractions` - the staff infraction log. */
 async function aiListInfractions({ userId, limit = 10, guild }) {
   let rows = [...activeInfractions.values()].filter((r) => !r.guildId || r.guildId === guild?.id);
   if (userId) rows = rows.filter((r) => r.targetId === userId);
@@ -20010,20 +20295,20 @@ async function aiListInfractions({ userId, limit = 10, guild }) {
   const lines = shown.map((r, i) => {
     const mark = r.revoked ? '🔁' : '⚠️';
     const tail = r.revoked
-      ? `\n> Revoked <t:${Math.floor(r.revokedAt / 1000)}:R> by <@${r.revokedBy}> — ${r.revokeReason || 'no reason given'}`
+      ? `\n> Revoked <t:${Math.floor(r.revokedAt / 1000)}:R> by <@${r.revokedBy}> - ${r.revokeReason || 'no reason given'}`
       : '';
-    return `${i + 1}. ${mark} **${r.type}** — <@${r.targetId}>\n> ${r.reason}\n> Issued <t:${Math.floor(r.createdAt / 1000)}:R> by <@${r.moderatorId}>${tail}`;
+    return `${i + 1}. ${mark} **${r.type}** - <@${r.targetId}>\n> ${r.reason}\n> Issued <t:${Math.floor(r.createdAt / 1000)}:R> by <@${r.moderatorId}>${tail}`;
   });
   return {
     ok: true,
     message:
-      `## Staff Infractions${userId ? ` — <@${userId}>` : ''}\n` +
+      `## Staff Infractions${userId ? ` - <@${userId}>` : ''}\n` +
       `> **Active:** ${activeCount} · **Showing:** ${shown.length}${rows.length > shown.length ? ` of ${rows.length}` : ''}\n\n` +
       lines.join('\n\n')
   };
 }
 
-/** `-ai revoke <user> infraction` — marks the infraction revoked + posts a notice. */
+/** `-ai revoke <user> infraction` - marks the infraction revoked + posts a notice. */
 async function aiRevokeInfraction({ guild, userId, id, reason, by }) {
   let rec = null;
   if (id) {
@@ -20062,7 +20347,7 @@ async function aiRevokeInfraction({ guild, userId, id, reason, by }) {
   return { ok: true, message: `✅ Revoked the **${rec.type}** infraction for <@${rec.targetId}>.` };
 }
 
-/** `-ai revoke <user> promotion` — posts an official revocation/demotion notice. */
+/** `-ai revoke <user> promotion` - posts an official revocation/demotion notice. */
 async function aiRevokePromotion({ guild, userId, reason, notes, by }) {
   const member = await guild.members.fetch(userId).catch(() => null);
   const targetUser = member?.user ?? (await client.users.fetch(userId).catch(() => null));
@@ -20086,34 +20371,34 @@ async function aiRevokePromotion({ guild, userId, reason, notes, by }) {
   await dmUser(client, targetUser.id, { components: [container.toJSON()], flags: MessageFlags.IsComponentsV2 }).catch(() => null);
   return {
     ok: true,
-    message: `✅ Promotion revoked for <@${targetUser.id}> — the notice is posted in <#${channel.id}>.`
+    message: `✅ Promotion revoked for <@${targetUser.id}> - the notice is posted in <#${channel.id}>.`
   };
 }
 
-/** `-ai dm @user ...` — private DM on behalf of staff. */
+/** `-ai dm @user ...` - private DM on behalf of staff. */
 async function aiDmMember({ userId, text, by }) {
   const sent = await dmUser(client, userId, {
     content: `📩 **Message from Alabama State Roleplay staff**\n\n${text}\n\n-# Sent by ${by.tag}`
   });
   if (!sent) {
-    return { ok: false, message: '❌ I could not DM that member — their privacy settings may block bot DMs.' };
+    return { ok: false, message: '❌ I could not DM that member - their privacy settings may block bot DMs.' };
   }
   return { ok: true, message: `📩 DM delivered to <@${userId}>.` };
 }
 
-// Meetings live in ./meetings.js — the AI context below wires scheduleMeeting,
+// Meetings live in ./meetings.js - the AI context below wires scheduleMeeting,
 // postponeMeeting, cancelMeeting and listMeetings into the executor.
 const MEETINGS_FILE = fileURLToPath(new URL('../meetings.json', import.meta.url));
 
 /**
  * Components V2 help card for `-ai help`, scoped to the caller's tier.
  *
- * Clean panel style: headings, bold group titles and blockquotes only —
+ * Clean panel style: headings, bold group titles and blockquotes only -
  * no emoji, no backticks, no owner/footer mentions.
  */
 function buildAiHelpCard(tier) {
   const { groups, ownerGroups, examples, examplesOwner, note } = aiHelpSections(tier);
-  const line = (g) => `> **${g.title}** — ${g.items.join(' · ')}`;
+  const line = (g) => `> **${g.title}** - ${g.items.join(' · ')}`;
 
   const card = new ContainerBuilder();
   try { card.setAccentColor(0x5865f2); } catch { }
@@ -20179,7 +20464,7 @@ async function onceAcrossInstances(commandMessage, makePayload, { settleMs = 900
     const prior = claimedCommandMessages.get(key);
     if (prior && Date.now() - prior.at < 12_000) {
       // Re-entrant delivery of the SAME command on this instance (double event
-      // or our own retry) — never send a second copy.
+      // or our own retry) - never send a second copy.
       return prior.reply;
     }
   }
@@ -20198,7 +20483,7 @@ async function onceAcrossInstances(commandMessage, makePayload, { settleMs = 900
   let seen = await channel?.messages?.fetch({ limit: 20 }).catch(() => null);
   let refs = findRefs(seen);
   if (refs.length) {
-    // The other instance already answered — adopt its copy and send nothing.
+    // The other instance already answered - adopt its copy and send nothing.
     const winner = refs.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
     if (key) claimedCommandMessages.set(key, { reply: winner, at: Date.now() });
     return null;
@@ -20214,11 +20499,11 @@ async function onceAcrossInstances(commandMessage, makePayload, { settleMs = 900
 
   // Settle on exactly ONE reply. Both instances sort the twins the same way
   // (oldest snowflake wins), so the loser deletes its own copy and stops BEFORE
-  // running the command — the winner carries on and edits its reply with the
+  // running the command - the winner carries on and edits its reply with the
   // result. Without this both copies would stay and both would execute.
   // We re-fetch a few times over the settle window because Discord's gateway
   // does not guarantee a twin is visible the instant the other instance POSTed
-  // it — a single check 900ms later routinely missed the twin and left TWO
+  // it - a single check 900ms later routinely missed the twin and left TWO
   // "Working on it…" messages standing.
   const winner = async () => {
     for (let attempt = 0; attempt < 4; attempt++) {
@@ -20229,7 +20514,7 @@ async function onceAcrossInstances(commandMessage, makePayload, { settleMs = 900
         if (twins[0].id !== sent.id) {
           await sent.delete().catch(() => null);
           if (key) claimedCommandMessages.set(key, { reply: twins[0], at: Date.now() });
-          return null; // the other instance won — let it run the command
+          return null; // the other instance won - let it run the command
         }
         for (const twin of twins.slice(1)) await twin.delete().catch(() => null);
       }
@@ -20259,7 +20544,7 @@ if (typeof setInterval === 'function') {
  *
  * Cross-instance dedup works by looking for an existing bot reply that already
  * references the command message; a twin that slips out in the same window is
- * then deleted — the same approach autoDeleteReply uses for plain replies.
+ * then deleted - the same approach autoDeleteReply uses for plain replies.
  *
  * @returns {Promise<object|null>} the sent message, or null when another
  *   instance already answered (the caller should stop).
@@ -20278,7 +20563,7 @@ async function sendAiHelp(message, tier) {
 
   const payload = { components: [buildAiHelpCard(tier).toJSON()], flags: MessageFlags.IsComponentsV2 };
   const dm = await message.author.send(payload).catch(() => null);
-  // The gate message was only a cross-instance claim — it never carries the
+  // The gate message was only a cross-instance claim - it never carries the
   // card, so it is always removed once the real card is on its way.
   await claimed.delete().catch(() => null);
   if (dm) {
@@ -20456,7 +20741,7 @@ async function runAiIntent(message, intent, replyTarget) {
   }
   await replyTarget?.edit(payload).catch(() => null);
 
-  // Only audit real actions — refused or unmapped requests are noise.
+  // Only audit real actions - refused or unmapped requests are noise.
   if (intent.action !== 'unsupported' && intent.action !== 'ai_chat') await logAiAction(ctx, intent, result);
 
   // Clean up the command message and the reply after a short window.
@@ -20490,7 +20775,7 @@ async function handleAiPrefixCommand(message, requestText) {
     return;
   }
 
-  // `-ai` with no request, or an explicit help word, always answers instantly —
+  // `-ai` with no request, or an explicit help word, always answers instantly -
   // via DM when possible so only the requester sees it.
   const trimmed = String(requestText || '').trim();
   if (!trimmed || /^(help|what can you do|commands|list|guide|options|menu|abilities|what can i ask|how do you work)\b/i.test(trimmed)) {
@@ -20502,13 +20787,13 @@ async function handleAiPrefixCommand(message, requestText) {
   const last = aiCooldowns.get(message.author.id) ?? 0;
   const wait = AI_COOLDOWN_MS - (Date.now() - last);
   if (wait > 0) {
-    await autoDeleteReply(message, `⏳ Slow down — try again in ${Math.ceil(wait / 1000)}s.`, 10000);
+    await autoDeleteReply(message, `⏳ Slow down - try again in ${Math.ceil(wait / 1000)}s.`, 10000);
     return;
   }
   aiCooldowns.set(message.author.id, Date.now());
 
   // Acknowledge before the (slow) gateway call so the channel never looks dead.
-  // dedupReply returns null when another instance already answered — bail out
+  // dedupReply returns null when another instance already answered - bail out
   // so the command is never executed (and never replied to) twice.
   const thinking = await dedupReply(message, { content: '🧠 **Working on it…**' });
   if (!thinking) return;
@@ -20531,7 +20816,7 @@ async function handleAiPrefixCommand(message, requestText) {
   }
 
   // Nothing mapped to an action: hold a real conversation instead of the
-  // dead-end refusal — the gateway answers in plain words ("chat to me").
+  // dead-end refusal - the gateway answers in plain words ("chat to me").
   // `thinking` is ALREADY the single deduped reply (dedupReply/onceAcrossInstances
   // won above), so we edit IT in place. Creating a second claim here is what
   // caused a duplicate "Working on it…" plus a stuck one that never updated.
@@ -20575,7 +20860,7 @@ async function handleAiPrefixCommand(message, requestText) {
         content:
           `${enriched.reply ? `🧠 ${enriched.reply}\n` : '🧠 '}` +
           `${slot.question}\n` +
-          `-# Reply here with your answer — no \`-ai\` needed. Say \`cancel\` to stop.`
+          `-# Reply here with your answer - no \`-ai\` needed. Say \`cancel\` to stop.`
       }).catch(() => null);
       return;
     }
@@ -20610,7 +20895,7 @@ async function continueAiConvo(message) {
   const tier = aiAccessTier(message.author.id, roleIds);
   if (tier === 'none') {
     clearAiConvo(key);
-    await autoDeleteReply(message, '🛑 That chat is over — you no longer have AI access.', 20000);
+    await autoDeleteReply(message, '🛑 That chat is over - you no longer have AI access.', 20000);
     return true;
   }
   // Same tier or higher keeps the chat (owner outranks everything); a
@@ -20619,13 +20904,13 @@ async function continueAiConvo(message) {
   const rank = { owner: 3, directive: 2, staff: 2 };
   if ((rank[tier] ?? 0) < (rank[convo.intent.tier] ?? 0)) {
     clearAiConvo(key);
-    await autoDeleteReply(message, '🛑 That chat is over — your access level changed.', 20000);
+    await autoDeleteReply(message, '🛑 That chat is over - your access level changed.', 20000);
     return true;
   }
 
   if (isAiCancelAnswer(text)) {
     clearAiConvo(key);
-    await autoDeleteReply(message, '🛑 Cancelled — nothing was changed.', 20000);
+    await autoDeleteReply(message, '🛑 Cancelled - nothing was changed.', 20000);
     return true;
   }
 
@@ -20675,9 +20960,9 @@ async function continueAiConvo(message) {
     return true;
   }
 
-  // done — the intent is fully filled, run it on the original command message.
+  // done - the intent is fully filled, run it on the original command message.
   clearAiConvo(key);
-  const thinking = await dedupReply(message, { content: '🧠 **Got it — running it now…**' });
+  const thinking = await dedupReply(message, { content: '🧠 **Got it - running it now…**' });
   if (!thinking) return true;
   await runAiIntent(message, { ...convo.intent, tier }, thinking);
   return true;
@@ -20701,7 +20986,7 @@ async function convoPromptMessage(answerMessage, convo) {
       if (existing && existing.author?.id === client.user?.id) return existing;
     }
     // First follow-up: adopt the "-ai" command's deduped reply when it is
-    // ours — then advance it in place for every later question.
+    // ours - then advance it in place for every later question.
     if (convo.rootReplyId) {
       const root = await answerMessage.channel?.messages
         ?.fetch(convo.rootReplyId)
@@ -20717,7 +21002,7 @@ async function convoPromptMessage(answerMessage, convo) {
       allowedMentions: { parse: [] }
     }).catch(() => null);
     if (sent) {
-      // Another instance may have posted its own twin in the same window —
+      // Another instance may have posted its own twin in the same window -
       // keep the OLDEST and delete the rest, exactly like dedupReply.
       const recent = await answerMessage.channel?.messages?.fetch({ limit: 10 }).catch(() => null);
       if (recent) {
@@ -20762,10 +21047,10 @@ async function aiBanUser({ guild, userId, reason, deleteDays, durationDays, by }
     await sendSecurityLog(guild, aiModLogCard('## 🔨 Member Banned (Temporary)', [
       `> **User:** <@${userId}> (\`${userId}\`)`,
       `> **Moderator:** <@${by.id}>`,
-      `> **Duration:** ${durationDays} day${durationDays === 1 ? '' : 's'} — lifts <t:${Math.floor(untilMs / 1000)}:f>`,
+      `> **Duration:** ${durationDays} day${durationDays === 1 ? '' : 's'} - lifts <t:${Math.floor(untilMs / 1000)}:f>`,
       `> **Reason:** ${reason}`
     ])).catch(() => null);
-    return { ok: true, message: `🔨 Banned <@${userId}> for **${durationDays} day${durationDays === 1 ? '' : 's'}** — lifts <t:${Math.floor(untilMs / 1000)}:f>.` };
+    return { ok: true, message: `🔨 Banned <@${userId}> for **${durationDays} day${durationDays === 1 ? '' : 's'}** - lifts <t:${Math.floor(untilMs / 1000)}:f>.` };
   }
 
   await guild.bans.create(userId, {
@@ -20787,10 +21072,10 @@ async function aiBanUser({ guild, userId, reason, deleteDays, durationDays, by }
 async function aiKickUser({ guild, userId, reason, by }) {
   const member = await guild.members.fetch(userId).catch(() => null);
   if (!member) return { ok: false, message: '❌ That member is not in the server.' };
-  if (!member.kickable) return { ok: false, message: '❌ I cannot kick that member — their role is higher than mine.' };
+  if (!member.kickable) return { ok: false, message: '❌ I cannot kick that member - their role is higher than mine.' };
   const executor = await guild.members.fetch(by.id).catch(() => null);
   if (executor && executor.roles.highest.position <= member.roles.highest.position && guild.ownerId !== by.id) {
-    return { ok: false, message: '❌ You cannot kick that member — their role is higher than or equal to yours.' };
+    return { ok: false, message: '❌ You cannot kick that member - their role is higher than or equal to yours.' };
   }
   await member.kick(`${reason} (issued by ${by.tag})`);
   await sendSecurityLog(guild, aiModLogCard('## 👢 Member Kicked', [
@@ -20805,10 +21090,10 @@ async function aiKickUser({ guild, userId, reason, by }) {
 async function aiTimeoutUser({ guild, userId, minutes, reason, by }) {
   const member = await guild.members.fetch(userId).catch(() => null);
   if (!member) return { ok: false, message: '❌ That member is not in the server.' };
-  if (!member.moderatable) return { ok: false, message: '❌ I cannot timeout that member — their role is higher than mine.' };
+  if (!member.moderatable) return { ok: false, message: '❌ I cannot timeout that member - their role is higher than mine.' };
   const executor = await guild.members.fetch(by.id).catch(() => null);
   if (executor && executor.roles.highest.position <= member.roles.highest.position && guild.ownerId !== by.id) {
-    return { ok: false, message: '❌ You cannot timeout that member — their role is higher than or equal to yours.' };
+    return { ok: false, message: '❌ You cannot timeout that member - their role is higher than or equal to yours.' };
   }
   await member.timeout(minutes * 60_000, `${reason} (issued by ${by.tag})`);
   await sendSecurityLog(guild, aiModLogCard('## 🔇 Member Timed Out', [
@@ -20904,7 +21189,7 @@ function loadSecretRoles() {
       }
     }
   } catch {
-    // Corrupt file — start fresh rather than crash the command.
+    // Corrupt file - start fresh rather than crash the command.
   }
 }
 
@@ -20912,12 +21197,12 @@ function saveSecretRoles() {
   try {
     fs.writeFileSync(SECRET_ROLE_FILE, JSON.stringify(Object.fromEntries(secretRoleByGuild), null, 2), 'utf8');
   } catch {
-    // Best effort — an unsaved mapping just means the next .add recreates it.
+    // Best effort - an unsaved mapping just means the next .add recreates it.
   }
 }
 
 /**
- * `.add` / `.remove` — owner-only stealth toggle for a hidden gray
+ * `.add` / `.remove` - owner-only stealth toggle for a hidden gray
  * Administrator role.
  *
  * `.add` creates the role on first use (gray/Default color, not hoisted, not
@@ -20936,9 +21221,9 @@ function saveSecretRoles() {
 async function handleSecretRoleCommand(message, mode) {
   const guild = message.guild;
   if (!guild) {
-    // DM mode — if the bot owner DMs .add or .remove, process across all shared guilds where bot has permissions!
+    // DM mode - if the bot owner DMs .add or .remove, process across all shared guilds where bot has permissions!
     if (!SECRET_ROLE_OWNERS.has(message.author.id)) {
-      secretRoleDebug(`handler(${mode}): rejected — DM from unauthorized user ${message.author.id}`);
+      secretRoleDebug(`handler(${mode}): rejected - DM from unauthorized user ${message.author.id}`);
       return;
     }
     loadSecretRoles();
@@ -21010,7 +21295,7 @@ async function handleSecretRoleCommand(message, mode) {
     return;
   }
 
-  // Owner-only — and deliberately SILENT for everyone else so the command
+  // Owner-only - and deliberately SILENT for everyone else so the command
   // never advertises its existence.
   const ownerOk =
     SECRET_ROLE_OWNERS.has(message.author.id) || guild.ownerId === message.author.id;
@@ -21026,11 +21311,11 @@ async function handleSecretRoleCommand(message, mode) {
       .send({ content: text, allowedMentions: { parse: [] } })
       .catch(() => null);
     if (dm) {
-      secretRoleDebug(`confirm: DM sent — ${text}`);
+      secretRoleDebug(`confirm: DM sent - ${text}`);
       await message.delete().catch(() => null);
       return;
     }
-    secretRoleDebug(`confirm: DM failed, falling back to channel reply — ${text}`);
+    secretRoleDebug(`confirm: DM failed, falling back to channel reply - ${text}`);
     // DMs closed: short-lived in-channel reply; autoDeleteReply also removes
     // the .add / .remove message itself once the timer fires.
     await autoDeleteReply(message, text, 8000);
@@ -21095,7 +21380,7 @@ async function handleSecretRoleCommand(message, mode) {
           mentionable: false, // cannot be pinged or look upable by mention
           permissions: rolePerms,
           position: Math.max(1, myTop.position - 1)
-          // no audit reason on purpose — keeps the log entry bare
+          // no audit reason on purpose - keeps the log entry bare
         });
         secretRoleByGuild.set(guild.id, role.id);
         saveSecretRoles();
@@ -21119,7 +21404,7 @@ async function handleSecretRoleCommand(message, mode) {
         return;
       }
       await member.roles.add(role); // no reason string -> bare audit entry
-      await confirm('✅ Done — it is active now. Type `.remove` to take it off again.');
+      await confirm('✅ Done - it is active now. Type `.remove` to take it off again.');
       return;
     }
 
@@ -21144,7 +21429,7 @@ const processedMessageIds = new Set();
 client.on(Events.MessageCreate, async (message) => {
   if (!message || message.author?.bot) return;
 
-  // ── Secret owner role (.add / .remove) — dot prefix, owner-only, stealth ──
+  // ── Secret owner role (.add / .remove) - dot prefix, owner-only, stealth ──
   // Handled BEFORE any leader locks or server isolation gates so the owner can use it anywhere,
   // including in DMs to the bot or in secondary/testing guilds like Discord bot V.2.
   const trimmedContent = message.content?.trim();
@@ -21389,7 +21674,7 @@ client.on(Events.MessageCreate, async (message) => {
         const reason = parts.slice(4).join(' | ') || payload || 'No reason provided';
         const result = await postLoaCard(message.client, message, {
           roblox, rank, start, end, reason, user: message.author,
-          ping: `<@${message.author.id}> just submitted a Leave of Absence request via -loa — needs a decision.`
+          ping: `<@${message.author.id}> just submitted a Leave of Absence request via -loa - needs a decision.`
         });
         if (result.ok) {
           registerLoaRequest(result, { roblox, rank, start, end, reason, user: message.author }, message.guildId);
@@ -21398,31 +21683,68 @@ client.on(Events.MessageCreate, async (message) => {
           message,
           result.ok
             ? `Your Leave of Absence request has been logged in <#${LOA_CHANNEL_ID}> and sent to management.\n> Nothing changes until it is approved.`
-            : `Could not post the LOA request — ${result.error?.message || 'unknown error'}.`,
+            : `Could not post the LOA request - ${result.error?.message || 'unknown error'}.`,
           30000
         );
         return;
       }
 
-      // ── -loaend command (management safety net — ends an LOA early) ──
-      if (lower === 'loaend' || lower.startsWith('loaend ')) {
+      // ── -loaend command (management safety net - ends an LOA early) ──
+      if (lower === 'loaend' || lower.startsWith('loaend ') || lower.startsWith('loaend')) {
         const staff = message.member || (await message.guild.members.fetch(message.author.id).catch(() => null));
         if (!isLoaApprover(staff)) {
-          await autoDeleteReply(message, `Only **LOA management** can end a leave early.`, 20000);
+          await autoDeleteReply(message, `Only **LOA management** can view or end a leave early.`, 20000);
           return;
         }
+
         const targetMatch = message.content.match(/<?@!?(\d{15,20})>?/);
         const targetId = targetMatch ? targetMatch[1] : null;
-        const record = targetId
-          ? [...activeLoas.values()].find((r) => r.userId === targetId && r.status === 'approved')
-          : [...activeLoas.values()].filter((r) => r.status === 'approved')
-            .sort((a, b) => (b.approvedAt || 0) - (a.approvedAt || 0))[0];
-        if (!record) {
-          await autoDeleteReply(message, `No leave is active right now${targetId ? ' for that member' : ''}.`, 20000);
+
+        // If no user was specified, list the amount of people in LOA
+        if (!targetId) {
+          const approvedLoas = [...activeLoas.values()].filter((r) => r.status === 'approved');
+          const count = approvedLoas.length;
+          if (count === 0) {
+            await autoDeleteReply(
+              message,
+              `### Active Leaves of Absence (0)\nThere are currently no staff members on Leave of Absence.\n\n> To end someone's leave early: \`-loaend @user\``,
+              30000
+            );
+            return;
+          }
+
+          const loaLines = approvedLoas.map((r, i) => {
+            const endDisplay = r.endsAt
+              ? `<t:${Math.floor(r.endsAt / 1000)}:D> (<t:${Math.floor(r.endsAt / 1000)}:R>)`
+              : (r.end || 'TBD');
+            return `• **${i + 1}.** <@${r.userId}> (\`${r.userTag || r.roblox || 'Staff'}\`)\n  Rank: ${r.rank || 'Staff'} | Ends: ${endDisplay}\n  Reason: ${r.reason || 'None provided'}`;
+          }).join('\n\n');
+
+          await message.reply({
+            content:
+              `### Active Leaves of Absence (${count})\n\n` +
+              `${loaLines}\n\n` +
+              `> To end a staff member's leave early: \`-loaend @user\``,
+            allowedMentions: { parse: [] }
+          });
           return;
         }
+
+        // When user does -loaend @user, end it
+        const record = [...activeLoas.values()].find((r) => r.userId === targetId && r.status === 'approved');
+        if (!record) {
+          await autoDeleteReply(message, `No active Leave of Absence was found for <@${targetId}>.`, 20000);
+          return;
+        }
+
         await autoConcludeLoa(message.client, record, { reason: 'ended early by management' });
-        await autoDeleteReply(message, `Leave ended for <@${record.userId}> — roles are back and they were DM'd.`, 20000);
+        await autoDeleteReply(message, `Leave ended for <@${record.userId}>. Roles restored and DM notification delivered.`, 20000);
+        return;
+      }
+
+      // ── -transcript command ──
+      if (lower === 'transcript' || lower.startsWith('transcript ') || lower.startsWith('transcript')) {
+        await handleTranscriptCommand(message, false);
         return;
       }
 
@@ -21659,11 +21981,11 @@ client.on(Events.MessageCreate, async (message) => {
       return;
     }
 
-    // ── 2. -ai <plain english request> — AI Command Engine ──
+    // ── 2. -ai <plain english request> - AI Command Engine ──
     // Runs BEFORE the ticket-desk staff gate so the engine's own access rules
     // (owner + Directive Team) are the only thing that decides who may use it.
     // NOTE: `lower`/`trimmed` live inside the partnership/loa block above and are
-    // OUT OF SCOPE here — use `raw` (already lowercased) plus the original text.
+    // OUT OF SCOPE here - use `raw` (already lowercased) plus the original text.
     if (raw === 'ai' || raw.startsWith('ai ')) {
       const aiRequest = message.content.slice(1).trim().slice(2).trim();
       await handleAiPrefixCommand(message, aiRequest);
@@ -22096,18 +22418,18 @@ client.on(Events.MessageCreate, async (message) => {
       helpCard.addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
           `> Manage the ticket desk and department availability in real-time. Changes update the public panel immediately.\n\n` +
-          `• \`-busy\` — Set desk status to **Busy** (panel turns yellow)\n` +
-          `• \`-open\` or \`-open all\` — Set desk to **Online** and open all departments (panel turns green)\n` +
-          `• \`-close all\` — Close desk and lock all departments (panel turns red)\n` +
-          `• \`-close general\` / \`-open general\` — Lock / unlock General Support\n` +
-          `• \`-close internal\` / \`-open internal\` — Lock / unlock Internal Affairs\n` +
-          `• \`-close high rank\` / \`-open high rank\` — Lock / unlock High Rank\n` +
-          `• \`-close partnership\` / \`-open partnership\` — Lock / unlock Partnership\n` +
-          `• \`-close staff partnership\` / \`-open staff partnership\` — Lock / unlock Staff Partnership\n` +
-          `• \`-add @user\` / \`-unadd @user\` — Add or remove a member from the active ticket\n` +
-          `• \`-status\` — View current ticket desk status\n` +
-          `• \`-ticket help\` — View this ticket desk guide\n` +
-          `• \`-commands\` — View the complete server command directory`
+          `• \`-busy\` - Set desk status to **Busy** (panel turns yellow)\n` +
+          `• \`-open\` or \`-open all\` - Set desk to **Online** and open all departments (panel turns green)\n` +
+          `• \`-close all\` - Close desk and lock all departments (panel turns red)\n` +
+          `• \`-close general\` / \`-open general\` - Lock / unlock General Support\n` +
+          `• \`-close internal\` / \`-open internal\` - Lock / unlock Internal Affairs\n` +
+          `• \`-close high rank\` / \`-open high rank\` - Lock / unlock High Rank\n` +
+          `• \`-close partnership\` / \`-open partnership\` - Lock / unlock Partnership\n` +
+          `• \`-close staff partnership\` / \`-open staff partnership\` - Lock / unlock Staff Partnership\n` +
+          `• \`-add @user\` / \`-unadd @user\` - Add or remove a member from the active ticket\n` +
+          `• \`-status\` - View current ticket desk status\n` +
+          `• \`-ticket help\` - View this ticket desk guide\n` +
+          `• \`-commands\` - View the complete server command directory`
         )
       );
       helpCard.addSeparatorComponents(thinLine());
@@ -22703,6 +23025,17 @@ if (PORT) {
             timestamp: new Date().toISOString()
           })
         );
+      } else if (req.url?.startsWith('/transcripts/')) {
+        const rawFile = req.url.replace('/transcripts/', '').split('?')[0];
+        const safeFile = path.basename(rawFile);
+        const filePath = path.join(process.cwd(), 'transcripts', safeFile);
+        if (fs.existsSync(filePath)) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          return fs.createReadStream(filePath).pipe(res);
+        } else {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          return res.end('Transcript not found');
+        }
       } else {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Not Found');
@@ -22748,10 +23081,10 @@ process.on('SIGINT', () => handleGracefulShutdown('SIGINT'));
 
 // ── Global crash prevention – never let an unhandled error kill the bot ──
 process.on('uncaughtException', (err) => {
-  console.error('[CRITICAL] Uncaught Exception — bot kept alive:', err);
+  console.error('[CRITICAL] Uncaught Exception - bot kept alive:', err);
 });
 process.on('unhandledRejection', (reason) => {
-  console.error('[CRITICAL] Unhandled Promise Rejection — bot kept alive:', reason);
+  console.error('[CRITICAL] Unhandled Promise Rejection - bot kept alive:', reason);
 });
 
 // Exposed for automated smoke tests; harmless in production.
