@@ -74,11 +74,40 @@ export function ThemeProvider({
   );
 }
 
-export function useTheme() {
+export function useTheme(): ThemeProviderState {
   const context = useContext(ThemeProviderContext);
 
   if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider.');
+    // Safe fallback so components never crash even outside of ThemeProvider
+    const isDark =
+      typeof document !== 'undefined'
+        ? document.documentElement.classList.contains('dark') ||
+          (!document.documentElement.classList.contains('light') &&
+            window.matchMedia?.('(prefers-color-scheme: dark)')?.matches)
+        : true;
+
+    return {
+      theme: isDark ? 'dark' : 'light',
+      setTheme: (nextTheme: Theme) => {
+        if (typeof document !== 'undefined') {
+          document.documentElement.classList.toggle('dark', nextTheme === 'dark');
+          document.documentElement.classList.toggle('light', nextTheme === 'light');
+          try {
+            localStorage.setItem('theme', nextTheme);
+          } catch {}
+        }
+      },
+      toggleTheme: () => {
+        if (typeof document !== 'undefined') {
+          const nextIsDark = !document.documentElement.classList.contains('dark');
+          document.documentElement.classList.toggle('dark', nextIsDark);
+          document.documentElement.classList.toggle('light', !nextIsDark);
+          try {
+            localStorage.setItem('theme', nextIsDark ? 'dark' : 'light');
+          } catch {}
+        }
+      },
+    };
   }
 
   return context;

@@ -227,8 +227,8 @@ export function DashboardSidebar({
         {/* Header with Logo & Collapse Toggle */}
         <SidebarHeader
           className={cn(
-            'h-21 flex-row items-center border-b p-0 transition-[padding] duration-200 library-dashboard bg-background',
-            collapsed ? 'justify-start px-5' : 'justify-between px-4.5',
+            'h-16 flex-row items-center border-b border-border/40 p-0 transition-[padding] duration-200 bg-sidebar',
+            collapsed ? 'justify-start px-4' : 'justify-between px-4',
           )}
         >
           {!collapsed ? (
@@ -404,7 +404,7 @@ export function DashboardSidebar({
         )}
 
         {/* Navigation Content */}
-        <SidebarContent className="px-4.5 pt-4 pb-2 library-dashboard bg-background">
+        <SidebarContent className="px-3 pt-3 pb-2 bg-sidebar">
           <SidebarMenu className="gap-1.5">
             {primaryNavigation.map((item) => (
               <SidebarNavigationItem
@@ -419,7 +419,7 @@ export function DashboardSidebar({
         </SidebarContent>
 
         {/* Footer with User Profile, Help, Settings & Theme Toggle */}
-        <SidebarFooter className="border-t px-4.5 pt-2 pb-6 library-dashboard bg-background">
+        <SidebarFooter className="border-t border-border/40 px-3 pt-2 pb-4 bg-sidebar">
           <SidebarMenu className="gap-1.5">
             {/* User Icon & Username Profile Area */}
             {user && (

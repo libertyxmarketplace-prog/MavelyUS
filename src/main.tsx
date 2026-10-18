@@ -9,11 +9,12 @@ import { TermsPage } from './pages/TermsPage';
 import { DocsPage } from './pages/DocsPage';
 import { PricingPage } from './pages/PricingPage';
 import ImportPage from './app/import/page';
+import { ThemeProvider } from './components/library/theme-provider';
 import './index.css';
 
 import { useEffect } from 'react';
 import { Button } from './components/ui/button';
-import { Rocket, ShieldCheck, Coins, Activity, Zap, Check, ArrowLeft } from 'lucide-react';
+import { Rocket, ShieldCheck, Coins, Activity, Zap, Check, ArrowLeft, AlertTriangle } from 'lucide-react';
 
 // Apply saved theme accent & performance mode on startup
 try {
@@ -267,22 +268,38 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#070709] flex flex-col items-center justify-center p-6 text-center text-white space-y-4 font-sans">
-          <div className="p-4 rounded-lg border border-red-500/30 bg-red-500/10 max-w-md">
-            <h2 className="text-base font-bold text-red-400">Dashboard Diagnostics</h2>
-            <p className="text-xs text-zinc-300 mt-1">
-              {this.state.error?.message || 'A render exception occurred.'}
-            </p>
+        <div className="min-h-screen bg-[#090a0f] flex flex-col items-center justify-center p-6 text-center text-white font-sans selection:bg-emerald-500/30">
+          <div className="relative w-full max-w-lg p-6 sm:p-8 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-5">
+            <div className="size-12 mx-auto rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
+              <AlertTriangle className="size-6" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-lg font-bold text-white tracking-tight">Dashboard Diagnostics</h2>
+              <p className="text-xs sm:text-sm text-zinc-400 font-mono bg-black/40 p-3 rounded-lg border border-white/5 break-words text-left">
+                {this.state.error?.message || 'A render exception occurred.'}
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Button
+                onClick={() => {
+                  this.setState({ hasError: false, error: null });
+                  window.location.reload();
+                }}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-600/20 cursor-pointer"
+              >
+                Reload Dashboard
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  window.location.href = '/dashboard';
+                }}
+                className="border-white/10 hover:bg-white/5 text-zinc-300 text-xs font-semibold px-4 py-2.5 rounded-xl cursor-pointer"
+              >
+                Return to Overview
+              </Button>
+            </div>
           </div>
-          <Button
-            onClick={() => {
-              this.setState({ hasError: false, error: null });
-              window.location.reload();
-            }}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-md"
-          >
-            Reload Dashboard
-          </Button>
         </div>
       );
     }
@@ -312,53 +329,55 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/pricing" element={<PricingPage />} />
-            <Route path="/docs" element={<DocsPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/auth/discord/callback" element={<CallbackPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/tos" element={<TermsPage />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard/:guildId"
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard/:guildId/:tab"
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/import"
-              element={
-                <ProtectedRoute>
-                  <ImportPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
+      <ThemeProvider defaultTheme="dark">
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/docs" element={<DocsPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/auth/discord/callback" element={<CallbackPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/tos" element={<TermsPage />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/:guildId"
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard/:guildId/:tab"
+                element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/import"
+                element={
+                  <ProtectedRoute>
+                    <ImportPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }
