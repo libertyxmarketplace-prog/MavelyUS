@@ -512,7 +512,7 @@ const LOA_NICK_PREFIX = '\u{1D473}\u{1D476}\u{1D468}\u2503';
 // Banner is uploaded from our own assets so it can never expire.
 const LOA_BANNER_PATH = fileURLToPath(new URL('./assets/loa_banner.png', import.meta.url));
 const LOA_BANNER_FALLBACK_PATH = fileURLToPath(new URL('../assets/loa_banner.png', import.meta.url));
-const LOA_BANNER_URL = 'https://i.ibb.co/5gf3LYvD/content.webp';
+const LOA_BANNER_URL = 'https://files.catbox.moe/z3tq5f.png';
 const LOA_FILE = fileURLToPath(new URL('../loas.json', import.meta.url));
 // /media - only this role may post media drops, and only in the media channel.
 const MEDIA_ROLE_ID = '1360982598062702722';
@@ -2025,7 +2025,7 @@ function voteVotersLine(vote) {
 function buildVoteContainer(vote) {
   const count = Object.keys(vote.voters ?? {}).length;
   const done = count >= vote.needed;
-  const dead = Boolean(vote.expired || vote.started || vote.cancelled);
+  const dead = Boolean(vote.started || vote.cancelled);
   // No accent color - plain Components V2 container, no side bar.
   const box = new ContainerBuilder();
   const banner = voteBannerUrl();
@@ -2045,20 +2045,14 @@ function buildVoteContainer(vote) {
     new TextDisplayBuilder().setContent(
       vote.started
         ? '## Session Starting'
-        : vote.expired
-          ? (done ? '## Session Vote Closed (Goal Reached)' : '## Session Vote Expired')
-          : (done ? '## Session Ready (Goal Reached)' : '## Session Vote')
+        : (done ? '## Session Ready (Goal Reached)' : '## Session Vote')
     )
   );
   box.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
       vote.started
         ? '> The session is starting now - check your DMs.'
-        : vote.expired
-          ? (done
-              ? `> ⏱️ Voting concluded with **${count}/${vote.needed}** votes (Goal reached!). Awaiting host to launch.`
-              : `> This vote closed without reaching **${vote.needed}** votes.`)
-          : `> <@${vote.hostId}> needs **${vote.needed}** members to launch the session.\n> Time remaining: <t:${Math.floor(vote.endTs / 1000)}:R>\n> Ping role: ${formatRoleMention(vote.roleId, vote.guildId)}`
+        : `> <@${vote.hostId}> needs **${vote.needed}** members to launch the session.\n> Status: **Open - Voting in progress**\n> Ping role: ${formatRoleMention(vote.roleId, vote.guildId)}`
     )
   );
   box.addSeparatorComponents(thinLine());
@@ -2078,7 +2072,7 @@ function buildVoteContainer(vote) {
       new TextDisplayBuilder().setContent('> **Postponed** - timer reset. Vote stays open!')
     );
   }
-  if (done && !vote.started && !vote.expired) {
+  if (done && !vote.started) {
     box.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         `> **Goal reached!** The host has been notified - ${formatRoleMention(vote.roleId, vote.guildId)} get ready.`
@@ -2088,8 +2082,8 @@ function buildVoteContainer(vote) {
   box.addSeparatorComponents(thinLine());
   const voteBtn = new ButtonBuilder()
     .setCustomId(`vote_click_${vote.id}`)
-    .setLabel(vote.started ? 'Started' : vote.expired ? 'Expired' : done ? `Vote (${count}/${vote.needed})` : `Vote (${count})`)
-    .setStyle(done && !vote.started && !vote.expired ? ButtonStyle.Success : ButtonStyle.Secondary);
+    .setLabel(vote.started ? 'Started' : done ? `Vote (${count}/${vote.needed})` : `Vote (${count})`)
+    .setStyle(done && !vote.started ? ButtonStyle.Success : ButtonStyle.Secondary);
   if (dead) {
     voteBtn.setDisabled(true);
   }
@@ -9598,14 +9592,16 @@ function saveLoas() {
 }
 
 /** Uploads the banner from our own assets so it can never expire. */
+/** Permanent hosted LOA banner so it never expires in Discord. */
 function loaBanner() {
+  const permanentUrl = 'https://files.catbox.moe/z3tq5f.png';
   if (fs.existsSync(LOA_BANNER_PATH)) {
-    return { path: LOA_BANNER_PATH, name: 'loa_banner.png', url: 'attachment://loa_banner.png' };
+    return { path: LOA_BANNER_PATH, name: 'loa_banner.png', url: permanentUrl };
   }
   if (fs.existsSync(LOA_BANNER_FALLBACK_PATH)) {
-    return { path: LOA_BANNER_FALLBACK_PATH, name: 'loa_banner.png', url: 'attachment://loa_banner.png' };
+    return { path: LOA_BANNER_FALLBACK_PATH, name: 'loa_banner.png', url: permanentUrl };
   }
-  return { path: null, name: null, url: LOA_BANNER_URL };
+  return { path: null, name: null, url: permanentUrl };
 }
 
 /** Only LOA management may Approve / Deny / Conclude. */
@@ -9629,7 +9625,7 @@ function loaFieldBlock({ roblox, rank, start, end, reason, user }) {
 /** The single LOA card - the record plus the Approve / Deny buttons. */
 function buildLoaActionCard(opts) {
   const card = new ContainerBuilder();
-  const banner = opts.bannerUrl || loaBanner().url;
+  const banner = opts.bannerUrl || loaBanner().url || 'https://files.catbox.moe/z3tq5f.png';
   if (banner) {
     card.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(banner))
@@ -9781,19 +9777,46 @@ function parseLoaEndDate(value) {
   const raw = String(value).trim();
   if (!raw || /^(tbd|unknown|n\/a|none)$/i.test(raw)) return null;
 
-  const direct = Date.parse(raw);
-  if (!Number.isNaN(direct)) return direct;
-
-  const m = raw.match(/(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})/); // 12/10/2026 or 12-10-26
-  if (m) {
-    let [, a, b, y] = m;
-    a = Number(a); b = Number(b); y = Number(y);
-    if (y < 100) y += 2000;
-    // If the first number cannot be a month, treat it as day/month.
-    if (a > 12 && b <= 12) [a, b] = [b, a];
-    const d = new Date(y, b - 1, a, 23, 59, 59);
-    if (!Number.isNaN(d.getTime())) return d.getTime();
+  // 1. Year first: YYYY-MM-DD or YYYY-DD-MM (e.g. 2026-10-31 or 2026-31-10)
+  const yFirst = raw.match(/^(\d{4})[\/\-. ](\d{1,2})[\/\-. ](\d{1,2})/);
+  if (yFirst) {
+    let y = Number(yFirst[1]);
+    let m = Number(yFirst[2]);
+    let d = Number(yFirst[3]);
+    if (m > 12 && d <= 12) {
+      [m, d] = [d, m];
+    }
+    const date = new Date(y, m - 1, d, 23, 59, 59);
+    if (!Number.isNaN(date.getTime())) return date.getTime();
   }
+
+  // 2. Day/Month first: MM/DD/YYYY or DD/MM/YYYY (e.g. 10/31/2026 or 31/10/2026)
+  const dFirst = raw.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})/);
+  if (dFirst) {
+    let a = Number(dFirst[1]);
+    let b = Number(dFirst[2]);
+    let y = Number(dFirst[3]);
+    if (y < 100) y += 2000;
+    let m, d;
+    if (a > 12 && b <= 12) {
+      d = a; m = b;
+    } else if (b > 12 && a <= 12) {
+      m = a; d = b;
+    } else {
+      m = a; d = b;
+    }
+    const date = new Date(y, m - 1, d, 23, 59, 59);
+    if (!Number.isNaN(date.getTime())) return date.getTime();
+  }
+
+  // 3. Fallback to Date.parse for text strings like "Oct 31, 2026" or "31 Oct 2026"
+  const direct = Date.parse(raw);
+  if (!Number.isNaN(direct)) {
+    const d = new Date(direct);
+    d.setHours(23, 59, 59, 999);
+    return d.getTime();
+  }
+
   return null;
 }
 
@@ -9954,13 +9977,13 @@ function appendLoaDecision(cardJsonArray, statusLine) {
     if (!container) return null;
     container.components = (container.components || []).filter((c) => c.type !== 1);
 
-    // Reset media gallery URLs to local attachment so replaced cards never expire
+    // Reset media gallery URLs to permanent banner so replaced cards never expire
     for (const comp of container.components) {
       if (comp.items && Array.isArray(comp.items)) {
         for (const item of comp.items) {
           if (item) {
-            if (item.media) item.media.url = 'attachment://loa_banner.png';
-            item.url = 'attachment://loa_banner.png';
+            if (item.media) item.media.url = 'https://files.catbox.moe/z3tq5f.png';
+            item.url = 'https://files.catbox.moe/z3tq5f.png';
           }
         }
       }
@@ -10603,26 +10626,9 @@ async function notifyHostReady(client, vote) {
 }
 
 async function expireVote(client, vote) {
-  if (vote.started || vote.expired) return;
-  const count = Object.keys(vote.voters ?? {}).length;
-  // If the goal was hit but the host hasn't started yet (e.g. after a
-  // postpone), give a 10-minute grace window and re-notify the host ONCE -
-  // "the postponed session is ready again".
-  if (count >= vote.needed && !vote.reReady) {
-    vote.reReady = true;
-    vote.ready = true;
-    vote.endTs = Date.now() + 10 * 60_000;
-    saveVotes();
-    await editVoteMessage(client, vote);
-    setVoteTimer(client, vote);
-    await notifyHostReady(client, vote);
-    return;
-  }
-  vote.expired = true;
-  saveVotes();
-  await editVoteMessage(client, vote);
-  clearVoteTimer(vote.id);
-  activeVotes.delete(vote.id);
+  // Session votes never expire automatically - they stay active until launched or cancelled
+  if (vote.started || vote.cancelled) return;
+  vote.expired = false;
   saveVotes();
 }
 
@@ -10645,9 +10651,7 @@ function reviveVote(client, vote, minutes = 30) {
   vote.endTs = Date.now() + minutes * 60_000;
   saveVotes();
   if (!activeVotes.has(vote.id)) activeVotes.set(vote.id, vote);
-  setVoteTimer(client, vote);
   void editVoteMessage(client, vote);
-  console.log(`[votes] ${vote.id} was past its end time - extended by ${minutes} minutes so voting can continue.`);
   return vote;
 }
 
@@ -10658,15 +10662,8 @@ function isVoteClosed(vote) {
 
 function setVoteTimer(client, vote) {
   clearVoteTimer(vote.id);
-  const ms = vote.endTs - Date.now();
-  if (ms <= 0) {
-    void expireVote(client, vote);
-    return;
-  }
-  voteTimers.set(
-    vote.id,
-    setTimeout(() => void expireVote(client, vote), Math.min(ms, 2 ** 31 - 1))
-  );
+  // Session votes stay open indefinitely until launched or cancelled.
+  vote.expired = false;
 }
 
 /**
@@ -12171,11 +12168,14 @@ function getActiveTicket(channel) {
       if (!detectedAuthorId && channel.permissionOverwrites?.cache) {
         for (const [poId, po] of channel.permissionOverwrites.cache) {
           if (po.type === 1 && poId !== client.user?.id) {
+            const mem = channel.guild.members.cache.get(poId);
+            if (mem && (isStaffMember(mem) || ticketAiStaffAuthor(mem))) continue;
             detectedAuthorId = poId;
             break;
           }
         }
       }
+      const isAlreadyEscalated = name.startsWith('🟠・');
       ticket = {
         channelId: channel.id,
         guildId: channel.guild.id,
@@ -12188,9 +12188,10 @@ function getActiveTicket(channel) {
         createdAt: Math.floor((channel.createdTimestamp || Date.now()) / 1000),
         claimedBy: null,
         controlMessageId: null,
-        // Recovered AI-category tickets become AI-active so the assistant resumes.
-        aiActive: isCategoryEnabled(catKey) && catKey !== 'partnership' && catKey !== 'staff_partnership',
-        aiStopped: false
+        escalated: isAlreadyEscalated,
+        statementSent: isAlreadyEscalated,
+        aiActive: !isAlreadyEscalated && isCategoryEnabled(catKey) && catKey !== 'partnership' && catKey !== 'staff_partnership',
+        aiStopped: isAlreadyEscalated
       };
       activeTickets.set(channel.id, ticket);
       saveTickets();
@@ -12455,25 +12456,58 @@ const TICKET_ESCALATION_ROLES = {
   deptreport: '1346603583432425502'
 };
 
+const TICKET_CATEGORY_V2_THEMES = {
+  general: {
+    title: 'General Support Case Briefing',
+    accentColor: 0x2563eb,
+    label: 'Alabama General Support'
+  },
+  ia: {
+    title: 'Internal Affairs Case Briefing',
+    accentColor: 0xdc2626,
+    label: 'Alabama Internal Affairs Support'
+  },
+  highrank: {
+    title: 'High Rank Case Briefing',
+    accentColor: 0x7c3aed,
+    label: 'Alabama High Rank Support'
+  },
+  deptreport: {
+    title: 'Department Support Case Briefing',
+    accentColor: 0xd97706,
+    label: 'Alabama Department Support'
+  },
+  partnership: {
+    title: 'Partnership Case Briefing',
+    accentColor: 0x059669,
+    label: 'Alabama Partnership Operations'
+  }
+};
+
 /**
  * Builds a clean, professional Components V2 Container card displaying the
  * documented statement / incident report for a ticket.
  *
  * @param {object} ticket
- * @param {{ isBriefing?: boolean }} [options]
+ * @param {{ isBriefing?: boolean, cleanText?: string, categoryKey?: string }} [options]
  * @returns {ContainerBuilder}
  */
 function buildTicketStatementCard(ticket, options = {}) {
-  // Sleek amber accent color for escalated ticket statement cards
-  const card = new ContainerBuilder().setAccentColor(0xf59e0b);
+  const catKey = ticket.categoryKey || options.categoryKey || 'general';
+  const theme = TICKET_CATEGORY_V2_THEMES[catKey] || TICKET_CATEGORY_V2_THEMES.general;
+
+  const card = new ContainerBuilder().setAccentColor(theme.accentColor);
+  card.addMediaGalleryComponents(
+    new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL('https://files.catbox.moe/t7ebr2.png'))
+  );
+
   const st = ticket.statement || {};
-  const header = '## Case Briefing & Statement';
+  const header = `## ${theme.title}`;
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent(header));
   card.addSeparatorComponents(thinLine());
 
   const userMention = ticket.authorId ? `<@${ticket.authorId}>` : (st.authorId ? `<@${st.authorId}>` : 'Unknown');
   const userTag = ticket.authorUsername || st.authorTag || 'Ticket Author';
-  const cat = ticket.categoryName || st.category || ticket.categoryKey || 'General Support';
   const timeSec = Math.floor((st.submittedAt || (ticket.createdAt ? ticket.createdAt * 1000 : Date.now())) / 1000);
   const statementBody = st.summary || st.content || ticket.reason || options.cleanText || 'No statement details recorded.';
 
@@ -12482,7 +12516,7 @@ function buildTicketStatementCard(ticket, options = {}) {
     ...(Array.isArray(ticket.attachments) ? ticket.attachments : [])
   ].filter((v, i, a) => typeof v === 'string' && a.indexOf(v) === i);
 
-  let evidenceStr = '*No screenshot evidence attached yet. (Upload screenshots in chat if available)*';
+  let evidenceStr = 'No screenshot evidence attached.';
   if (allAtts.length) {
     evidenceStr = allAtts.map((url, idx) => `[Evidence Screenshot ${idx + 1}](${url})`).join(' | ');
   } else if (st.evidence) {
@@ -12490,11 +12524,11 @@ function buildTicketStatementCard(ticket, options = {}) {
   }
 
   const desc =
-    `• **Submitted By:** ${userMention} (\`${userTag}\`)\n` +
-    `• **Category:** ${cat}\n` +
-    `• **Documented:** <t:${timeSec}:f> (<t:${timeSec}:R>)\n` +
-    `• **Status:** Escalated - Awaiting Staff Review\n\n` +
-    `### Documented Statement & Case Overview\n` +
+    `- Submitted By: ${userMention} (\`${userTag}\`)\n` +
+    `- Category: ${theme.label}\n` +
+    `- Documented: <t:${timeSec}:f> (<t:${timeSec}:R>)\n` +
+    `- Status: Escalated - Staff Attention Required\n\n` +
+    `### Statement and Case Overview\n` +
     `> ${statementBody.split('\n').filter(Boolean).join('\n> ')}\n\n` +
     `### Attached Evidence\n` +
     `> ${evidenceStr}`;
@@ -12502,7 +12536,7 @@ function buildTicketStatementCard(ticket, options = {}) {
   card.addTextDisplayComponents(new TextDisplayBuilder().setContent(desc.slice(0, 3900)));
   card.addSeparatorComponents(thinLine());
 
-  // Embed screenshot evidence directly inside the V2 panel via MediaGallery
+  // Embed screenshot evidence directly inside the V2 panel via MediaGallery (sent once!)
   const imageAttachments = allAtts.filter((url) =>
     /\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(url) || url.includes('/attachments/')
   );
@@ -12520,7 +12554,7 @@ function buildTicketStatementCard(ticket, options = {}) {
     }
   }
 
-  card.addTextDisplayComponents(new TextDisplayBuilder().setContent('-# Alabama State Roleplay Support'));
+  card.addTextDisplayComponents(new TextDisplayBuilder().setContent('-# Alabama State Roleplay • Support Operations'));
 
   return card;
 }
@@ -12948,8 +12982,12 @@ async function handleTicketAiMessage(message, ticket) {
     saveTickets();
   }
 
-  // Auto-adopt author if session was recovered without author ID
-  if ((!ticket.authorId || ticket.authorId === 'Unknown') && !message.author.bot) {
+  const member = message.member ||
+    (ticket.guildId ? message.guild?.members?.cache?.get(message.author.id) : null);
+  const authorIsStaff = isStaffMember(member) || ticketAiStaffAuthor(member);
+
+  // Auto-adopt author if session was recovered without author ID, NEVER adopting staff members
+  if ((!ticket.authorId || ticket.authorId === 'Unknown') && !message.author.bot && !authorIsStaff) {
     ticket.authorId = message.author.id;
     ticket.authorUsername = message.author.username;
     ticket.authorTag = message.author.tag || message.author.username;
@@ -12960,14 +12998,32 @@ async function handleTicketAiMessage(message, ticket) {
   ticket.lastActivityAt = Date.now();
   saveTickets();
 
-  const member = message.member ||
-    (ticket.guildId ? message.guild?.members?.cache?.get(message.author.id) : null);
-  const isAuthor = message.author.id === ticket.authorId;
-  const authorIsStaff = !isAuthor && (ticketAiStaffAuthor(member) || isStaffMember(member));
+  const isAuthor = Boolean(ticket.authorId && ticket.authorId !== 'Unknown' && message.author.id === ticket.authorId);
 
   // If a staff member sends a message in the channel, or the ticket is claimed, mark staff joined
   if (authorIsStaff || ticket.claimedBy) {
     ticket.staffJoined = true;
+  }
+
+  // SEND PROOF JUST ONCE & PREVENT SPAM:
+  // If the ticket has already been escalated or briefing/proof was already sent:
+  if (ticket.statementSent || ticket.escalated) {
+    // If staff has joined or ticket is claimed, or author is staff, bot remains completely silent
+    if (authorIsStaff || ticket.staffJoined || ticket.claimedBy) {
+      if (!isExplicitPing) return;
+    }
+    // If the ticket author uploaded new screenshots after escalation, save them quietly to case file
+    if (isAuthor && uploadedUrls.length > 0) {
+      saveTickets();
+      return message.reply({
+        content: 'Your additional evidence screenshot has been attached to your case file for our staff team.',
+        allowedMentions: { repliedUser: true }
+      }).catch(() => {});
+    }
+    // If ticket author types something while already escalated, and did not explicitly ping the bot, stay quiet!
+    if (!isExplicitPing) {
+      return;
+    }
   }
 
   // 0.01. Universal Stop / Pause request (from staff, author, or anyone in the ticket)
@@ -21697,7 +21753,7 @@ client.on(Events.MessageCreate, async (message) => {
           return;
         }
 
-        const targetMatch = message.content.match(/<?@!?(\d{15,20})>?/);
+        const targetMatch = message.content.match(/<@!?(\d{15,20})>/);
         const targetId = targetMatch ? targetMatch[1] : null;
 
         // If no user was specified, list the amount of people in LOA
@@ -21707,7 +21763,7 @@ client.on(Events.MessageCreate, async (message) => {
           if (count === 0) {
             await autoDeleteReply(
               message,
-              `### Active Leaves of Absence (0)\nThere are currently no staff members on Leave of Absence.\n\n> To end someone's leave early: \`-loaend @user\``,
+              `### Active Leaves of Absence (0)\nThere are currently no staff members on Leave of Absence.\n\n> Leaves end automatically when their scheduled date arrives.\n> To end someone's leave early: \`-loaend @user confirm\``,
               30000
             );
             return;
@@ -21724,21 +21780,37 @@ client.on(Events.MessageCreate, async (message) => {
             content:
               `### Active Leaves of Absence (${count})\n\n` +
               `${loaLines}\n\n` +
-              `> To end a staff member's leave early: \`-loaend @user\``,
+              `> Leaves automatically end when their end date arrives.\n` +
+              `> To end a staff member's leave early: \`-loaend @user confirm\``,
             allowedMentions: { parse: [] }
           });
           return;
         }
 
-        // When user does -loaend @user, end it
+        // When user does -loaend @user, require confirm so it doesn't accidentally shut off their LOA
         const record = [...activeLoas.values()].find((r) => r.userId === targetId && r.status === 'approved');
         if (!record) {
           await autoDeleteReply(message, `No active Leave of Absence was found for <@${targetId}>.`, 20000);
           return;
         }
 
+        const hasConfirm = /\bconfirm\b/i.test(message.content);
+        if (!hasConfirm) {
+          const endDisplay = record.endsAt
+            ? `<t:${Math.floor(record.endsAt / 1000)}:D> (<t:${Math.floor(record.endsAt / 1000)}:R>)`
+            : (record.end || 'TBD');
+          await autoDeleteReply(
+            message,
+            `⚠️ **Confirm Early LOA Conclusion**\n` +
+            `<@${record.userId}> is currently on leave until **${endDisplay}**.\n` +
+            `> To confirm ending their leave early: \`-loaend <@${record.userId}> confirm\``,
+            25000
+          );
+          return;
+        }
+
         await autoConcludeLoa(message.client, record, { reason: 'ended early by management' });
-        await autoDeleteReply(message, `Leave ended for <@${record.userId}>. Roles restored and DM notification delivered.`, 20000);
+        await autoDeleteReply(message, `Leave ended early for <@${record.userId}>. Roles restored and DM notification delivered.`, 20000);
         return;
       }
 

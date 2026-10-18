@@ -33,8 +33,8 @@
     "start": "2026-13-10",
     "end": "2026-31-10",
     "reason": "Family Vacation.",
-    "endsAt": 1343368799000,
-    "status": "concluded",
+    "endsAt": 1793512799000,
+    "status": "approved",
     "createdAt": 1791930845790,
     "removedRoleIds": [
       "1557908002399592498",
@@ -44,9 +44,7 @@
     "originalNickname": "𝐓𝐈𝐀 | meyden222",
     "approvedBy": "885315812011958313",
     "approvedAt": 1791930866562,
-    "decisionDmSent": true,
-    "concludedAt": 1791930874640,
-    "concludedReason": "end date had already passed"
+    "decisionDmSent": true
   },
   "1560509994015793254": {
     "key": "1560509994015793254",
