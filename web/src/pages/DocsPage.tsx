@@ -15,7 +15,12 @@ import {
   Copy,
   Check,
   Bot,
-  Layers
+  Layers,
+  Database,
+  FolderTree,
+  RefreshCw,
+  Zap,
+  CheckCircle2
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import { StaffHandbookHub } from '@/components/StaffHandbookHub';
@@ -26,6 +31,8 @@ export function DocsPage() {
   const [activeTab, setActiveTab] = useState('getting-started');
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [ticketDeskStatus, setTicketDeskStatus] = useState<'online' | 'busy' | 'closed'>('online');
+  const [ticketSearch, setTicketSearch] = useState('');
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -335,47 +342,426 @@ export function DocsPage() {
               </div>
             )}
 
-            {/* TAB: Support Tickets */}
+            {/* TAB: Support Tickets (Redesigned Website Version) */}
             {activeTab === 'tickets' && (
-              <div className="space-y-8 animate-in fade-in-50 duration-200">
-                <div className="space-y-2.5">
-                  <span className="text-[11px] font-mono font-semibold tracking-wider text-zinc-400 uppercase">
-                    Operations Module
-                  </span>
+              <div className="space-y-10 animate-in fade-in-50 duration-200">
+                {/* Header & Badges */}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-mono font-semibold tracking-wider text-emerald-400 uppercase">
+                      🌴 LIBERTX Engine
+                    </span>
+                    <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px]">
+                      discord.js v14 ESM
+                    </Badge>
+                    <Badge variant="outline" className="border-white/10 bg-white/[0.04] text-zinc-300 text-[10px]">
+                      Live Panel Sync
+                    </Badge>
+                    <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-[10px]">
+                      HTML Transcripts
+                    </Badge>
+                  </div>
                   <h1 className="font-display text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-                    Support Ticket System
+                    Discord Ticket System
                   </h1>
                   <p className="text-zinc-400 text-sm leading-relaxed max-w-2xl">
-                    Deploy interactive dropdowns and multi-category panels with automatic claim locks, category spawn routing, and full HTML transcripts.
+                    A production-ready, modern Discord Ticket System built with <strong className="text-white">discord.js v14</strong> (ESM), local JSON file persistence, live auto-updating panels, interactive modals, responsive control panels, and standalone styled HTML transcripts with retroactive reason editing.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div className="rounded-xl border border-white/[0.08] bg-[#121316]/90 p-4 space-y-2">
-                    <h4 className="font-semibold text-white">5 Customizable Categories</h4>
-                    <p className="text-zinc-400 leading-relaxed">
-                      General Support, Player Reports, Staff Reports, Department Transfers, and Custom Partnerships.
-                    </p>
+                {/* Interactive Operational Desk Simulator & Live Preview */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#121316]/95 p-6 sm:p-7 space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-white font-display flex items-center gap-2">
+                        <Activity className="size-4 text-emerald-400" />
+                        <span>Live Operational Desk Simulator</span>
+                      </h3>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Test how the operational desk status synchronizes across all active Discord panels in real time.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 p-1 rounded-xl bg-black/40 border border-white/10 self-start sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setTicketDeskStatus('online')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          ticketDeskStatus === 'online'
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                        <span>Online</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTicketDeskStatus('busy')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          ticketDeskStatus === 'busy'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="size-2 rounded-full bg-amber-400" />
+                        <span>Busy</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTicketDeskStatus('closed')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                          ticketDeskStatus === 'closed'
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm'
+                            : 'text-zinc-400 hover:text-white'
+                        }`}
+                      >
+                        <span className="size-2 rounded-full bg-rose-400" />
+                        <span>Closed</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="rounded-xl border border-white/[0.08] bg-[#121316]/90 p-4 space-y-2">
-                    <h4 className="font-semibold text-white">HTML Transcript Engine</h4>
-                    <p className="text-zinc-400 leading-relaxed">
-                      Automatically archives message history, image attachments, and timestamps to the configured transcript channel.
-                    </p>
+
+                  {/* Simulated Discord Embed Preview */}
+                  <div className="rounded-xl border border-white/[0.08] bg-[#0c0d10] p-4 sm:p-5 space-y-4">
+                    <div className="flex items-center justify-between text-[11px] text-zinc-500 font-mono">
+                      <span>PREVIEW • #support-tickets</span>
+                      <span className="flex items-center gap-1 text-zinc-400">
+                        <RefreshCw className="size-3 text-emerald-400 animate-spin" /> Auto-Synced Live
+                      </span>
+                    </div>
+
+                    <div className="rounded-lg border-l-4 border-emerald-500 bg-[#16181e] p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                          <span>🌴 LIBERTX Support Desk</span>
+                        </h4>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                          ticketDeskStatus === 'online'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : ticketDeskStatus === 'busy'
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                        }`}>
+                          Desk {ticketDeskStatus}
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-zinc-300 leading-relaxed">
+                        Need assistance from the management team or community staff? Select a topic from the menu below to open a private ticket.
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+                        <div className="p-2.5 rounded-md bg-white/[0.03] border border-white/5 space-y-1">
+                          <span className="text-[11px] font-semibold text-white block">📁 General Support</span>
+                          <span className="text-[10px] text-zinc-400">ID: 1548331057911173140</span>
+                        </div>
+                        <div className="p-2.5 rounded-md bg-white/[0.03] border border-white/5 space-y-1">
+                          <span className="text-[11px] font-semibold text-white block">🛡️ Management Support</span>
+                          <span className="text-[10px] text-zinc-400">ID: 1548330987128229989</span>
+                        </div>
+                        <div className="p-2.5 rounded-md bg-white/[0.03] border border-white/5 space-y-1">
+                          <span className="text-[11px] font-semibold text-white block">🤝 Partnerships &amp; Affiliates</span>
+                          <span className="text-[10px] text-zinc-400">ID: 1550260772230139954</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <div className="w-full h-9 rounded-md bg-[#2b2d31] border border-white/10 px-3 flex items-center justify-between text-xs text-zinc-300">
+                          <span>Select a category to open a ticket...</span>
+                          <ChevronRight className="size-4 text-zinc-500 rotate-90" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <span className="text-xs font-semibold text-white">Deploy Ticket Panel Command</span>
-                  <div className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-[#0d0e11] px-4 py-3 font-mono text-xs text-zinc-300">
-                    <span className="text-white font-bold">/ticket panel</span>
-                    <button
-                      onClick={() => copyToClipboard('/ticket panel')}
-                      className="text-zinc-400 hover:text-white transition-colors"
-                      title="Copy command"
-                    >
-                      {copiedCmd === '/ticket panel' ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
-                    </button>
+                {/* 🚀 Quick Setup & Installation */}
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold text-white font-display flex items-center gap-2">
+                      <Zap className="size-4 text-amber-400" />
+                      <span>Quick Setup &amp; Installation</span>
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      Follow these 5 streamlined steps to get your ticket system up and running in minutes.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {/* Step 1 */}
+                    <div className="rounded-xl border border-white/[0.08] bg-[#121316]/90 p-5 space-y-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex size-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold font-mono text-xs">
+                          1
+                        </span>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Install Dependencies</h4>
+                      </div>
+                      <p className="text-xs text-zinc-400">
+                        Open PowerShell or your terminal in the project directory and install the required discord.js and Node modules:
+                      </p>
+                      <div className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-[#0d0e11] px-4 py-2.5 font-mono text-xs text-zinc-300">
+                        <code>npm install</code>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard('npm install')}
+                          className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                          title="Copy command"
+                        >
+                          {copiedCmd === 'npm install' ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="rounded-xl border border-white/[0.08] bg-[#121316]/90 p-5 space-y-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex size-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold font-mono text-xs">
+                          2
+                        </span>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Configure Environment Variables (.env)</h4>
+                      </div>
+                      <p className="text-xs text-zinc-400">
+                        Create or open <code className="text-white font-mono bg-white/[0.06] px-1.5 py-0.5 rounded">.env</code> and fill in your Discord credentials. Adding your <code className="text-white font-mono bg-white/[0.06] px-1.5 py-0.5 rounded">GUILD_ID</code> ensures instant slash command registration:
+                      </p>
+                      <div className="relative rounded-lg border border-white/[0.08] bg-[#0d0e11] p-3.5 font-mono text-xs text-zinc-300 space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard('DISCORD_TOKEN=your_bot_token_here\nCLIENT_ID=your_bot_client_id_here\nGUILD_ID=your_discord_server_id_here')}
+                          className="absolute right-3 top-3 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                          title="Copy .env template"
+                        >
+                          {copiedCmd?.includes('DISCORD_TOKEN') ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+                        </button>
+                        <div className="text-zinc-500"># Discord Bot Credentials</div>
+                        <div><span className="text-emerald-400">DISCORD_TOKEN</span>=your_bot_token_here</div>
+                        <div><span className="text-emerald-400">CLIENT_ID</span>=your_bot_client_id_here</div>
+                        <div><span className="text-emerald-400">GUILD_ID</span>=your_discord_server_id_here <span className="text-zinc-500"># Instant slash commands</span></div>
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="rounded-xl border border-white/[0.08] bg-[#121316]/90 p-5 space-y-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex size-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold font-mono text-xs">
+                          3
+                        </span>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Customize Config (config.js)</h4>
+                      </div>
+                      <p className="text-xs text-zinc-400">
+                        Open <code className="text-white font-mono bg-white/[0.06] px-1.5 py-0.5 rounded">config.js</code> to adjust your banner, transcript channel, staff roles, and pre-configured categories:
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-zinc-300 pt-1">
+                        <div className="p-3 rounded-lg bg-black/30 border border-white/5 space-y-1">
+                          <span className="font-semibold text-white flex items-center gap-1.5">
+                            <CheckCircle2 className="size-3.5 text-emerald-400" /> BANNER_URL
+                          </span>
+                          <span className="text-[11px] text-zinc-400 block">Pre-configured to your custom LIBERTX banner.</span>
+                        </div>
+                        <div className="p-3 rounded-lg bg-black/30 border border-white/5 space-y-1">
+                          <span className="font-semibold text-white flex items-center gap-1.5">
+                            <CheckCircle2 className="size-3.5 text-emerald-400" /> TRANSCRIPTS_CHANNEL_ID
+                          </span>
+                          <span className="text-[11px] text-zinc-400 block">Channel ID where HTML transcripts and logs are dispatched.</span>
+                        </div>
+                        <div className="p-3 rounded-lg bg-black/30 border border-white/5 space-y-1">
+                          <span className="font-semibold text-white flex items-center gap-1.5">
+                            <CheckCircle2 className="size-3.5 text-emerald-400" /> STAFF_ROLE_IDS
+                          </span>
+                          <span className="text-[11px] text-zinc-400 block">Array of Role IDs permitted to view, claim, and close tickets.</span>
+                        </div>
+                        <div className="p-3 rounded-lg bg-black/30 border border-white/5 space-y-1">
+                          <span className="font-semibold text-white flex items-center gap-1.5">
+                            <CheckCircle2 className="size-3.5 text-emerald-400" /> CATEGORIES
+                          </span>
+                          <span className="text-[11px] text-zinc-400 block">General Support, Management Support, Partnerships &amp; Affiliates.</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 4 & 5 */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-white/[0.08] bg-[#121316]/90 p-5 space-y-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex size-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold font-mono text-xs">
+                            4
+                          </span>
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">Deploy Slash Commands</h4>
+                        </div>
+                        <p className="text-xs text-zinc-400">
+                          Register all slash commands with Discord:
+                        </p>
+                        <div className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-[#0d0e11] px-4 py-2 font-mono text-xs text-zinc-300">
+                          <code>npm run deploy</code>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard('npm run deploy')}
+                            className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                            title="Copy command"
+                          >
+                            {copiedCmd === 'npm run deploy' ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-white/[0.08] bg-[#121316]/90 p-5 space-y-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <span className="flex size-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold font-mono text-xs">
+                            5
+                          </span>
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">Start the Bot</h4>
+                        </div>
+                        <p className="text-xs text-zinc-400">
+                          Launch the live bot engine:
+                        </p>
+                        <div className="flex items-center justify-between rounded-lg border border-white/[0.08] bg-[#0d0e11] px-4 py-2 font-mono text-xs text-zinc-300">
+                          <code>npm start</code>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard('npm start')}
+                            className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                            title="Copy command"
+                          >
+                            {copiedCmd === 'npm start' ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 🛠️ Slash Commands Reference Table */}
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-bold text-white font-display flex items-center gap-2">
+                        <Terminal className="size-4 text-cyan-400" />
+                        <span>Slash Commands Reference</span>
+                      </h3>
+                      <p className="text-xs text-zinc-400">
+                        Full command directory for ticket creation, claim assignment, live status, and member access.
+                      </p>
+                    </div>
+
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3 text-zinc-500" />
+                      <input
+                        type="text"
+                        value={ticketSearch}
+                        onChange={(e) => setTicketSearch(e.target.value)}
+                        placeholder="Filter commands..."
+                        className="h-8 w-48 sm:w-56 rounded-lg border border-white/[0.08] bg-[#0d0e11] pl-8 pr-3 text-xs text-white placeholder:text-zinc-500 focus:border-white/20 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-white/[0.08] bg-[#121316]/90 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-white/[0.08] bg-white/[0.02] text-zinc-400 font-mono text-[11px]">
+                            <th className="py-3 px-4 font-semibold">Command</th>
+                            <th className="py-3 px-4 font-semibold">Description</th>
+                            <th className="py-3 px-4 font-semibold">Permission</th>
+                            <th className="py-3 px-4 font-semibold text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/[0.04]">
+                          {[
+                            { cmd: '/ticket panel [channel]', desc: 'Sends the main ticket panel to a channel and registers it for live auto-updating.', perm: 'Staff / Admin' },
+                            { cmd: '/ticket status <online|busy|closed>', desc: 'Changes live operational desk status and refreshes all active panels in real-time.', perm: 'Staff / Admin' },
+                            { cmd: '/ticket category <category> <enable|disable>', desc: 'Toggles individual categories on/off and updates all live panels in real-time.', perm: 'Staff / Admin' },
+                            { cmd: '/ticket close [reason]', desc: 'Initiates ticket archive, generates HTML transcript, DMs author, and logs to transcripts channel.', perm: 'Staff / Author' },
+                            { cmd: '/ticket claim', desc: 'Assigns the ticket to you and updates the ticket control panel.', perm: 'Staff' },
+                            { cmd: '/ticket unclaim', desc: 'Releases the ticket back to the staff queue.', perm: 'Staff' },
+                            { cmd: '/ticket add <user>', desc: 'Grants a user access to the ticket channel.', perm: 'Staff' },
+                            { cmd: '/ticket remove <user>', desc: "Revokes a user's access to the ticket channel.", perm: 'Staff' },
+                            { cmd: '/ticket rename <name>', desc: 'Renames the ticket channel.', perm: 'Staff' }
+                          ]
+                            .filter(item => ticketSearch === '' || item.cmd.toLowerCase().includes(ticketSearch.toLowerCase()) || item.desc.toLowerCase().includes(ticketSearch.toLowerCase()))
+                            .map((row) => (
+                              <tr key={row.cmd} className="hover:bg-white/[0.02] transition-colors">
+                                <td className="py-3 px-4 font-mono font-semibold text-emerald-400 whitespace-nowrap">
+                                  {row.cmd}
+                                </td>
+                                <td className="py-3 px-4 text-zinc-300">
+                                  {row.desc}
+                                </td>
+                                <td className="py-3 px-4 whitespace-nowrap">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                    row.perm.includes('Admin')
+                                      ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                                      : row.perm.includes('Author')
+                                      ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+                                      : 'bg-zinc-800 text-zinc-300 border border-white/10'
+                                  }`}>
+                                    {row.perm}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4 text-right whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => copyToClipboard(row.cmd.split(' ')[0] + ' ' + (row.cmd.split(' ')[1] || ''))}
+                                    className="p-1 rounded text-zinc-500 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                                    title="Copy command base"
+                                  >
+                                    {copiedCmd === row.cmd.split(' ')[0] + ' ' + (row.cmd.split(' ')[1] || '') ? (
+                                      <Check className="size-3.5 text-emerald-400" />
+                                    ) : (
+                                      <Copy className="size-3.5" />
+                                    )}
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 📂 Architecture & Persistence */}
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold text-white font-display flex items-center gap-2">
+                      <Database className="size-4 text-purple-400" />
+                      <span>Architecture &amp; Local Persistence</span>
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      Data is stored locally under the <code className="text-white font-mono bg-white/[0.06] px-1.5 py-0.5 rounded">data/</code> directory with atomic writes so nothing breaks across bot restarts:
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="rounded-xl border border-white/[0.08] bg-[#121316]/90 p-5 space-y-2 hover:border-white/20 transition-all">
+                      <div className="flex items-center gap-2 text-white font-semibold text-xs font-mono">
+                        <FolderTree className="size-4 text-emerald-400" />
+                        <span>data/tickets.json</span>
+                      </div>
+                      <p className="text-xs text-zinc-400 leading-relaxed">
+                        Stores active tickets metadata, participant IDs, channel associations, and historical archive records for retroactive reason edits.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-white/[0.08] bg-[#121316]/90 p-5 space-y-2 hover:border-white/20 transition-all">
+                      <div className="flex items-center gap-2 text-white font-semibold text-xs font-mono">
+                        <FolderTree className="size-4 text-amber-400" />
+                        <span>data/ticket_desk.json</span>
+                      </div>
+                      <p className="text-xs text-zinc-400 leading-relaxed">
+                        Tracks current desk status (<code className="text-emerald-400">online</code>, <code className="text-amber-400">busy</code>, <code className="text-rose-400">closed</code>) and the list of currently disabled categories.
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-white/[0.08] bg-[#121316]/90 p-5 space-y-2 hover:border-white/20 transition-all">
+                      <div className="flex items-center gap-2 text-white font-semibold text-xs font-mono">
+                        <FolderTree className="size-4 text-cyan-400" />
+                        <span>data/ticket_panels.json</span>
+                      </div>
+                      <p className="text-xs text-zinc-400 leading-relaxed">
+                        List of all posted panel messages (<code className="text-zinc-300">channelId</code>, <code className="text-zinc-300">messageId</code>) for real-time live synchronization whenever status or categories change.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

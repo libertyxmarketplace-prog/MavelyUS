@@ -6,11 +6,6 @@ dotenv.config();
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 
-if (!DISCORD_TOKEN || !CLIENT_ID) {
-  console.error("Missing DISCORD_TOKEN or CLIENT_ID in your .env file!");
-  process.exit(1);
-}
-
 export const panelCommand = new SlashCommandBuilder()
   .setName('panel')
   .setDescription('Open the unified LIBERTX V2 Panel Menu to deploy server panels')
@@ -755,6 +750,10 @@ export async function deployCommands(customToken = null, customClientId = null, 
 // Guild-first: register GUILD commands (instant) when GUILD_ID is set, otherwise fall back to global.
 // Never register both scopes at once — Discord would list every command twice.
 if (process.argv[1]?.endsWith('deploy-commands.js')) {
+  if (!process.env.DISCORD_TOKEN || !process.env.CLIENT_ID) {
+    console.error("Missing DISCORD_TOKEN or CLIENT_ID in your .env file!");
+    process.exit(1);
+  }
   (async () => {
     const guildId = process.env.GUILD_ID && process.env.GUILD_ID.trim() !== '' ? process.env.GUILD_ID.trim() : null;
     await deployCommands(null, null, guildId, false, true);
