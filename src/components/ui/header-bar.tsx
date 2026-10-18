@@ -58,16 +58,12 @@ function HeaderBar({
   actions,
   sticky = false,
   lastCrumbIsPage = true,
-  showSidebarTrigger = "auto",
+  showSidebarTrigger = false,
   breadcrumbLabel,
   renderLink,
   ...props
 }: HeaderBarProps) {
-  // The trigger reads the sidebar context and throws without a provider, so the
-  // default only renders it where one is guaranteed: inside a DashboardShell.
-  // Passing true asks for it anyway — a provider of your own is then your job.
-  const shell = useDashboardShell()
-  const showTrigger = showSidebarTrigger === "auto" ? shell !== null : showSidebarTrigger
+  const showTrigger = showSidebarTrigger === true
   // renderLink is typed to ReactNode for callers; Breadcrumb's render slot
   // needs an element, and every path here produces one.
   const link = (href: string, linkProps: React.ComponentProps<"a">) =>

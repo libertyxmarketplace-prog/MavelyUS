@@ -26,15 +26,12 @@ import { useRef, useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import { Logo } from '@/components/library/logo';
-import { useTheme } from '@/components/library/theme-provider';
 
 import {
   ArrowDown01Icon,
-  BackwardIcon,
   BuildingIcon,
   HelpIcon,
   SettingsIcon,
-  ThemeIcon,
 } from '@/components/library/icons';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -129,8 +126,7 @@ export function DashboardSidebar({
   user,
   onSignOut,
 }: AppShellSidebarProps) {
-  const { state, toggleSidebar } = useSidebar();
-  const { theme, toggleTheme } = useTheme();
+  const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const navigate = useNavigate();
   const location = useLocation();
@@ -225,142 +221,76 @@ export function DashboardSidebar({
 
   return (
     <>
-      <Sidebar collapsible="icon" side={side}>
+      <Sidebar collapsible="none" className="w-64 shrink-0 bg-sidebar border-r border-border/40" side={side}>
         {/* Top Header: Discord Server Switcher (Replaces redundant top bar) */}
         <SidebarHeader className="p-3 border-b border-border/40 bg-sidebar flex-row items-center justify-between">
-          {!collapsed ? (
-            <div className="flex items-center justify-between w-full gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  className={cn(
-                    buttonVariants({ variant: 'ghost' }),
-                    'h-auto flex-1 justify-between p-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-all cursor-pointer min-w-0 text-left',
-                  )}
-                >
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <span className="bg-[#12151f] flex size-8 shrink-0 items-center justify-center rounded-lg overflow-hidden border border-white/10 ring-1 ring-white/5">
-                      {currentWorkspace?.iconUrl ? (
-                        <img src={currentWorkspace.iconUrl} alt={currentWorkspace.name} className="size-8 rounded-lg object-cover" />
-                      ) : (
-                        <BuildingIcon className="size-4 text-emerald-400" />
-                      )}
+          <div className="flex items-center justify-between w-full">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  buttonVariants({ variant: 'ghost' }),
+                  'h-auto w-full justify-between p-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-all cursor-pointer min-w-0 text-left',
+                )}
+              >
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span className="bg-[#12151f] flex size-8 shrink-0 items-center justify-center rounded-lg overflow-hidden border border-white/10 ring-1 ring-white/5">
+                    {currentWorkspace?.iconUrl ? (
+                      <img src={currentWorkspace.iconUrl} alt={currentWorkspace.name} className="size-8 rounded-lg object-cover" />
+                    ) : (
+                      <BuildingIcon className="size-4 text-emerald-400" />
+                    )}
+                  </span>
+                  <span className="min-w-0 text-left">
+                    <span className="text-muted-foreground block text-[10px] font-mono uppercase tracking-wider">
+                      Active Server
                     </span>
-                    <span className="min-w-0 text-left">
-                      <span className="text-muted-foreground block text-[10px] font-mono uppercase tracking-wider">
-                        Active Server
-                      </span>
-                      <span className="block truncate text-xs font-semibold text-foreground">
-                        {currentWorkspace?.name || 'Select Server'}
-                      </span>
+                    <span className="block truncate text-xs font-semibold text-foreground">
+                      {currentWorkspace?.name || 'Select Server'}
                     </span>
                   </span>
-                  <ArrowDown01Icon className="text-muted-foreground size-4 ml-1 shrink-0" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  sideOffset={6}
-                  className="z-50 w-64 rounded-2xl p-1.5 shadow-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
-                >
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-mono font-semibold text-zinc-400 tracking-wider uppercase">
-                      Select Server
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator className="bg-white/10" />
-                    {workspaces?.map((ws) => (
-                      <DropdownMenuItem
-                        key={ws.id}
-                        onClick={() => onWorkspaceChange?.(ws.id)}
-                        className={cn(
-                          'justify-between rounded-xl px-2.5 py-2 cursor-pointer transition-colors text-xs',
-                          ws.id === currentWorkspace?.id
-                            ? 'text-emerald-400 font-semibold bg-emerald-500/10'
-                            : 'text-zinc-300 hover:text-white hover:bg-white/[0.06]',
-                        )}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {ws.iconUrl ? (
-                            <img src={ws.iconUrl} alt={ws.name} className="size-6 rounded-md object-cover" />
-                          ) : (
-                            <div className="size-6 rounded-md bg-white/10 text-white text-[10px] flex items-center justify-center font-bold">
-                              {ws.initial}
-                            </div>
-                          )}
-                          <span className="truncate">{ws.name}</span>
-                        </div>
-                        {ws.id === currentWorkspace?.id && (
-                          <Check className="text-emerald-400 size-4" />
-                        )}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <Button
-                aria-label="Collapse sidebar"
-                variant="ghost"
-                size="icon-sm"
-                onClick={toggleSidebar}
-                className="size-8 shrink-0 text-zinc-400 hover:text-white hover:bg-white/[0.08] rounded-lg cursor-pointer"
+                </span>
+                <ArrowDown01Icon className="text-muted-foreground size-4 ml-1 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                sideOffset={6}
+                className="z-50 w-64 rounded-2xl p-1.5 shadow-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
               >
-                <BackwardIcon className="size-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="relative size-10 mx-auto">
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  className="size-10 rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center transition-colors cursor-pointer"
-                  title={currentWorkspace?.name}
-                >
-                  {currentWorkspace?.iconUrl ? (
-                    <img src={currentWorkspace.iconUrl} alt={currentWorkspace.name} className="size-7 rounded-lg object-cover" />
-                  ) : (
-                    <BuildingIcon className="size-5 text-emerald-400" />
-                  )}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  side="right"
-                  align="start"
-                  sideOffset={8}
-                  className="z-50 w-64 rounded-2xl p-1.5 shadow-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
-                >
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-mono font-semibold text-zinc-400 tracking-wider uppercase">
-                      Select Server
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator className="bg-white/10" />
-                    {workspaces?.map((ws) => (
-                      <DropdownMenuItem
-                        key={ws.id}
-                        onClick={() => onWorkspaceChange?.(ws.id)}
-                        className={cn(
-                          'justify-between rounded-xl px-2.5 py-2 cursor-pointer transition-colors text-xs',
-                          ws.id === currentWorkspace?.id
-                            ? 'text-emerald-400 font-semibold bg-emerald-500/10'
-                            : 'text-zinc-300 hover:text-white hover:bg-white/[0.06]',
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-mono font-semibold text-zinc-400 tracking-wider uppercase">
+                    Select Server
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/10" />
+                  {workspaces?.map((ws) => (
+                    <DropdownMenuItem
+                      key={ws.id}
+                      onClick={() => onWorkspaceChange?.(ws.id)}
+                      className={cn(
+                        'justify-between rounded-xl px-2.5 py-2 cursor-pointer transition-colors text-xs',
+                        ws.id === currentWorkspace?.id
+                          ? 'text-emerald-400 font-semibold bg-emerald-500/10'
+                          : 'text-zinc-300 hover:text-white hover:bg-white/[0.06]',
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {ws.iconUrl ? (
+                          <img src={ws.iconUrl} alt={ws.name} className="size-6 rounded-md object-cover" />
+                        ) : (
+                          <div className="size-6 rounded-md bg-white/10 text-white text-[10px] flex items-center justify-center font-bold">
+                            {ws.initial}
+                          </div>
                         )}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {ws.iconUrl ? (
-                            <img src={ws.iconUrl} alt={ws.name} className="size-6 rounded-md object-cover" />
-                          ) : (
-                            <div className="size-6 rounded-md bg-white/10 text-white text-[10px] flex items-center justify-center font-bold">
-                              {ws.initial}
-                            </div>
-                          )}
-                          <span className="truncate">{ws.name}</span>
-                        </div>
-                        {ws.id === currentWorkspace?.id && (
-                          <Check className="text-emerald-400 size-4" />
-                        )}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+                        <span className="truncate">{ws.name}</span>
+                      </div>
+                      {ws.id === currentWorkspace?.id && (
+                        <Check className="text-emerald-400 size-4" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </SidebarHeader>
 
         {/* Navigation Content */}
@@ -463,22 +393,6 @@ export function DashboardSidebar({
                       <span>Add Bot to Server</span>
                     </DropdownMenuItem>
 
-                    {/* Toggle Theme */}
-                    <DropdownMenuItem
-                      onClick={toggleTheme}
-                      className="flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <ThemeIcon className="size-4 text-emerald-400" />
-                        <span>Toggle Theme</span>
-                      </div>
-                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/10 text-zinc-400">
-                        {theme || 'dark'}
-                      </span>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuSeparator className="bg-white/10 my-1" />
-
                     {/* Back to Home */}
                     <DropdownMenuItem
                       onClick={() => navigate('/')}
@@ -542,7 +456,6 @@ function MobileBottomNavigation({
   onNavigate: (href: string) => void;
   onSignOut?: () => void;
 }) {
-  const { toggleTheme } = useTheme();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreActive = moreItems.some((item) => activeSubsection ? item.href.endsWith(`/${activeSubsection}`) : false);
 
@@ -726,28 +639,17 @@ function MobileBottomNavigation({
               <HelpIcon />
               <span>Help & Support</span>
             </a>
-            <div className="flex items-center gap-1">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setMoreOpen(false);
-                }}
-                className={cn(moreNavItemClassName, 'flex-1')}
-              >
-                <SettingsIcon />
-                <span>Settings</span>
-              </a>
-              <Button
-                aria-label="Toggle theme"
-                variant="ghost"
-                size="icon"
-                className="size-11"
-                onClick={toggleTheme}
-              >
-                <ThemeIcon className="size-5" />
-              </Button>
-            </div>
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setMoreOpen(false);
+              }}
+              className={moreNavItemClassName}
+            >
+              <SettingsIcon />
+              <span>Settings</span>
+            </a>
             {onSignOut && (
               <button
                 type="button"

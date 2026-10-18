@@ -351,16 +351,6 @@ export function DashboardPage() {
         <PageHeader
           title={serverName}
           description="Real-time member growth, community treasury balance, and directory status"
-          badge={
-            !isBotInGuild ? (
-              <Badge
-                variant="outline"
-                className="border-amber-500/30 bg-amber-500/10 text-amber-400 font-mono text-[10px]"
-              >
-                INVITE REQUIRED
-              </Badge>
-            ) : undefined
-          }
           meta={
             <div className="flex items-center gap-3">
               <span>{lastUpdated()}</span>
@@ -554,55 +544,6 @@ export function DashboardPage() {
               <span className="hidden sm:inline-block font-mono text-[10px] text-zinc-500 pl-1 border-l border-white/10">
                 Ctrl+S
               </span>
-            </div>
-          </div>
-        )}
-
-        {/* ── NON-BLOCKING BOT INVITE ALERT (IF NOT YET IN GUILD) ── */}
-        {!isBotInGuild && (
-          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              {serverIconUrl ? (
-                <img src={serverIconUrl} alt={serverName} className="size-10 rounded-xl object-cover shrink-0 border border-white/10" />
-              ) : (
-                <div className="size-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-                  <Bot className="size-5" />
-                </div>
-              )}
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-white">Bot Setup Recommended for {serverName}</h3>
-                  <Badge variant="outline" className="border-amber-500/30 text-amber-300 text-[10px]">
-                    SETUP REQUIRED
-                  </Badge>
-                </div>
-                <p className="text-xs text-slate-400">
-                  Invite Mavely to deploy ticket desks, dispatch radio sessions, and synchronize Discord roles automatically.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
-              <Button
-                size="sm"
-                onClick={() => window.open(botInviteUrl, '_blank', 'noopener,noreferrer')}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-sm"
-              >
-                <Bot className="size-3.5" />
-                <span>Invite Mavely</span>
-                <ExternalLink className="size-3" />
-              </Button>
-              <AsyncButton
-                size="sm"
-                variant="outline"
-                loadingText="Verifying…"
-                onClick={handleCheckConnection}
-                disabled={checkingConnection}
-                className="border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 text-xs h-9 px-3.5 rounded-xl font-medium"
-              >
-                <RotateCw className={`size-3 mr-1.5 ${checkingConnection ? 'animate-spin' : ''}`} />
-                <span>Verify</span>
-              </AsyncButton>
             </div>
           </div>
         )}

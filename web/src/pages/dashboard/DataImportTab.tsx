@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { WorkspaceBot } from '@/types';
-import { ImportWizard as VibraImportWizard } from '@/app/import/components/import-wizard';
 
 // ==========================================
 // CSV SCANNER & PARSER (RFC 4180 Compliant)
@@ -234,7 +233,6 @@ export interface DataImportTabProps {
 }
 
 export function DataImportTab({ workspace: _workspace, onImportSuccess }: DataImportTabProps) {
-  const [viewMode, setViewMode] = useState<'vibra' | 'roster'>('vibra');
   const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
   const [fileName, setFileName] = useState<string | null>(null);
   const [table, setTable] = useState<CsvTable | null>(null);
@@ -297,6 +295,16 @@ export function DataImportTab({ workspace: _workspace, onImportSuccess }: DataIm
     setMapping({});
     setSummary(null);
     setError(null);
+  }
+
+  function downloadSampleTemplate() {
+    const blob = new Blob([SAMPLE_ERLC_ROSTER_CSV], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'erlc_staff_roster_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // Row Mapping logic
@@ -399,83 +407,56 @@ export function DataImportTab({ workspace: _workspace, onImportSuccess }: DataIm
 
   return (
     <div className="space-y-6">
-      {/* Mode Switcher */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant={viewMode === 'vibra' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('vibra')}
-            className={`text-xs font-medium h-8 ${viewMode === 'vibra' ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-transparent' : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white'}`}
-          >
-            Vibra Data-Import Suite
-          </Button>
-          <Button
-            type="button"
-            variant={viewMode === 'roster' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('roster')}
-            className={`text-xs font-medium h-8 ${viewMode === 'roster' ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-transparent' : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white'}`}
-          >
-            ER:LC Roster Mapping
-          </Button>
+      {/* Header Banner */}
+      <div className="p-6 rounded-2xl border border-white/[0.08] bg-[#161a24] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)] flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2.5">
+              <FileSpreadsheet className="size-6 text-emerald-400" />
+              <span>Server Data & Roster Import</span>
+            </h1>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl leading-relaxed">
+            Bulk-intake ER:LC staff rosters, Discord member IDs, department callsigns, and weekly quotas with instant CSV validation.
+          </p>
         </div>
-        <Badge variant="outline" className="border-white/10 text-[11px] text-zinc-400 font-mono w-fit">
-          npx shadcn@latest add @vibra/data-import
-        </Badge>
+
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadSampleTemplate}
+            className="border-white/10 bg-white/5 hover:bg-white/10 text-xs text-slate-300 hover:text-white h-9 px-3.5 rounded-xl gap-1.5 transition-all"
+          >
+            <Download className="size-3.5 text-emerald-400" />
+            <span>Sample CSV</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadCsvText('sample-erlc-roster.csv', SAMPLE_ERLC_ROSTER_CSV)}
+            className="border-white/10 bg-white/5 hover:bg-white/10 text-xs text-slate-300 hover:text-white h-9 px-3.5 rounded-xl gap-1.5 transition-all"
+          >
+            <Table className="size-3.5 text-cyan-400" />
+            <span>Load Demo Data</span>
+          </Button>
+
+          {step > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={restart}
+              className="border-white/10 bg-white/5 hover:bg-white/10 text-xs text-slate-300 hover:text-white h-9 px-3.5 rounded-xl gap-1.5 transition-all"
+            >
+              <RotateCcw className="size-3.5 text-slate-400" />
+              <span>Reset</span>
+            </Button>
+          )}
+        </div>
       </div>
 
-      {viewMode === 'vibra' ? (
-        <div className="rounded-lg border border-white/[0.08] bg-[#161a24] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)] p-6 shadow-xl">
-          <VibraImportWizard />
-        </div>
-      ) : (
-        <>
-          {/* Header Banner */}
-          <div className="p-5 rounded-lg border border-white/[0.08] bg-[#161a24] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)] flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                  <FileSpreadsheet className="size-4 text-emerald-400" />
-                  <span>Data Import Wizard</span>
-                </h2>
-                <Badge variant="outline" className="border-white/10 bg-white/5 text-[10px] text-zinc-300 font-mono">
-                  ER:LC Custom Engine
-                </Badge>
-              </div>
-              <p className="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
-                Bulk-intake ER:LC staff rosters, Discord member IDs, department callsigns, and weekly quotas. Four-step zero-dependency validator with RFC 4180 parsing and line-by-line refusal diagnostics.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => loadCsvText('sample-erlc-roster.csv', SAMPLE_ERLC_ROSTER_CSV)}
-                className="border-white/10 bg-white/5 hover:bg-white/10 text-xs text-zinc-200 h-8"
-              >
-                <Table className="size-3.5 mr-1.5 text-zinc-400" />
-                <span>Load ER:LC Sample</span>
-              </Button>
-
-              {step > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={restart}
-                  className="border-white/10 bg-white/5 hover:bg-white/10 text-xs text-zinc-200 h-8"
-                >
-                  <RotateCcw className="size-3.5 mr-1.5 text-zinc-400" />
-                  <span>Reset</span>
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Stepper Progress Bar */}
-
+      {/* Stepper Progress Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
         {STEPS.map((s, idx) => {
           const isActive = step === idx;
@@ -885,8 +866,6 @@ export function DataImportTab({ workspace: _workspace, onImportSuccess }: DataIm
             </div>
           )}
         </Card>
-      )}
-        </>
       )}
     </div>
   );
