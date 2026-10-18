@@ -48,33 +48,7 @@ export function buildTicketPanel(deskData = null, customConfig = null) {
     content: `## ${panelTitle}\n${panelDesc}`
   });
 
-  // 3. Section with Rules Button (only if enabled and has configured content)
-  const hasRules = customConfig?.showRulesButton !== false &&
-    Boolean(
-      (customConfig?.rulesTitle && customConfig.rulesTitle.trim()) ||
-      (customConfig?.rulesDescription && customConfig.rulesDescription.trim()) ||
-      (customConfig?.ticketRules && customConfig.ticketRules.trim())
-    );
-
-  if (hasRules) {
-    containerComponents.push({
-      type: 9,
-      components: [
-        {
-          type: 10,
-          content: customConfig?.rulesNoticeText || '**Please review ticket guidelines before opening.**'
-        }
-      ],
-      accessory: {
-        type: 2,
-        style: customConfig?.rulesButtonStyle || 1, // Primary (Blue!)
-        label: customConfig?.rulesButtonLabel || 'Rules',
-        custom_id: 'ticket_btn_rules'
-      }
-    });
-  }
-
-  // 4. Action Row with dynamic category buttons (no emojis)
+  // Action Row with dynamic category buttons (no emojis)
   const defaultCats = [
     { id: 'cat_1', name: 'General Support' },
     { id: 'cat_2', name: 'High Rank' }
@@ -96,27 +70,56 @@ export function buildTicketPanel(deskData = null, customConfig = null) {
     };
   });
 
-  if (categoryButtons.length > 0) {
+  const layout = customConfig?.panelLayout || 'buttons'; // 'buttons' | 'select' | 'both'
+  const isClassic = customConfig?.panelDesign === 'classic';
+
+  if (isClassic) {
+    const colorHex = (customConfig?.panelColor || '#2ecc71').replace('#', '');
+    const colorInt = parseInt(colorHex, 16) || 0x2ecc71;
+    const embed = new EmbedBuilder()
+      .setColor(colorInt)
+      .setTitle(panelTitle)
+      .setDescription(panelDesc);
+
+    if (topBanner && topBanner.trim() !== '') {
+      embed.setImage(topBanner.trim());
+    }
+
+    const rows = [];
+    if ((layout === 'buttons' || layout === 'both') && categoryButtons.length > 0) {
+      rows.push(new ActionRowBuilder().addComponents(
+        categoryButtons.map(b => new ButtonBuilder().setCustomId(b.custom_id).setLabel(b.label).setStyle(ButtonStyle.Secondary).setDisabled(b.disabled))
+      ));
+    }
+    if ((layout === 'select' || layout === 'both') && selectOptions.length > 0) {
+      rows.push({
+        type: 1,
+        components: [
+          {
+            type: 3,
+            custom_id: 'ticket_category_select',
+            placeholder: customConfig?.panelSelectPlaceholder?.trim() || 'Select a category to open a ticket...',
+            options: selectOptions
+          }
+        ]
+      });
+    }
+
+    return {
+      embeds: [embed],
+      components: rows
+    };
+  }
+
+  // Discord Components V2 Container format
+  if ((layout === 'buttons' || layout === 'both') && categoryButtons.length > 0) {
     containerComponents.push({
       type: 1,
       components: categoryButtons
     });
   }
 
-  // Category select menu  - the same categories, available as a dropdown
-  const selectOptions = configuredCats.slice(0, 5).map((cat, idx) => {
-    const catId = cat.id || `cat_${idx + 1}`;
-    const cleanLabel = (cat.name || `Support ${idx + 1}`).trim();
-    const isClosed = disabledList.includes(catId) || disabledList.includes(cleanLabel.toLowerCase());
-    return {
-      label: cleanLabel.slice(0, 100),
-      description: (isClosed ? 'Currently closed by staff' : `Open a ${cleanLabel} ticket`).slice(0, 100),
-      value: `ticket_cat_${catId}`,
-      ...(isClosed ? { disabled: true } : {})
-    };
-  });
-
-  if (selectOptions.length > 0) {
+  if ((layout === 'select' || layout === 'both') && selectOptions.length > 0) {
     containerComponents.push({
       type: 1,
       components: [

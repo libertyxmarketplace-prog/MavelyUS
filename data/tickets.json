@@ -237,6 +237,25 @@
       "duration": "1m 9s",
       "logMessageId": "1552944569153355817",
       "archivedAt": 1790321239676
+    },
+    {
+      "channelId": "1560450462770135151",
+      "channelName": "ticket-kims3166",
+      "authorId": "523693281541095424",
+      "authorTag": "kims3166",
+      "category": "cat_2",
+      "categoryLabel": "High Rank",
+      "reason": "testt",
+      "claimedBy": null,
+      "claimedTag": null,
+      "closedById": "523693281541095424",
+      "closedByTag": "kims3166",
+      "closeReason": "Inquiry resolved by user",
+      "createdAt": 1792110783255,
+      "closedAt": 1792296035826,
+      "duration": "2d 3h 27m",
+      "logMessageId": "1561227456155881554",
+      "archivedAt": 1792296035827
     }
   ]
 }

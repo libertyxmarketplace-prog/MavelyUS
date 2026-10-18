@@ -2004,35 +2004,13 @@ export async function handleInteraction(interaction) {
     /* MASTER BOT GUARD - LIBERTX only handles /config, /banbot, /createbot     */
     /* All other commands must be handled by the customer bot, not LIBERTX.     */
     /* ---------------------------------------------------------------------- */
-    const MASTER_CLIENT_ID = process.env.CLIENT_ID;
-    const isMasterBot = interaction.applicationId === MASTER_CLIENT_ID || interaction.client.user.id === client.user.id;
-    // Commands the master (LIBERTX) app answers
-    const MASTER_ONLY_COMMANDS = ['config', 'banbot', 'createbot', 'unbanbot', 'listbots', 'retrigger'];
-    // Commands customer bots must never answer (owned by the master app).
-    // NOTE: /retrigger is intentionally NOT here - customers get their own /retrigger.
-    const CUSTOMER_BLOCKED_COMMANDS = ['banbot', 'createbot', 'unbanbot', 'listbots'];
-    // UI interactions the master app must answer even though they are not config UI:
-    // session cards/votes and application DM buttons are dispatched by the master client.
-    const MASTER_UI_ALLOWED = ['cfg_', 'session_', 'vote_host_', 'app_'];
-
-    if (isMasterBot && interaction.isChatInputCommand() && !MASTER_ONLY_COMMANDS.includes(interaction.commandName)) {
-      // LIBERTX is not supposed to respond to this command - silently ignore
-      return;
-    }
-
-    // Guard buttons, modals, and select menus for the master bot - config UI plus whitelisted cards
-    if (isMasterBot && (interaction.isButton() || interaction.isModalSubmit() || interaction.isAnySelectMenu())) {
-      const cid = interaction.customId || '';
-      if (!MASTER_UI_ALLOWED.some(prefix => cid.startsWith(prefix))) {
-        return; // LIBERTX ignores unrelated UI interactions
-      }
-    }
-
-    // Guard customer bots from handling administrative master bot commands
-    if (!isMasterBot) {
-      if (interaction.isChatInputCommand() && CUSTOMER_BLOCKED_COMMANDS.includes(interaction.commandName)) {
+    const ADMIN_ONLY_COMMANDS = ['banbot', 'createbot', 'unbanbot', 'listbots'];
+    if (interaction.isChatInputCommand() && ADMIN_ONLY_COMMANDS.includes(interaction.commandName)) {
+      const isOwner = interaction.user.id === interaction.guild?.ownerId ||
+        interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+      if (!isOwner) {
         return interaction.reply({
-          content: `${EMOJIS.CROSS} \`/${interaction.commandName}\` is managed by the main **Mavely** bot. Please run it with Mavely.`,
+          content: 'You must be an administrator to run this command.',
           flags: 64
         }).catch(() => null);
       }
@@ -3031,6 +3009,48 @@ export async function handleInteraction(interaction) {
         }
       }
 
+      // /bump command (1-hour cooldown)
+      if (interaction.commandName === 'bump') {
+        const guildId = interaction.guildId;
+        const now = Date.now();
+        const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+        if (!global.__bumpCooldowns) global.__bumpCooldowns = new Map();
+        const lastBump = global.__bumpCooldowns.get(guildId) || 0;
+        const elapsed = now - lastBump;
+
+        if (elapsed < COOLDOWN_MS) {
+          const remainingMinutes = Math.ceil((COOLDOWN_MS - elapsed) / 60000);
+          return interaction.reply({
+            content: `⏳ **Cooldown Active:** This server was bumped recently. You can run \`/bump\` again in **${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}**.\n*(Limit: 1 bump per hour)*`,
+            flags: 64
+          }).catch(() => null);
+        }
+
+        // Record new bump timestamp
+        global.__bumpCooldowns.set(guildId, now);
+
+        try {
+          const botInst = getBotInstanceForGuild(guildId);
+          if (botInst) {
+            updateBotCustomization(botInst.botId, 'lastBumpedAt', now);
+          }
+        } catch {}
+
+        const serverName = interaction.guild?.name || 'Community Server';
+        return interaction.reply({
+          embeds: [{
+            title: '🔥 Server Bumped Successfully!',
+            description: `**${serverName}** has been elevated to **#1** at the top of the directory!\n\n✨ **Next bump available in:** \`60 minutes\`\n🔗 **Directory:** [View Live Directory](https://mavely.app/dashboard)`,
+            color: 0xf59e0b,
+            footer: {
+              text: 'Mavely Directory Bump Engine · 1h Cooldown Enforced'
+            },
+            timestamp: new Date().toISOString()
+          }]
+        }).catch(() => null);
+      }
+
       // /loa request <start> <end> <reason>
       if (interaction.commandName === 'loa') {
         if (interaction.deferred || interaction.replied) return;
@@ -3437,25 +3457,49 @@ export async function handleInteraction(interaction) {
 
         try {
           if (selectedValue === 'dispatch_ticket') {
+            const isTicketConfigured = cust.transcriptsChannelId || (Array.isArray(cust.ticketCategories) && cust.ticketCategories.length > 0 && cust.ticketCategories.some(c => c.spawnCategoryId));
+            if (!isTicketConfigured) {
+              return interaction.reply({ content: 'Please configure in the website', ephemeral: true });
+            }
             const panelPayload = buildTicketPanel(null, cust);
             const sentMsg = await targetChannel.send(panelPayload);
             addPanelRecord(targetChannel.id, sentMsg.id);
             statusText = `Ticket Support Desk successfully dispatched to <#${targetChannel.id}>!`;
           } else if (selectedValue === 'dispatch_session') {
+            const isSessionConfigured = cust.sessionChannelId || cust.ingameVcId;
+            if (!isSessionConfigured) {
+              return interaction.reply({ content: 'Please configure in the website', ephemeral: true });
+            }
             await activateLiveSessionPanel(interaction.client, targetChannel.id, botInst);
             statusText = `ER:LC Live Session Panel successfully dispatched to <#${targetChannel.id}>!`;
           } else if (selectedValue === 'dispatch_staffdocs') {
+            const isDocsConfigured = cust.rulesChannelId || cust.staffDocsChannelId || cust.rulesTitle;
+            if (!isDocsConfigured) {
+              return interaction.reply({ content: 'Please configure in the website', ephemeral: true });
+            }
             const payload = buildStaffDocsHubPayload(cust);
             await targetChannel.send(payload);
             statusText = `Staff Documentation Hub successfully dispatched to <#${targetChannel.id}>!`;
           } else if (selectedValue === 'dispatch_application') {
+            const isAppConfigured = (Array.isArray(cust.applications) && cust.applications.length > 0) || cust.reviewChannelId;
+            if (!isAppConfigured) {
+              return interaction.reply({ content: 'Please configure in the website', ephemeral: true });
+            }
             const panelPayload = buildApplicationPanel(cust);
             await targetChannel.send(panelPayload);
             statusText = `Staff Application Desk successfully dispatched to <#${targetChannel.id}>!`;
           } else if (selectedValue === 'dispatch_department') {
+            const isDeptConfigured = cust.deptChannelId;
+            if (!isDeptConfigured) {
+              return interaction.reply({ content: 'Please configure in the website', ephemeral: true });
+            }
             await postDepartmentPanel(targetChannel);
             statusText = `Department Information Panel successfully dispatched to <#${targetChannel.id}>!`;
           } else if (selectedValue === 'dispatch_askai') {
+            const isAiConfigured = cust.aiApiKey || process.env.GEMINI_API_KEY;
+            if (!isAiConfigured) {
+              return interaction.reply({ content: 'Please configure in the website', ephemeral: true });
+            }
             const communityName = cust.serverName || interaction.guild?.name || 'Server';
             const aiPayload = {
               flags: 32768,
@@ -3776,6 +3820,12 @@ export async function handleInteraction(interaction) {
 
       // Staff Application Position Selector
       if (interaction.customId === 'application_select_role') {
+        const botInst = getBotInstanceForGuild(interaction.guild?.id, interaction.user.id);
+        const cust = botInst?.customizations || {};
+        const isAppConfigured = (Array.isArray(cust.applications) && cust.applications.length > 0) || cust.reviewChannelId;
+        if (!isAppConfigured) {
+          return interaction.reply({ content: 'Please configure in the website', ephemeral: true });
+        }
         const selectedRole = interaction.values[0]; // 'ingame_mod' or 'discord_mod'
         const roleName = getRoleDisplayName(selectedRole);
 
@@ -6511,9 +6561,9 @@ export async function handleInteraction(interaction) {
           pingRoleId: customCat.pingRoleId || cust.ticketPingRoleId || null
         } : (fallbackCat || null);
 
-        if (!category) {
+        if (!category || !category.categoryId) {
           return interaction.reply({
-            content: 'Invalid category selected.',
+            content: 'Please configure in the website',
             ephemeral: true
           });
         }

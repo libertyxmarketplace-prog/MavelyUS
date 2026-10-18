@@ -26,6 +26,9 @@ export const panelCommand = new SlashCommandBuilder()
 const commands = [
   panelCommand,
   new SlashCommandBuilder()
+    .setName('bump')
+    .setDescription('Bump this Discord community to #1 in the directory (1 hour cooldown)'),
+  new SlashCommandBuilder()
     .setName('ticket')
     .setDescription('LIBERTX Ticket System management commands')
     .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages)
@@ -645,8 +648,17 @@ export const configOnlyCommand = [
     )
 ].map(cmd => cmd.toJSON());
 
-// Master LIBERTX bot commands: ONLY bot management and config (/listbots, /banbot, /unbanbot, /createbot, /config)
-export const masterCommands = [...configOnlyCommand, ...adminOnlyCommands];
+// Full command suite including panel, ticket, session, applications, and admin tools (deduplicated)
+const rawCommands = [...customerCommands, ...configOnlyCommand, ...adminOnlyCommands];
+const seenNames = new Set();
+export const allCommands = [];
+for (const cmd of rawCommands) {
+  if (!seenNames.has(cmd.name)) {
+    seenNames.add(cmd.name);
+    allCommands.push(cmd);
+  }
+}
+export const masterCommands = allCommands;
 
 export async function deployCommands(customToken = null, customClientId = null, customGuildId = null, setupOnly = false, isMaster = false) {
   const token = customToken || process.env.DISCORD_TOKEN;
@@ -659,7 +671,7 @@ export async function deployCommands(customToken = null, customClientId = null, 
 
   const restClient = new REST({ version: '10' }).setToken(token);
   const isActuallyMaster = isMaster || (String(clientId) === String(process.env.CLIENT_ID));
-  const cmds = setupOnly ? configOnlyCommand : (isActuallyMaster ? masterCommands : customerCommands);
+  const cmds = setupOnly ? configOnlyCommand : allCommands;
 
   try {
     if (isActuallyMaster) {

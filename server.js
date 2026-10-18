@@ -30,6 +30,16 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || process.env.SERVER_PORT || 3001;
 
+// Railway and most hosts sit behind a proxy: needed for secure cookies and real client IPs.
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 app.use(express.json({ limit: '100kb' }));
 app.use('/api', createDashboardRouter());
 app.use('/auth/discord', createDiscordCallbackRouter());
@@ -461,9 +471,9 @@ app.post('/api/bots/:id/action', async (req, res) => {
 
 // ─── SERVE FRONTEND STATIC FILES IN PRODUCTION ──────────────────────────────
 const candidatePaths = [
+  path.join(__dirname, 'web', 'dist'),
   path.join(__dirname, 'WEBSITE', 'artifacts', 'testaa-preview', 'dist', 'public'),
-  path.join(__dirname, 'zip-repl-1', 'artifacts', 'testaa-preview', 'dist', 'public'),
-  path.join(__dirname, 'web', 'dist')
+  path.join(__dirname, 'zip-repl-1', 'artifacts', 'testaa-preview', 'dist', 'public')
 ];
 
 const webDistPath = candidatePaths.find(p => fs.existsSync(p));
@@ -478,6 +488,15 @@ if (webDistPath) {
     next();
   });
 }
+
+// Last line of defence: any thrown error becomes a clean response, never a crash.
+app.use((err, req, res, _next) => {
+  if (err?.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid request body.' });
+  if (err?.type === 'entity.too.large') return res.status(413).json({ error: 'Request is too large.' });
+  console.error('[LIBERTX WEB API] Unhandled route error:', err);
+  if (res.headersSent) return;
+  res.status(500).json({ error: 'Something went wrong on our side. Try again.' });
+});
 
 const server = app.listen(PORT, () => {
   console.log(`[LIBERTX WEB API] Dashboard backend listening on http://localhost:${PORT}`);
