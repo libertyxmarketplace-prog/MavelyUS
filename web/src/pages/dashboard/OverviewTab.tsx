@@ -12,7 +12,8 @@ import {
   Bot,
   Compass,
   Activity,
-  CheckCircle2
+  CheckCircle2,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,7 +73,12 @@ export function OverviewTab({
   const serverName = guild?.name || config.serverName || 'Community Discord Server';
   const guildId = guild?.id || '1232495211490443284';
   const isPromoted = config.j4jEnabled !== false && Boolean(config.inviteUrl || config.serverDescription);
-  const botInstanceName = workspace?.botUser?.username || 'CivLink Bot Instance';
+  const isPrimaryServer = guildId === '1232495211490443284' || guildId === '1530147023754367006';
+  const isBotConnected = workspace
+    ? (workspace.isInGuild !== false && workspace.status !== 'unconfigured')
+    : isPrimaryServer;
+  const botInstanceName = workspace?.botUser?.username || 'Mavely Bot';
+  const botInviteUrl = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&integration_type=0&scope=bot%20applications.commands&guild_id=${guildId}`;
 
   const handleCopyGuildId = () => {
     navigator.clipboard.writeText(guildId);
@@ -121,13 +127,33 @@ export function OverviewTab({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300 font-mono">
-                {/* Real User's Bot Instance Badge (Replaced the join code) */}
-                <div className="inline-flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-md border border-emerald-500/25">
-                  <Bot className="size-3.5 text-emerald-400" />
-                  <span className="text-slate-400">INSTANCE:</span>
-                  <span className="font-semibold text-white">{botInstanceName}</span>
-                  <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
-                </div>
+                {/* Real User's Bot Instance Badge or Not Connected State */}
+                {isBotConnected ? (
+                  <div className="inline-flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-md border border-emerald-500/25">
+                    <Bot className="size-3.5 text-emerald-400" />
+                    <span className="text-slate-400">INSTANCE:</span>
+                    <span className="font-semibold text-white">{botInstanceName}</span>
+                    <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2">
+                    <div className="inline-flex items-center gap-1.5 text-rose-400 bg-rose-500/10 px-2.5 py-0.5 rounded-md border border-rose-500/25">
+                      <Bot className="size-3.5 text-rose-400" />
+                      <span className="text-slate-400">STATUS:</span>
+                      <span className="font-semibold text-rose-300">Not Connected</span>
+                      <span className="size-1.5 rounded-full bg-rose-400 ml-0.5" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => window.open(botInviteUrl, '_blank', 'noopener,noreferrer')}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-white bg-indigo-600 hover:bg-indigo-500 px-2.5 py-0.5 rounded-md transition-colors shadow-sm"
+                    >
+                      <Bot className="size-3" />
+                      <span>Connect Bot</span>
+                      <ExternalLink className="size-2.5 ml-0.5" />
+                    </button>
+                  </div>
+                )}
 
                 <span className="text-slate-600">·</span>
 
@@ -156,6 +182,18 @@ export function OverviewTab({
 
           {/* Quick Actions */}
           <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
+            {!isBotConnected && (
+              <Button
+                size="sm"
+                onClick={() => window.open(botInviteUrl, '_blank', 'noopener,noreferrer')}
+                className="h-9 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 rounded-xl shadow-md shadow-indigo-600/20 flex items-center gap-1.5 transition-all hover:-translate-y-0.5"
+              >
+                <Bot className="size-3.5" />
+                <span>Connect Bot</span>
+                <ExternalLink className="size-3" />
+              </Button>
+            )}
+
             <Button
               variant="outline"
               size="sm"

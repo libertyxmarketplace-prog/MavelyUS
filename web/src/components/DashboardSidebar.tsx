@@ -320,10 +320,10 @@ export function DashboardSidebar({
                     <img
                       src={user.avatarUrl}
                       alt={user.name}
-                      className="size-8 rounded-full object-cover shrink-0 border border-white/10 ring-2 ring-emerald-500/60"
+                      className="size-8 rounded-full object-cover shrink-0 border border-white/10"
                     />
                   ) : (
-                    <div className="size-8 rounded-full bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 ring-2 ring-emerald-500/60 flex items-center justify-center text-xs font-bold shrink-0">
+                    <div className="size-8 rounded-full bg-slate-800 text-slate-200 border border-white/10 flex items-center justify-center text-xs font-bold shrink-0">
                       {user.initials || user.name.slice(0, 2).toUpperCase()}
                     </div>
                   )}
@@ -345,9 +345,9 @@ export function DashboardSidebar({
                 <DropdownMenuLabel className="px-2.5 py-2 font-normal">
                   <div className="flex items-center gap-3">
                     {user.avatarUrl ? (
-                      <img src={user.avatarUrl} alt={user.name} className="size-9 rounded-full object-cover ring-2 ring-emerald-500/30" />
+                      <img src={user.avatarUrl} alt={user.name} className="size-9 rounded-full object-cover border border-white/10" />
                     ) : (
-                      <div className="size-9 rounded-full bg-emerald-600/30 text-emerald-300 flex items-center justify-center text-xs font-bold ring-2 ring-emerald-500/30">
+                      <div className="size-9 rounded-full bg-slate-800 text-slate-200 border border-white/10 flex items-center justify-center text-xs font-bold">
                         {user.initials || 'ME'}
                       </div>
                     )}
