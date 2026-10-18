@@ -103,6 +103,7 @@ function AppShellHeader({
     <>
       <HeaderBar
         sticky
+        showSidebarTrigger={true}
         lastCrumbIsPage={lastCrumbIsPage}
         breadcrumbs={breadcrumbs.map((crumb) => ({ label: crumb.title, href: crumb.href }))}
         renderLink={renderLink}

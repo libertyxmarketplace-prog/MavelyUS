@@ -21,6 +21,8 @@ import {
   TrendingUp,
   Home,
   LogOut,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useRef, useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -68,7 +70,7 @@ import type { NavConfig } from '@/lib/nav-config';
 import type { AppShellUser, AppShellWorkspace } from './index';
 
 const menuButtonBaseClassName =
-  'h-11 gap-3 rounded-lg border border-transparent px-3.5 font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:bg-muted active:text-foreground data-active:border-border data-active:bg-card data-active:text-primary data-active:shadow-[1.35px_2.7px_32.45px_rgba(158,158,158,0.08)] data-active:hover:bg-card data-active:hover:text-primary data-active:active:bg-card data-active:active:text-primary [&_svg]:size-5 [&_svg]:text-foreground data-active:[&_svg]:text-primary';
+  'h-11 gap-3 rounded-2xl border border-transparent px-3.5 font-semibold text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-white active:bg-white/[0.06] data-active:border-white/[0.08] data-active:bg-[#12151f] data-active:text-white [&_svg]:size-5 [&_svg]:text-slate-400 data-active:[&_svg]:text-white';
 
 const sidebarMenuButtonClassName = cn(
   menuButtonBaseClassName,
@@ -221,80 +223,78 @@ export function DashboardSidebar({
 
   return (
     <>
-      <Sidebar collapsible="none" className="w-64 shrink-0 bg-sidebar border-r border-border/40" side={side}>
-        {/* Top Header: Discord Server Switcher (Replaces redundant top bar) */}
-        <SidebarHeader className="p-3 border-b border-border/40 bg-sidebar flex-row items-center justify-between">
-          <div className="flex items-center justify-between w-full">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                className={cn(
-                  buttonVariants({ variant: 'ghost' }),
-                  'h-auto w-full justify-between p-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-all cursor-pointer min-w-0 text-left',
-                )}
-              >
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <span className="bg-[#12151f] flex size-8 shrink-0 items-center justify-center rounded-lg overflow-hidden border border-white/10 ring-1 ring-white/5">
-                    {currentWorkspace?.iconUrl ? (
-                      <img src={currentWorkspace.iconUrl} alt={currentWorkspace.name} className="size-8 rounded-lg object-cover" />
-                    ) : (
-                      <BuildingIcon className="size-4 text-emerald-400" />
-                    )}
+      <Sidebar collapsible="offcanvas" className="w-64 shrink-0 bg-sidebar border-r border-border/40" side={side}>
+        {/* Top Header: Discord Server Switcher (Matching Image 1) */}
+        <SidebarHeader className="p-3 border-b border-border/40 bg-sidebar">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={cn(
+                buttonVariants({ variant: 'ghost' }),
+                'h-auto w-full justify-between p-2.5 rounded-2xl border border-white/[0.08] bg-[#12151f] hover:bg-white/[0.06] transition-all cursor-pointer min-w-0 text-left',
+              )}
+            >
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span className="bg-[#1a1e2b] flex size-8 shrink-0 items-center justify-center rounded-lg overflow-hidden border border-white/10 ring-1 ring-white/5">
+                  {currentWorkspace?.iconUrl ? (
+                    <img src={currentWorkspace.iconUrl} alt={currentWorkspace.name} className="size-8 rounded-lg object-cover" />
+                  ) : (
+                    <BuildingIcon className="size-4 text-emerald-400" />
+                  )}
+                </span>
+                <span className="min-w-0 text-left">
+                  <span className="text-slate-400 block text-[10px] font-mono uppercase tracking-wider font-semibold">
+                    ACTIVE SERVER
                   </span>
-                  <span className="min-w-0 text-left">
-                    <span className="text-muted-foreground block text-[10px] font-mono uppercase tracking-wider">
-                      Active Server
-                    </span>
-                    <span className="block truncate text-xs font-semibold text-foreground">
-                      {currentWorkspace?.name || 'Select Server'}
-                    </span>
+                  <span className="block truncate text-xs font-semibold text-white">
+                    {currentWorkspace?.name || 'Select Server'}
                   </span>
                 </span>
-                <ArrowDown01Icon className="text-muted-foreground size-4 ml-1 shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                sideOffset={6}
-                className="z-50 w-64 rounded-2xl p-1.5 shadow-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
-              >
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-mono font-semibold text-zinc-400 tracking-wider uppercase">
-                    Select Server
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-white/10" />
-                  {workspaces?.map((ws) => (
-                    <DropdownMenuItem
-                      key={ws.id}
-                      onClick={() => onWorkspaceChange?.(ws.id)}
-                      className={cn(
-                        'justify-between rounded-xl px-2.5 py-2 cursor-pointer transition-colors text-xs',
-                        ws.id === currentWorkspace?.id
-                          ? 'text-emerald-400 font-semibold bg-emerald-500/10'
-                          : 'text-zinc-300 hover:text-white hover:bg-white/[0.06]',
+              </span>
+              <ChevronDown className="text-slate-400 size-4 ml-1 shrink-0" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              sideOffset={6}
+              className="z-50 w-64 rounded-2xl p-1.5 shadow-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
+            >
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-mono font-semibold text-zinc-400 tracking-wider uppercase">
+                  Select Server
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-white/10" />
+                {workspaces?.map((ws) => (
+                  <DropdownMenuItem
+                    key={ws.id}
+                    onClick={() => onWorkspaceChange?.(ws.id)}
+                    className={cn(
+                      'justify-between rounded-xl px-2.5 py-2 cursor-pointer transition-colors text-xs',
+                      ws.id === currentWorkspace?.id
+                        ? 'text-emerald-400 font-semibold bg-emerald-500/10'
+                        : 'text-zinc-300 hover:text-white hover:bg-white/[0.06]',
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {ws.iconUrl ? (
+                        <img src={ws.iconUrl} alt={ws.name} className="size-6 rounded-md object-cover" />
+                      ) : (
+                        <div className="size-6 rounded-md bg-white/10 text-white text-[10px] flex items-center justify-center font-bold">
+                          {ws.initial}
+                        </div>
                       )}
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        {ws.iconUrl ? (
-                          <img src={ws.iconUrl} alt={ws.name} className="size-6 rounded-md object-cover" />
-                        ) : (
-                          <div className="size-6 rounded-md bg-white/10 text-white text-[10px] flex items-center justify-center font-bold">
-                            {ws.initial}
-                          </div>
-                        )}
-                        <span className="truncate">{ws.name}</span>
-                      </div>
-                      {ws.id === currentWorkspace?.id && (
-                        <Check className="text-emerald-400 size-4" />
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                      <span className="truncate">{ws.name}</span>
+                    </div>
+                    {ws.id === currentWorkspace?.id && (
+                      <Check className="text-emerald-400 size-4" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </SidebarHeader>
 
-        {/* Navigation Content */}
-        <SidebarContent className="px-3 pt-3 pb-2 bg-sidebar">
+        {/* Navigation Content & User Profile Stacked (Matching Image 1) */}
+        <SidebarContent className="px-3 pt-3 pb-3 bg-sidebar flex flex-col gap-1.5 overflow-y-auto">
           <SidebarMenu className="gap-1.5">
             {primaryNavigation.map((item) => (
               <SidebarNavigationItem
@@ -306,118 +306,107 @@ export function DashboardSidebar({
               />
             ))}
           </SidebarMenu>
-        </SidebarContent>
 
-        {/* Footer with User Profile: Display Name, @username & dropdown for Help, Add Bot, Theme, Sign Out */}
-        <SidebarFooter className="border-t border-border/40 p-3 bg-sidebar">
-          <SidebarMenu>
-            {user && (
-              <SidebarMenuItem>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    className={cn(
-                      sidebarMenuButtonClassName,
-                      'w-full flex items-center justify-between p-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-all cursor-pointer',
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {user.avatarUrl ? (
-                        <img
-                          src={user.avatarUrl}
-                          alt={user.name}
-                          className="size-8 rounded-full object-cover shrink-0 border border-white/10 ring-2 ring-emerald-500/20"
-                        />
-                      ) : (
-                        <div className="size-8 rounded-full bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-xs font-bold shrink-0">
-                          {user.initials || user.name.slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                      {!collapsed && (
-                        <div className="flex flex-col min-w-0 text-left">
-                          <span className="text-xs font-semibold text-foreground truncate">{user.name}</span>
-                          <span className="text-[11px] text-muted-foreground truncate font-mono">
-                            {user.handle || (user.username ? `@${user.username}` : (user.email?.startsWith('@') ? user.email : `@${user.email?.split('@')[0] || user.name}`))}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    {!collapsed && (
-                      <ArrowDown01Icon className="text-muted-foreground size-4 ml-1.5 shrink-0 rotate-180" />
-                    )}
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    side={collapsed ? 'right' : 'top'}
-                    align="start"
-                    sideOffset={8}
-                    className="w-64 p-2 shadow-2xl z-50 rounded-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
-                  >
-                    <DropdownMenuLabel className="px-2.5 py-2 font-normal">
-                      <div className="flex items-center gap-3">
-                        {user.avatarUrl ? (
-                          <img src={user.avatarUrl} alt={user.name} className="size-9 rounded-full object-cover ring-2 ring-emerald-500/30" />
-                        ) : (
-                          <div className="size-9 rounded-full bg-emerald-600/30 text-emerald-300 flex items-center justify-center text-xs font-bold ring-2 ring-emerald-500/30">
-                            {user.initials || 'ME'}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <span className="text-sm font-semibold block truncate text-white">{user.name}</span>
-                          <span className="text-xs text-zinc-400 block truncate font-mono">
-                            {user.handle || (user.username ? `@${user.username}` : (user.email?.startsWith('@') ? user.email : `@${user.email?.split('@')[0] || user.name}`))}
-                          </span>
-                        </div>
+          {/* User Profile Card: Displayed right below Custom Bot, exactly as in Image 1 */}
+          {user && (
+            <div className="pt-1">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="w-full flex items-center justify-between p-2.5 rounded-2xl border border-white/[0.08] bg-[#12151f] hover:bg-white/[0.06] transition-all cursor-pointer text-left"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {user.avatarUrl ? (
+                      <img
+                        src={user.avatarUrl}
+                        alt={user.name}
+                        className="size-8 rounded-full object-cover shrink-0 border border-white/10 ring-2 ring-emerald-500/60"
+                      />
+                    ) : (
+                      <div className="size-8 rounded-full bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 ring-2 ring-emerald-500/60 flex items-center justify-center text-xs font-bold shrink-0">
+                        {user.initials || user.name.slice(0, 2).toUpperCase()}
                       </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator className="bg-white/10 my-1" />
-
-                    {/* Help & Support */}
-                    <DropdownMenuItem
-                      onClick={() => window.open('https://discord.gg/mZcp3VBtBq', '_blank')}
-                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
-                    >
-                      <HelpIcon className="size-4 text-emerald-400" />
-                      <span>Help & Support</span>
-                    </DropdownMenuItem>
-
-                    {/* Add Bot to Server */}
-                    <DropdownMenuItem
-                      onClick={() =>
-                        window.open(
-                          `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&integration_type=0&scope=bot%20applications.commands&guild_id=${currentGuildId}`,
-                          '_blank',
-                        )
-                      }
-                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
-                    >
-                      <SettingsIcon className="size-4 text-emerald-400" />
-                      <span>Add Bot to Server</span>
-                    </DropdownMenuItem>
-
-                    {/* Back to Home */}
-                    <DropdownMenuItem
-                      onClick={() => navigate('/')}
-                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
-                    >
-                      <Home className="size-4 text-zinc-400" />
-                      <span>Back to Home</span>
-                    </DropdownMenuItem>
-
-                    {/* Sign Out */}
-                    {onSignOut && (
-                      <DropdownMenuItem
-                        onClick={onSignOut}
-                        className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 cursor-pointer transition-colors"
-                      >
-                        <LogOut className="size-4 text-rose-400" />
-                        <span>Sign Out</span>
-                      </DropdownMenuItem>
                     )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </SidebarMenuItem>
-            )}
-          </SidebarMenu>
-        </SidebarFooter>
+                    <div className="flex flex-col min-w-0 text-left">
+                      <span className="text-xs font-semibold text-white truncate">{user.name}</span>
+                      <span className="text-[11px] text-slate-400 truncate font-mono">
+                        {user.handle || (user.username ? `@${user.username}` : `@${user.name}`)}
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronUp className="text-slate-400 size-4 ml-1.5 shrink-0" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  side="top"
+                  align="start"
+                  sideOffset={8}
+                  className="w-64 p-2 shadow-2xl z-50 rounded-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
+                >
+                  <DropdownMenuLabel className="px-2.5 py-2 font-normal">
+                    <div className="flex items-center gap-3">
+                      {user.avatarUrl ? (
+                        <img src={user.avatarUrl} alt={user.name} className="size-9 rounded-full object-cover ring-2 ring-emerald-500/30" />
+                      ) : (
+                        <div className="size-9 rounded-full bg-emerald-600/30 text-emerald-300 flex items-center justify-center text-xs font-bold ring-2 ring-emerald-500/30">
+                          {user.initials || 'ME'}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <span className="text-sm font-semibold block truncate text-white">{user.name}</span>
+                        <span className="text-xs text-zinc-400 block truncate font-mono">
+                          {user.handle || (user.username ? `@${user.username}` : (user.email?.startsWith('@') ? user.email : `@${user.email?.split('@')[0] || user.name}`))}
+                        </span>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="bg-white/10 my-1" />
+
+                  {/* Help & Support */}
+                  <DropdownMenuItem
+                    onClick={() => window.open('https://discord.gg/mZcp3VBtBq', '_blank')}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                  >
+                    <HelpIcon className="size-4 text-emerald-400" />
+                    <span>Help & Support</span>
+                  </DropdownMenuItem>
+
+                  {/* Add Bot to Server */}
+                  <DropdownMenuItem
+                    onClick={() =>
+                      window.open(
+                        `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&integration_type=0&scope=bot%20applications.commands&guild_id=${currentGuildId}`,
+                        '_blank',
+                      )
+                    }
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                  >
+                    <SettingsIcon className="size-4 text-emerald-400" />
+                    <span>Add Bot to Server</span>
+                  </DropdownMenuItem>
+
+                  {/* Back to Home */}
+                  <DropdownMenuItem
+                    onClick={() => navigate('/')}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                  >
+                    <Home className="size-4 text-zinc-400" />
+                    <span>Back to Home</span>
+                  </DropdownMenuItem>
+
+                  {/* Sign Out */}
+                  {onSignOut && (
+                    <DropdownMenuItem
+                      onClick={onSignOut}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 cursor-pointer transition-colors"
+                    >
+                      <LogOut className="size-4 text-rose-400" />
+                      <span>Sign Out</span>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+        </SidebarContent>
       </Sidebar>
 
       <MobileBottomNavigation
@@ -757,9 +746,9 @@ function SidebarNavigationItem({
           {!collapsed && (
             <>
               <span>{displayedLabel}</span>
-              <ArrowDown01Icon
+              <ChevronDown
                 className={cn(
-                  'pointer-events-none ml-auto size-4.5 transition-transform',
+                  'pointer-events-none ml-auto size-4 transition-transform text-slate-400',
                   open && 'rotate-180',
                 )}
               />

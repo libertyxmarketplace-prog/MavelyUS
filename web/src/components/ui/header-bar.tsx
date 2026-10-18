@@ -58,12 +58,12 @@ function HeaderBar({
   actions,
   sticky = false,
   lastCrumbIsPage = true,
-  showSidebarTrigger = false,
+  showSidebarTrigger = true,
   breadcrumbLabel,
   renderLink,
   ...props
 }: HeaderBarProps) {
-  const showTrigger = showSidebarTrigger === true
+  const showTrigger = showSidebarTrigger !== false
   // renderLink is typed to ReactNode for callers; Breadcrumb's render slot
   // needs an element, and every path here produces one.
   const link = (href: string, linkProps: React.ComponentProps<"a">) =>
