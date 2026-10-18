@@ -4,6 +4,10 @@ import https from 'https';
 import { chmodSync } from 'fs';
 
 const binDir = path.resolve(process.cwd(), 'bin');
+if (process.env.CF_PAGES || process.env.VERCEL || process.env.NETLIFY) {
+  console.log('[POSTINSTALL] Cloud static build environment detected. Skipping yt-dlp binary download.');
+  process.exit(0);
+}
 if (!fs.existsSync(binDir)) {
   fs.mkdirSync(binDir, { recursive: true });
 }

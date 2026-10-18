@@ -10,7 +10,7 @@ const distDir = path.join(rootDir, 'dist');
 const webDistDir = path.join(rootDir, 'web', 'dist');
 
 console.log('[BUILD] Running vite build for root application...');
-execSync('npx vite build --config vite.config.js', { stdio: 'inherit', cwd: rootDir });
+execSync('npm exec vite -- build --config vite.config.js', { stdio: 'inherit', cwd: rootDir });
 
 // Ensure _redirects file exists in dist
 const redirectsContent = '/* /index.html 200\n';
