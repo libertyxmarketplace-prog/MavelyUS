@@ -204,10 +204,6 @@ export function OverviewTab({
               <span>{dailyJoins}</span>
               <span className="text-xs text-slate-400 font-normal">Members Tracked</span>
             </div>
-            <div className="text-[11px] text-emerald-400 font-mono mt-1 flex items-center gap-1">
-              <CheckCircle2 className="size-3 shrink-0" />
-              <span>72h Anti-Churn Protection Active</span>
-            </div>
           </div>
         </div>
 

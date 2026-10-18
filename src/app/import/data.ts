@@ -57,22 +57,28 @@ export function addLiveNotification(notif: {
 }
 
 /** The person looking at the page: Mavely operator or authenticated Discord admin. */
-export function currentUser(customUser?: { username?: string; id?: string; avatar?: string | null } | null) {
+export function currentUser(customUser?: { username?: string; globalName?: string; id?: string; avatar?: string | null } | null) {
   if (customUser && customUser.username) {
     const avatarUrl = customUser.avatar
       ? `https://cdn.discordapp.com/avatars/${customUser.id}/${customUser.avatar}.png`
       : undefined
+    const displayName = customUser.globalName || customUser.username
+    const handle = `@${customUser.username}`
     return {
-      name: customUser.username,
-      email: `${customUser.username.toLowerCase()}@discord.user`,
-      initials: customUser.username.slice(0, 2).toUpperCase(),
+      name: displayName,
+      username: customUser.username,
+      handle,
+      email: handle,
+      initials: displayName.slice(0, 2).toUpperCase(),
       avatarUrl,
     }
   }
 
   return {
     name: "Mavely Operator",
-    email: "operator@mavely.app",
+    username: "operator",
+    handle: "@operator",
+    email: "@operator",
     initials: "MO",
     avatarUrl: undefined,
   }

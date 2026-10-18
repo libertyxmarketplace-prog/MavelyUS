@@ -19,6 +19,8 @@ import {
   Shield,
   Bot,
   TrendingUp,
+  Home,
+  LogOut,
 } from 'lucide-react';
 import { useRef, useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -224,71 +226,19 @@ export function DashboardSidebar({
   return (
     <>
       <Sidebar collapsible="icon" side={side}>
-        {/* Header with Logo & Collapse Toggle */}
-        <SidebarHeader
-          className={cn(
-            'h-21 flex-row items-center border-b p-0 transition-[padding] duration-200 library-dashboard bg-background',
-            collapsed ? 'justify-start px-5' : 'justify-between px-4.5',
-          )}
-        >
+        {/* Top Header: Discord Server Switcher (Replaces redundant top bar) */}
+        <SidebarHeader className="p-3 border-b border-border/40 bg-sidebar flex-row items-center justify-between">
           {!collapsed ? (
-            <>
-              <a
-                aria-label="Community Dashboard"
-                className="flex h-8 items-center gap-2.5 min-w-0"
-                href={`/dashboard/${currentGuildId}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate(`/dashboard/${currentGuildId}`);
-                }}
-              >
-                <Logo className="size-8 text-emerald-400 shrink-0" />
-                <span className="text-xl font-bold tracking-tight text-white truncate">
-                  {currentWorkspace?.name || nav.brand.name || 'Dashboard'}
-                </span>
-              </a>
-              <Button
-                aria-label="Collapse sidebar"
-                variant="secondary"
-                size="icon-lg"
-                onClick={toggleSidebar}
-                className="shrink-0"
-              >
-                <BackwardIcon className="size-5" />
-              </Button>
-            </>
-          ) : (
-            <div className="relative size-10">
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 group-hover:scale-75 group-hover:opacity-0">
-                <Logo className="size-6 text-emerald-400" />
-              </div>
-              <div className="pointer-events-none absolute inset-0 flex scale-75 items-center justify-center opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:scale-100 group-hover:opacity-100">
-                <Button
-                  aria-label="Expand sidebar"
-                  variant="secondary"
-                  size="icon-lg"
-                  onClick={toggleSidebar}
-                >
-                  <BackwardIcon className="size-5 rotate-180" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </SidebarHeader>
-
-        {/* Discord Server Switcher ("The Select Server Thing") */}
-        {workspaces && workspaces.length > 0 && (
-          !collapsed ? (
-            <div className="px-4.5 pt-3 pb-2 border-b border-border/40">
+            <div className="flex items-center justify-between w-full gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger
                   className={cn(
                     buttonVariants({ variant: 'ghost' }),
-                    'h-auto w-full justify-between p-2 rounded-xl border border-white/[0.08] bg-muted/30 hover:bg-muted/60 transition-colors cursor-pointer',
+                    'h-auto flex-1 justify-between p-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-all cursor-pointer min-w-0 text-left',
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-2.5">
-                    <span className="bg-foreground text-background dark:bg-muted flex size-8 shrink-0 items-center justify-center rounded-lg overflow-hidden border border-white/10">
+                    <span className="bg-[#12151f] flex size-8 shrink-0 items-center justify-center rounded-lg overflow-hidden border border-white/10 ring-1 ring-white/5">
                       {currentWorkspace?.iconUrl ? (
                         <img src={currentWorkspace.iconUrl} alt={currentWorkspace.name} className="size-8 rounded-lg object-cover" />
                       ) : (
@@ -297,34 +247,34 @@ export function DashboardSidebar({
                     </span>
                     <span className="min-w-0 text-left">
                       <span className="text-muted-foreground block text-[10px] font-mono uppercase tracking-wider">
-                        Discord Server
+                        Active Server
                       </span>
                       <span className="block truncate text-xs font-semibold text-foreground">
                         {currentWorkspace?.name || 'Select Server'}
                       </span>
                     </span>
                   </span>
-                  <ArrowDown01Icon className="text-muted-foreground size-4 ml-1.5 shrink-0" />
+                  <ArrowDown01Icon className="text-muted-foreground size-4 ml-1 shrink-0" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="start"
                   sideOffset={6}
-                  className="z-50 w-64 rounded-xl p-1.5 shadow-xl"
+                  className="z-50 w-64 rounded-2xl p-1.5 shadow-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
                 >
                   <DropdownMenuGroup>
-                    <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
+                    <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-mono font-semibold text-zinc-400 tracking-wider uppercase">
                       Select Server
                     </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {workspaces.map((ws) => (
+                    <DropdownMenuSeparator className="bg-white/10" />
+                    {workspaces?.map((ws) => (
                       <DropdownMenuItem
                         key={ws.id}
                         onClick={() => onWorkspaceChange?.(ws.id)}
                         className={cn(
-                          'justify-between rounded-lg px-2 py-2 cursor-pointer',
+                          'justify-between rounded-xl px-2.5 py-2 cursor-pointer transition-colors text-xs',
                           ws.id === currentWorkspace?.id
-                            ? 'text-primary font-semibold bg-muted'
-                            : 'text-muted-foreground hover:text-foreground',
+                            ? 'text-emerald-400 font-semibold bg-emerald-500/10'
+                            : 'text-zinc-300 hover:text-white hover:bg-white/[0.06]',
                         )}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -335,26 +285,36 @@ export function DashboardSidebar({
                               {ws.initial}
                             </div>
                           )}
-                          <span className="truncate text-xs">{ws.name}</span>
+                          <span className="truncate">{ws.name}</span>
                         </div>
                         {ws.id === currentWorkspace?.id && (
-                          <Check className="text-primary size-4" />
+                          <Check className="text-emerald-400 size-4" />
                         )}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              <Button
+                aria-label="Collapse sidebar"
+                variant="ghost"
+                size="icon-sm"
+                onClick={toggleSidebar}
+                className="size-8 shrink-0 text-zinc-400 hover:text-white hover:bg-white/[0.08] rounded-lg cursor-pointer"
+              >
+                <BackwardIcon className="size-4" />
+              </Button>
             </div>
           ) : (
-            <div className="px-2 py-2 flex justify-center border-b border-border/40">
+            <div className="relative size-10 mx-auto">
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  className="size-10 rounded-xl border border-white/[0.08] bg-muted/30 hover:bg-muted/60 flex items-center justify-center transition-colors cursor-pointer"
+                  className="size-10 rounded-xl border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center transition-colors cursor-pointer"
                   title={currentWorkspace?.name}
                 >
                   {currentWorkspace?.iconUrl ? (
-                    <img src={currentWorkspace.iconUrl} alt={currentWorkspace.name} className="size-6 rounded-md object-cover" />
+                    <img src={currentWorkspace.iconUrl} alt={currentWorkspace.name} className="size-7 rounded-lg object-cover" />
                   ) : (
                     <BuildingIcon className="size-5 text-emerald-400" />
                   )}
@@ -363,22 +323,22 @@ export function DashboardSidebar({
                   side="right"
                   align="start"
                   sideOffset={8}
-                  className="z-50 w-64 rounded-xl p-1.5 shadow-xl"
+                  className="z-50 w-64 rounded-2xl p-1.5 shadow-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
                 >
                   <DropdownMenuGroup>
-                    <DropdownMenuLabel className="px-2 py-1 text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
+                    <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-mono font-semibold text-zinc-400 tracking-wider uppercase">
                       Select Server
                     </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {workspaces.map((ws) => (
+                    <DropdownMenuSeparator className="bg-white/10" />
+                    {workspaces?.map((ws) => (
                       <DropdownMenuItem
                         key={ws.id}
                         onClick={() => onWorkspaceChange?.(ws.id)}
                         className={cn(
-                          'justify-between rounded-lg px-2 py-2 cursor-pointer',
+                          'justify-between rounded-xl px-2.5 py-2 cursor-pointer transition-colors text-xs',
                           ws.id === currentWorkspace?.id
-                            ? 'text-primary font-semibold bg-muted'
-                            : 'text-muted-foreground hover:text-foreground',
+                            ? 'text-emerald-400 font-semibold bg-emerald-500/10'
+                            : 'text-zinc-300 hover:text-white hover:bg-white/[0.06]',
                         )}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -389,10 +349,10 @@ export function DashboardSidebar({
                               {ws.initial}
                             </div>
                           )}
-                          <span className="truncate text-xs">{ws.name}</span>
+                          <span className="truncate">{ws.name}</span>
                         </div>
                         {ws.id === currentWorkspace?.id && (
-                          <Check className="text-primary size-4" />
+                          <Check className="text-emerald-400 size-4" />
                         )}
                       </DropdownMenuItem>
                     ))}
@@ -400,11 +360,11 @@ export function DashboardSidebar({
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-          )
-        )}
+          )}
+        </SidebarHeader>
 
         {/* Navigation Content */}
-        <SidebarContent className="px-4.5 pt-4 pb-2 library-dashboard bg-background">
+        <SidebarContent className="px-3 pt-3 pb-2 bg-sidebar">
           <SidebarMenu className="gap-1.5">
             {primaryNavigation.map((item) => (
               <SidebarNavigationItem
@@ -418,17 +378,16 @@ export function DashboardSidebar({
           </SidebarMenu>
         </SidebarContent>
 
-        {/* Footer with User Profile, Help, Settings & Theme Toggle */}
-        <SidebarFooter className="border-t px-4.5 pt-2 pb-6 library-dashboard bg-background">
-          <SidebarMenu className="gap-1.5">
-            {/* User Icon & Username Profile Area */}
+        {/* Footer with User Profile: Display Name, @username & dropdown for Help, Add Bot, Theme, Sign Out */}
+        <SidebarFooter className="border-t border-border/40 p-3 bg-sidebar">
+          <SidebarMenu>
             {user && (
               <SidebarMenuItem>
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     className={cn(
                       sidebarMenuButtonClassName,
-                      'w-full flex items-center justify-between p-2 hover:bg-muted transition-colors cursor-pointer',
+                      'w-full flex items-center justify-between p-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-all cursor-pointer',
                     )}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -436,92 +395,113 @@ export function DashboardSidebar({
                         <img
                           src={user.avatarUrl}
                           alt={user.name}
-                          className="size-7 rounded-full object-cover shrink-0 border border-white/10 ring-2 ring-emerald-500/20"
+                          className="size-8 rounded-full object-cover shrink-0 border border-white/10 ring-2 ring-emerald-500/20"
                         />
                       ) : (
-                        <div className="size-7 rounded-full bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-xs font-bold shrink-0">
+                        <div className="size-8 rounded-full bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-xs font-bold shrink-0">
                           {user.initials || user.name.slice(0, 2).toUpperCase()}
                         </div>
                       )}
                       {!collapsed && (
                         <div className="flex flex-col min-w-0 text-left">
                           <span className="text-xs font-semibold text-foreground truncate">{user.name}</span>
-                          <span className="text-[10px] text-muted-foreground truncate font-mono">{user.email || 'Discord Linked'}</span>
+                          <span className="text-[11px] text-muted-foreground truncate font-mono">
+                            {user.handle || (user.username ? `@${user.username}` : (user.email?.startsWith('@') ? user.email : `@${user.email?.split('@')[0] || user.name}`))}
+                          </span>
                         </div>
                       )}
                     </div>
+                    {!collapsed && (
+                      <ArrowDown01Icon className="text-muted-foreground size-4 ml-1.5 shrink-0 rotate-180" />
+                    )}
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
                     side={collapsed ? 'right' : 'top'}
                     align="start"
                     sideOffset={8}
-                    className="w-56 p-1.5 shadow-xl z-50 rounded-xl"
+                    className="w-64 p-2 shadow-2xl z-50 rounded-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
                   >
-                    <DropdownMenuLabel className="px-2 py-1.5 font-normal">
-                      <div className="flex items-center gap-2">
+                    <DropdownMenuLabel className="px-2.5 py-2 font-normal">
+                      <div className="flex items-center gap-3">
                         {user.avatarUrl ? (
-                          <img src={user.avatarUrl} alt={user.name} className="size-8 rounded-full object-cover" />
+                          <img src={user.avatarUrl} alt={user.name} className="size-9 rounded-full object-cover ring-2 ring-emerald-500/30" />
                         ) : (
-                          <div className="size-8 rounded-full bg-emerald-600/30 text-emerald-300 flex items-center justify-center text-xs font-bold">
-                            {user.initials || 'SU'}
+                          <div className="size-9 rounded-full bg-emerald-600/30 text-emerald-300 flex items-center justify-center text-xs font-bold ring-2 ring-emerald-500/30">
+                            {user.initials || 'ME'}
                           </div>
                         )}
                         <div className="min-w-0">
-                          <span className="text-xs font-semibold block truncate text-foreground">{user.name}</span>
-                          <span className="text-[10px] text-muted-foreground block truncate font-mono">{user.email || 'Discord Linked'}</span>
+                          <span className="text-sm font-semibold block truncate text-white">{user.name}</span>
+                          <span className="text-xs text-zinc-400 block truncate font-mono">
+                            {user.handle || (user.username ? `@${user.username}` : (user.email?.startsWith('@') ? user.email : `@${user.email?.split('@')[0] || user.name}`))}
+                          </span>
                         </div>
                       </div>
                     </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate('/')} className="cursor-pointer text-xs rounded-lg">
-                      Back to Home
+                    <DropdownMenuSeparator className="bg-white/10 my-1" />
+
+                    {/* Help & Support */}
+                    <DropdownMenuItem
+                      onClick={() => window.open('https://discord.gg/mZcp3VBtBq', '_blank')}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                    >
+                      <HelpIcon className="size-4 text-emerald-400" />
+                      <span>Help & Support</span>
                     </DropdownMenuItem>
+
+                    {/* Add Bot to Server */}
+                    <DropdownMenuItem
+                      onClick={() =>
+                        window.open(
+                          `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&integration_type=0&scope=bot%20applications.commands&guild_id=${currentGuildId}`,
+                          '_blank',
+                        )
+                      }
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                    >
+                      <SettingsIcon className="size-4 text-emerald-400" />
+                      <span>Add Bot to Server</span>
+                    </DropdownMenuItem>
+
+                    {/* Toggle Theme */}
+                    <DropdownMenuItem
+                      onClick={toggleTheme}
+                      className="flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <ThemeIcon className="size-4 text-emerald-400" />
+                        <span>Toggle Theme</span>
+                      </div>
+                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/10 text-zinc-400">
+                        {theme}
+                      </span>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuSeparator className="bg-white/10 my-1" />
+
+                    {/* Back to Home */}
+                    <DropdownMenuItem
+                      onClick={() => navigate('/')}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                    >
+                      <Home className="size-4 text-zinc-400" />
+                      <span>Back to Home</span>
+                    </DropdownMenuItem>
+
+                    {/* Sign Out */}
                     {onSignOut && (
-                      <DropdownMenuItem onClick={onSignOut} className="cursor-pointer text-xs text-rose-400 focus:text-rose-400 rounded-lg">
-                        Sign Out
+                      <DropdownMenuItem
+                        onClick={onSignOut}
+                        className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 cursor-pointer transition-colors"
+                      >
+                        <LogOut className="size-4 text-rose-400" />
+                        <span>Sign Out</span>
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </SidebarMenuItem>
             )}
-
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                tooltip="Help & Support"
-                className={sidebarMenuButtonClassName}
-                onClick={() => window.open('https://discord.gg/mZcp3VBtBq', '_blank')}
-              >
-                <HelpIcon />
-                {!collapsed && <span>Help & Support</span>}
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem className="flex items-center gap-1">
-              <SidebarMenuButton
-                tooltip="Add Bot to Server"
-                className={cn(sidebarMenuButtonClassName, !collapsed && 'flex-1')}
-                onClick={() =>
-                  window.open(
-                    `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&integration_type=0&scope=bot%20applications.commands&guild_id=${currentGuildId}`,
-                    '_blank',
-                  )
-                }
-              >
-                <SettingsIcon />
-                {!collapsed && <span>Add Bot</span>}
-              </SidebarMenuButton>
-              {!collapsed && (
-                <Button
-                  aria-label="Toggle theme"
-                  variant="ghost"
-                  size="icon"
-                  className="size-11"
-                  onClick={toggleTheme}
-                >
-                  <ThemeIcon className="size-5" />
-                </Button>
-              )}
-            </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
