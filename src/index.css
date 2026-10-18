@@ -1,0 +1,302 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+/* shadcn/ui tokens, dark only. Neutral greys with a single mint accent from the Mavely mark. */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.97 0 0);
+  --card: oklch(0.175 0 0);
+  --card-foreground: oklch(0.97 0 0);
+  --popover: oklch(0.19 0 0);
+  --popover-foreground: oklch(0.97 0 0);
+  --primary: oklch(0.97 0 0);
+  --primary-foreground: oklch(0.17 0 0);
+  --secondary: oklch(0.235 0 0);
+  --secondary-foreground: oklch(0.97 0 0);
+  --muted: oklch(0.235 0 0);
+  --muted-foreground: oklch(0.68 0 0);
+  --accent: oklch(0.25 0 0);
+  --accent-foreground: oklch(0.97 0 0);
+  --destructive: oklch(0.64 0.2 25);
+  --destructive-foreground: oklch(0.97 0 0);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 11%);
+  --ring: oklch(0.75 0.14 160);
+  --brand: oklch(0.75 0.14 160);
+  --brand-foreground: oklch(0.2 0.04 160);
+  --success: oklch(0.75 0.14 160);
+  --warning: oklch(0.8 0.13 80);
+  --sidebar: oklch(0.16 0 0);
+}
+
+@theme inline {
+  --font-sans: "Plus Jakarta Sans", "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", "Plus Jakarta Sans", sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-sidebar: var(--sidebar);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    outline: none !important;
+  }
+  *:focus, *:focus-visible, *:focus-within, *:active {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "cv11";
+    min-height: 100dvh;
+  }
+  ::selection {
+    background: oklch(0.75 0.14 160 / 30%);
+  }
+  a, button, input, textarea, select {
+    -webkit-tap-highlight-color: transparent !important;
+    outline: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Performance Mode (Toggleable via Settings Modal) */
+body.reduce-motion *,
+body.reduce-motion *::before,
+body.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.reduce-motion .animate-infinite-slider,
+body.reduce-motion .animate-marquee,
+body.reduce-motion .animate-marquee-vertical,
+body.reduce-motion .logo-slider__track,
+body.reduce-motion .ambient-glow-mint,
+body.reduce-motion .ambient-glow-slate {
+  animation: none !important;
+  display: none !important;
+}
+
+/* Discord message rendering used in product previews and live embed previews */
+.discord-embed {
+  background: #2b2d31;
+  border-left: 4px solid var(--embed-color, #2fcb8a);
+}
+
+/* Logo Slider Marquee */
+@keyframes logoMarquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.logo-slider__track {
+  animation: logoMarquee var(--speed, 35s) linear infinite;
+}
+
+[data-pause-on-hover="true"]:hover .logo-slider__track {
+  animation-play-state: paused;
+}
+
+/* Vertical and Horizontal Marquee */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-100% - var(--gap, 1rem))); }
+}
+
+@keyframes marquee-vertical {
+  from { transform: translateY(0); }
+  to { transform: translateY(calc(-100% - var(--gap, 1rem))); }
+}
+
+.animate-marquee {
+  animation: marquee var(--duration, 40s) linear infinite;
+}
+
+.animate-marquee-vertical {
+  animation: marquee-vertical var(--duration, 40s) linear infinite;
+}
+
+/* Custom sleek scrollbar with smaller, dark gray up and down scroll arrows */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(11, 13, 19, 0.6);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #272a33;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b3f4c;
+}
+
+/* Compact, smaller scroll buttons (up and down scroll arrows) */
+::-webkit-scrollbar-button {
+  display: block;
+  height: 8px;
+  width: 7px;
+  background-color: transparent;
+}
+
+::-webkit-scrollbar-button:single-button:vertical:decrement {
+  height: 8px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 5px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2352525b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 15-6-6-6 6'/%3E%3C/svg%3E");
+}
+
+::-webkit-scrollbar-button:single-button:vertical:decrement:hover {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 15-6-6-6 6'/%3E%3C/svg%3E");
+}
+
+::-webkit-scrollbar-button:single-button:vertical:increment {
+  height: 8px;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 5px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2352525b' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+::-webkit-scrollbar-button:single-button:vertical:increment:hover {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox scrollbar support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #272a33 rgba(11, 13, 19, 0.6);
+}
+
+/* Tasteful ambient glow */
+.ambient-glow-mint {
+  position: absolute;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(46, 204, 113, 0.12) 0%, rgba(46, 204, 113, 0) 70%);
+  filter: blur(80px);
+}
+
+.ambient-glow-slate {
+  position: absolute;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.08) 0%, rgba(56, 189, 248, 0) 70%);
+  filter: blur(90px);
+}
+
+/* Accordion animations */
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+
+.animate-accordion-down {
+  animation: accordion-down 0.2s ease-out;
+}
+
+.animate-accordion-up {
+  animation: accordion-up 0.2s ease-out;
+}
+
+/* Infinite Slider Animations */
+@keyframes infinite-slider {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% - var(--gap, 16px)));
+  }
+}
+
+@keyframes infinite-slider-reverse {
+  from {
+    transform: translateX(calc(-100% - var(--gap, 16px)));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes infinite-slider-vertical {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(-100% - var(--gap, 16px)));
+  }
+}
+
+.animate-infinite-slider {
+  animation: infinite-slider var(--duration, 25s) linear infinite;
+  will-change: transform;
+}
+
+.animate-infinite-slider-reverse {
+  animation: infinite-slider-reverse var(--duration, 25s) linear infinite;
+  will-change: transform;
+}
+
+.animate-infinite-slider-vertical {
+  animation: infinite-slider-vertical var(--duration, 25s) linear infinite;
+  will-change: transform;
+}
