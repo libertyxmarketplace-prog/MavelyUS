@@ -471,6 +471,7 @@ app.post('/api/bots/:id/action', async (req, res) => {
 
 // ─── SERVE FRONTEND STATIC FILES IN PRODUCTION ──────────────────────────────
 const candidatePaths = [
+  path.join(__dirname, 'dist'),
   path.join(__dirname, 'web', 'dist'),
   path.join(__dirname, 'WEBSITE', 'artifacts', 'testaa-preview', 'dist', 'public'),
   path.join(__dirname, 'zip-repl-1', 'artifacts', 'testaa-preview', 'dist', 'public')

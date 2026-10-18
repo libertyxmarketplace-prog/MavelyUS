@@ -124,31 +124,31 @@ const DEFAULT_RESULTS: SearchResult[] = [
   {
     name: "Open Bot Dashboard",
     meta: "Manage guild tickets, shifts, and ER:LC radar",
-    avatar: "/civlink-mark.png",
+    avatar: "/mavely-mark.png",
     onClick: () => { window.location.href = "/dashboard"; }
   },
   {
     name: "Support Ticket Panel",
     meta: "5 customizable category slots and HTML transcripts",
-    avatar: "/civlink-mark.png",
+    avatar: "/mavely-mark.png",
     onClick: () => { window.location.href = "/dashboard"; }
   },
   {
     name: "Live PRC Server Radar",
     meta: "Real-time player count, join codes, server queue",
-    avatar: "/civlink-mark.png",
+    avatar: "/mavely-mark.png",
     onClick: () => { window.location.href = "/dashboard"; }
   },
   {
     name: "Staff Application Quizzes",
     meta: "Multi-stage moderation exams and review channels",
-    avatar: "/civlink-mark.png",
+    avatar: "/mavely-mark.png",
     onClick: () => { window.location.href = "/dashboard"; }
   },
   {
     name: "Documentation & Setup Guide",
     meta: "Full API reference and ER:LC integration tutorial",
-    avatar: "/civlink-mark.png",
+    avatar: "/mavely-mark.png",
     onClick: () => { window.location.href = "/docs"; }
   },
 ];

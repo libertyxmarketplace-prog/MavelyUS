@@ -157,7 +157,7 @@ export function DocsPage() {
                     Overview &amp; Custom Bot Engine
                   </h1>
                   <p className="text-zinc-400 text-sm leading-relaxed max-w-2xl">
-                    CivLink is not just another generic public bot. Instead, it allows Emergency Response: Liberty County server owners to run their <strong className="text-white">own custom bot application</strong> with custom avatar, custom branding, and custom name — while running on CivLink&apos;s battle-tested infrastructure.
+                    Mavely is not just another generic public bot. Instead, it allows Emergency Response: Liberty County server owners to run their <strong className="text-white">own custom bot application</strong> with custom avatar, custom branding, and custom name — while running on Mavely&apos;s battle-tested infrastructure.
                   </p>
                 </div>
 
@@ -249,7 +249,7 @@ export function DocsPage() {
                 <FeaturesBlock
                   eyebrow="Core Architecture"
                   title="All 10 Bot Systems"
-                  description="Detailed specifications for each modular subsystem running on the CivLink engine."
+                  description="Detailed specifications for each modular subsystem running on the Mavely engine."
                   className="px-0 py-2"
                 />
               </div>
@@ -319,7 +319,7 @@ export function DocsPage() {
                     <li>Enter your Private Server and open the <strong className="text-white">Server Settings</strong> menu (Server Owner or Co-Owner).</li>
                     <li>Navigate to the <strong className="text-white">API / Developer</strong> tab.</li>
                     <li>Generate your Server Key and copy it to your clipboard.</li>
-                    <li>Paste it into your CivLink Dashboard under <strong className="text-white">Server Telemetry</strong> and click Save.</li>
+                    <li>Paste it into your Mavely Dashboard under <strong className="text-white">Server Telemetry</strong> and click Save.</li>
                   </ol>
                 </div>
 
@@ -400,7 +400,7 @@ export function DocsPage() {
                   <h4 className="font-semibold text-white">Shift Automation Workflow</h4>
                   <ul className="list-disc list-inside space-y-1.5 text-zinc-400">
                     <li>Hosts execute <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-white font-mono">/session startup</code> with join code and host ping.</li>
-                    <li>CivLink opens the designated Tactical Radio VC and pings on-duty emergency responders.</li>
+                    <li>Mavely opens the designated Tactical Radio VC and pings on-duty emergency responders.</li>
                     <li>Session shutdown logs the session duration, peak player count, and host stats.</li>
                   </ul>
                 </div>
@@ -449,7 +449,7 @@ export function DocsPage() {
                     Multi-Tenant Custom Bot Setup
                   </h1>
                   <p className="text-zinc-400 text-sm leading-relaxed max-w-2xl">
-                    Deploy your community&apos;s own custom bot token. Your members will see your custom bot in your member list, with all CivLink commands and tickets running through it.
+                    Deploy your community&apos;s own custom bot token. Your members will see your custom bot in your member list, with all Mavely commands and tickets running through it.
                   </p>
                 </div>
 
@@ -460,7 +460,7 @@ export function DocsPage() {
                     <li>Click <strong className="text-white">New Application</strong> and give your bot your community&apos;s name and logo.</li>
                     <li>Navigate to the <strong className="text-white">Bot</strong> tab and click <strong className="text-white">Reset Token</strong>.</li>
                     <li>Enable <strong className="text-white">Server Members Intent</strong> and <strong className="text-white">Message Content Intent</strong>.</li>
-                    <li>Open CivLink Dashboard &gt; <strong className="text-white">Credentials</strong> &gt; Paste your bot token.</li>
+                    <li>Open Mavely Dashboard &gt; <strong className="text-white">Credentials</strong> &gt; Paste your bot token.</li>
                     <li>Your custom bot will come online within seconds and deploy all commands!</li>
                   </ol>
                 </div>
@@ -478,7 +478,7 @@ export function DocsPage() {
                     Slash Command Directory
                   </h1>
                   <p className="text-zinc-400 text-sm leading-relaxed max-w-2xl">
-                    All slash commands registered by CivLink and customer bots. Click any command to copy it.
+                    All slash commands registered by Mavely and customer bots. Click any command to copy it.
                   </p>
                 </div>
 

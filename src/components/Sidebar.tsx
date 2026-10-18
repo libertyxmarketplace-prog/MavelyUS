@@ -2,17 +2,19 @@ import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home,
-  LayoutDashboard,
+  LayoutGrid,
   BookOpen,
   Settings,
   MessageSquare,
   Crown,
   LogOut,
-  CreditCard
+  CreditCard,
+  Layers,
+  Users,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { SiteSettingsModal } from '@/components/ui/site-settings-modal';
-import { CivLinkIcon } from '@/components/CivLinkIcon';
 
 export function Sidebar() {
   const location = useLocation();
@@ -37,9 +39,13 @@ export function Sidebar() {
 
   const navItems = [
     { href: '/', label: 'Home', icon: Home, active: path === '/' },
-    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, active: path.startsWith('/dashboard') },
-    { href: '/pricing', label: 'Choose Your Plan', icon: CreditCard, active: path === '/pricing' },
+    { href: '/dashboard', label: 'Directory', icon: Layers, active: false },
+    { href: '/dashboard', label: 'Community', icon: Users, active: false },
+    { href: '/dashboard', label: 'Support Desk', icon: MessageSquare, active: false },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid, active: path.startsWith('/dashboard') },
+    { href: '/pricing', label: 'Pricing Plans', icon: CreditCard, active: path === '/pricing' },
     { href: '/docs', label: 'Documentation', icon: BookOpen, active: path.startsWith('/docs') },
+    { href: '/dashboard', label: 'Live Telemetry Radar', icon: Activity, active: false },
   ];
 
   return (
@@ -47,9 +53,9 @@ export function Sidebar() {
       <aside className="fixed left-0 top-0 bottom-0 z-50 w-14 sm:w-16 flex flex-col items-center justify-between py-5 border-r border-white/[0.08] bg-[#0b0c10]/95 backdrop-blur-md select-none">
       {/* Top Branding / Logo */}
       <div className="flex flex-col items-center gap-7">
-        <Link to="/" className="flex items-center justify-center p-0 outline-none focus:outline-none group hover:scale-110 active:scale-95 transition-transform duration-200" title="CivLink">
-          <CivLinkIcon size={30} glow={true} />
-          <span className="sr-only">CivLink Home</span>
+        <Link to="/" className="flex items-center justify-center p-0 hover:opacity-80 transition-opacity outline-none focus:outline-none" title="Mavely">
+          <img src="/mavely-mark.png" alt="Mavely" className="size-7 object-contain" />
+          <span className="sr-only">Mavely Home</span>
         </Link>
 
         {/* Main Nav Icons */}
@@ -153,7 +159,7 @@ export function Sidebar() {
                     onClick={() => setUserMenuOpen(false)}
                     className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/[0.06] transition-colors"
                   >
-                    <LayoutDashboard className="size-3.5 text-zinc-400" />
+                    <LayoutGrid className="size-3.5 text-zinc-400" />
                     <span>Server Dashboard</span>
                   </Link>
 
@@ -186,15 +192,13 @@ export function Sidebar() {
             )}
           </div>
         ) : (
-          <div className="relative">
-            <a
-              href="/auth/discord/login"
-              title="CivLink Network - Sign In with Discord"
-              className="mt-1 flex size-8 items-center justify-center rounded-full overflow-hidden ring-1 ring-[#38A1FF]/30 bg-[#161c28] p-1 hover:ring-[#38A1FF] hover:scale-105 transition-all outline-none"
-            >
-              <CivLinkIcon size={20} glow={false} />
-            </a>
-          </div>
+          <a
+            href="https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fdiscord%2Fcallback&scope=identify+guilds+guilds.join"
+            title="Sign in with Discord"
+            className="mt-1 flex size-8 items-center justify-center rounded-md bg-white/[0.04] border border-white/10 text-white/60 hover:text-white hover:border-white/20 hover:bg-white/[0.08] transition-all outline-none"
+          >
+            <Crown className="size-4 text-zinc-300" />
+          </a>
         )}
       </div>
     </aside>

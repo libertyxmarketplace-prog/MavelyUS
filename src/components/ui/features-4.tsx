@@ -113,7 +113,7 @@ const ALL_FEATURES: FeatureItem[] = [
     tag: "@bot-engine",
     badge: "Whitelabel",
     description:
-      "Run your server’s own custom bot token, custom avatar, and custom bot name on the unified CivLink runtime.",
+      "Run your server’s own custom bot token, custom avatar, and custom bot name on the unified Mavely runtime.",
     color: "#a855f7",
   },
 ];
@@ -157,7 +157,7 @@ interface FeaturesBlockProps {
 export default function FeaturesBlock({
   eyebrow = "Core bot systems",
   title = "Everything your ER:LC community needs",
-  description = "CivLink brings support tickets, patrol shifts, staff moderation, and live PRC server status together in one dashboard.",
+  description = "Mavely brings support tickets, patrol shifts, staff moderation, and live PRC server status together in one dashboard.",
   className,
 }: FeaturesBlockProps) {
   return (

@@ -8,10 +8,12 @@ import { PrivacyPage } from './pages/PrivacyPage';
 import { TermsPage } from './pages/TermsPage';
 import { DocsPage } from './pages/DocsPage';
 import { PricingPage } from './pages/PricingPage';
+import ImportPage from './app/import/page';
 import './index.css';
 
 import { useEffect } from 'react';
 import { Button } from './components/ui/button';
+import { Rocket, ShieldCheck, Coins, Activity, Zap, Check, ArrowLeft } from 'lucide-react';
 
 // Apply saved theme accent & performance mode on startup
 try {
@@ -35,54 +37,199 @@ try {
   // Ignore localStorage access issues
 }
 
-export function getDiscordOAuthUrl() {
-  const isCivLink = typeof window !== 'undefined' && window.location.hostname.includes('civlink.xyz');
-  const redirectUri = isCivLink
-    ? 'https://civlink.xyz/auth/discord/callback'
-    : `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/auth/discord/callback`;
-  return `https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=identify+guilds`;
-}
 
 export function LoginPage() {
   const params = new URLSearchParams(window.location.search);
   const error = params.get('auth_error');
-  const oauthUrl = getDiscordOAuthUrl();
 
-  useEffect(() => {
-    if (!error) {
-      window.location.assign(oauthUrl);
-    }
-  }, [error, oauthUrl]);
+  const handleDiscordLogin = () => {
+    window.location.href = '/api/auth/discord/start?returnTo=/dashboard';
+  };
 
   return (
-    <div className="min-h-screen bg-[#070707] flex items-center justify-center p-4 text-white">
-      <div className="w-full max-w-sm rounded-xl border border-white/[0.1] bg-[#0e0e11] p-6 text-center space-y-4 shadow-2xl">
-        <img src="/civlink-mark.png" alt="CivLink" className="size-10 rounded-lg mx-auto object-contain" />
-        <div className="space-y-1">
-          <h2 className="text-base font-semibold text-white">Sign In with Discord</h2>
-          <p className="text-xs text-white/50">
-            {error ? `Notice: ${error.replace(/_/g, ' ')}` : 'Connecting to your Discord account for CivLink...'}
-          </p>
+    <div className="min-h-screen relative flex flex-col justify-between text-white font-sans overflow-x-hidden selection:bg-emerald-500/30">
+      {/* Background Photography (Autumn ER:LC bridge from user reference) */}
+      <div
+        className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat scale-[1.02] transition-transform duration-1000"
+        style={{ backgroundImage: "url('/login-bridge.webp')" }}
+      />
+
+      {/* Cinematic Contrast Overlays */}
+      <div className="fixed inset-0 z-0 bg-gradient-to-r from-black/85 via-black/60 to-black/75" />
+      <div className="fixed inset-0 z-0 bg-gradient-to-b from-black/50 via-transparent to-black/80" />
+
+      {/* Top Left: Server Icon / Logo (Clean, NO background box or rectangle) */}
+      <header className="relative z-20 pt-8 px-6 sm:pt-10 sm:px-12 lg:px-16 flex items-center justify-between">
+        <a href="/" className="inline-block transition-transform hover:scale-105 active:scale-95" title="Home">
+          <img
+            src="/mavely_logo.png"
+            alt="Server Icon"
+            className="h-10 sm:h-12 w-auto object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/mavely-mark.png';
+            }}
+          />
+        </a>
+      </header>
+
+      {/* Main Two-Column Hero / Sign-In Container */}
+      <main className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-12 lg:px-16 my-auto py-10 sm:py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+          {/* Left Column: Heading, Subtext & Feature Cards */}
+          <div className="lg:col-span-7 space-y-7 sm:space-y-8">
+            <div className="space-y-3">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[3.25rem] font-extrabold text-white tracking-tight leading-[1.12] drop-shadow-md">
+                The all-in-one ER:LC <br className="hidden sm:inline" />
+                community platform.
+              </h1>
+              <p className="text-sm sm:text-base text-slate-300 font-normal leading-relaxed max-w-lg drop-shadow-sm">
+                One unified dashboard for your entire server. Grow your community, automate patrols, track member activity, and manage support tickets.
+              </p>
+            </div>
+
+            {/* Feature Highlights Grid (Clean mini icons - NO background rectangle/box) */}
+            <div className="space-y-4 sm:space-y-4 max-w-xl">
+              {/* Feature 1 */}
+              <div className="flex items-start gap-3.5">
+                <div className="shrink-0 mt-0.5 text-emerald-400 flex items-center justify-center">
+                  <Rocket className="size-5 drop-shadow-[0_2px_8px_rgba(52,211,153,0.35)]" />
+                </div>
+                <div className="space-y-0.5">
+                  <h3 className="text-xs sm:text-sm font-semibold text-white">Community Growth Engine</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-300/90 leading-normal">
+                    Promote your server, earn credits, and attract active ER:LC roleplayers.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 2 */}
+              <div className="flex items-start gap-3.5">
+                <div className="shrink-0 mt-0.5 text-emerald-400 flex items-center justify-center">
+                  <ShieldCheck className="size-5 drop-shadow-[0_2px_8px_rgba(52,211,153,0.35)]" />
+                </div>
+                <div className="space-y-0.5">
+                  <h3 className="text-xs sm:text-sm font-semibold text-white">Patrol & Shift Operations</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-300/90 leading-normal">
+                    Log in-game shifts, verify Roblox ranks, and track active staff duty.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 3 */}
+              <div className="flex items-start gap-3.5">
+                <div className="shrink-0 mt-0.5 text-emerald-400 flex items-center justify-center">
+                  <Coins className="size-5 drop-shadow-[0_2px_8px_rgba(52,211,153,0.35)]" />
+                </div>
+                <div className="space-y-0.5">
+                  <h3 className="text-xs sm:text-sm font-semibold text-white">Daily Rewards & Leaderboards</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-300/90 leading-normal">
+                    Engage members with automated daily claims, streaks, and referral bonuses.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 4 */}
+              <div className="flex items-start gap-3.5">
+                <div className="shrink-0 mt-0.5 text-emerald-400 flex items-center justify-center">
+                  <Activity className="size-5 drop-shadow-[0_2px_8px_rgba(52,211,153,0.35)]" />
+                </div>
+                <div className="space-y-0.5">
+                  <h3 className="text-xs sm:text-sm font-semibold text-white">Live Uptime & Ticket Center</h3>
+                  <p className="text-[11px] sm:text-xs text-slate-300/90 leading-normal">
+                    24/7 server health monitoring, staff handbooks, and ticket automation.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Clean Sign-In Panel */}
+          <div className="lg:col-span-5 w-full max-w-md mx-auto lg:ms-auto">
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  Welcome back
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Sign in to manage your server, track patrols, and launch growth campaigns.
+                </p>
+              </div>
+
+              {error && (
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+                  <span>Authentication notice: {error.replace(/_/g, ' ')}</span>
+                </div>
+              )}
+
+              {/* Discord Action Button */}
+              <Button
+                type="button"
+                onClick={handleDiscordLogin}
+                className="w-full h-11 bg-[#5865F2] hover:bg-[#4752C4] text-white font-semibold text-sm rounded-lg transition-all shadow-[0_4px_20px_rgba(88,101,242,0.4)] flex items-center justify-center gap-2.5 cursor-pointer active:scale-[0.98]"
+              >
+                <svg className="size-4.5 fill-current shrink-0" viewBox="0 0 24 24">
+                  <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.894a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z" />
+                </svg>
+                <span>Continue with Discord</span>
+              </Button>
+
+              {/* 3 Trust Perks row */}
+              <div className="flex flex-wrap items-center justify-between text-[11px] font-medium text-emerald-400/90 pt-1">
+                <span className="flex items-center gap-1">
+                  <Zap className="size-3 shrink-0" />
+                  <span>Real-time sync</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <Check className="size-3 shrink-0" />
+                  <span>Staff & patrol logs</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <Rocket className="size-3 shrink-0" />
+                  <span>Growth engine</span>
+                </span>
+              </div>
+
+              {/* Legal Terms & Privacy */}
+              <p className="text-[11px] text-slate-400 text-center leading-relaxed pt-2">
+                By logging in, you accept the{' '}
+                <a href="/terms" className="underline hover:text-white transition-colors">
+                  Terms
+                </a>{' '}
+                and{' '}
+                <a href="/privacy" className="underline hover:text-white transition-colors">
+                  Privacy Policy
+                </a>
+                .
+              </p>
+
+              {/* Back Link */}
+              <div className="text-center pt-1">
+                <a
+                  href="/"
+                  className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors font-medium"
+                >
+                  <ArrowLeft className="size-3" />
+                  <span>Back to home</span>
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
-        <Button asChild className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium text-xs">
-          <a href={oauthUrl}>
-            {error ? 'Retry Discord Login' : 'Continue to Discord'}
-          </a>
-        </Button>
-      </div>
-    </div>
-  );
-}
+      </main>
 
-function DiscordLoginRedirect() {
-  useEffect(() => {
-    window.location.assign(getDiscordOAuthUrl());
-  }, []);
+      {/* Bottom Footer Bar */}
+      <footer className="relative z-20 pb-8 px-6 sm:pb-10 sm:px-12 lg:px-16 flex items-center justify-between">
+        <span className="text-xs text-slate-400/80 font-medium">
+          Trusted infrastructure for Liberty County communities.
+        </span>
 
-  return (
-    <div className="min-h-screen bg-[#070707] flex flex-col items-center justify-center gap-3 text-xs text-white/50">
-      <div className="size-5 rounded-full border-2 border-brand border-t-transparent animate-spin" />
-      <span>Redirecting to Discord authentication...</span>
+        {/* Carousel Dots */}
+        <div className="flex items-center gap-1.5">
+          <span className="w-5 h-1 rounded-full bg-white transition-all shadow-sm" />
+          <span className="size-1 rounded-full bg-white/40" />
+          <span className="size-1 rounded-full bg-white/40" />
+        </div>
+      </footer>
     </div>
   );
 }
@@ -97,64 +244,130 @@ function CallbackPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#070707] flex flex-col items-center justify-center gap-3 text-xs text-white/50">
-      <div className="size-5 rounded-full border-2 border-brand border-t-transparent animate-spin" />
-      <span>Completing Discord authentication...</span>
+    <div className="min-h-screen bg-[#070709] flex flex-col items-center justify-center gap-3 text-xs text-zinc-400 font-mono">
+      <div className="size-5 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+      <span>Exchanging Discord OAuth2 code...</span>
     </div>
   );
 }
 
+import React from 'react';
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error('ErrorBoundary caught:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#070709] flex flex-col items-center justify-center p-6 text-center text-white space-y-4 font-sans">
+          <div className="p-4 rounded-lg border border-red-500/30 bg-red-500/10 max-w-md">
+            <h2 className="text-base font-bold text-red-400">Dashboard Diagnostics</h2>
+            <p className="text-xs text-zinc-300 mt-1">
+              {this.state.error?.message || 'A render exception occurred.'}
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.location.reload();
+            }}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-md"
+          >
+            Reload Dashboard
+          </Button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center gap-3 text-xs text-white/50">
-        <div className="size-5 rounded-full border-2 border-brand border-t-transparent animate-spin" />
-        <span>Authenticating session...</span>
+      <div className="min-h-screen bg-[#070709] flex flex-col items-center justify-center gap-3 text-xs text-zinc-400 font-mono">
+        <div className="size-5 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+        <span>Authenticating with Discord...</span>
       </div>
     );
   }
-  return user ? <>{children}</> : <LoginPage />;
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/pricing" element={<PricingPage />} />
-          <Route path="/docs" element={<DocsPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/auth/discord/login" element={<DiscordLoginRedirect />} />
-          <Route path="/auth/login" element={<DiscordLoginRedirect />} />
-          <Route path="/auth/discord/callback" element={<CallbackPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/:guildId"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/docs" element={<DocsPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/auth/discord/callback" element={<CallbackPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/tos" element={<TermsPage />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/:guildId"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard/:guildId/:tab"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/import"
+              element={
+                <ProtectedRoute>
+                  <ImportPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
-createRoot(document.getElementById('root')!).render(
+const rootEl = document.getElementById('root')!;
+const root = (rootEl as any)._reactRoot || createRoot(rootEl);
+(rootEl as any)._reactRoot = root;
+
+root.render(
   <StrictMode>
     <App />
   </StrictMode>

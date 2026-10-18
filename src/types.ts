@@ -13,6 +13,8 @@ export interface DiscordGuild {
   owner: boolean;
   hasWorkspace?: boolean;
   configured?: boolean;
+  approximateMemberCount?: number;
+  memberCount?: number;
 }
 
 export interface TicketCategoryConfig {
@@ -20,8 +22,52 @@ export interface TicketCategoryConfig {
   name: string;
   spawnCategoryId: string;
   pingRoleId: string;
+  claimRoleId?: string;
+  initialInstructions?: string;
   description?: string;
   emoji?: string;
+}
+
+export interface J4JAuditEntry {
+  id: string;
+  userId: string;
+  username: string;
+  targetGuildId: string;
+  targetGuildName: string;
+  timestamp: string;
+  roleGranted: string;
+  status: 'success' | 'failed';
+  accountAgeDays: number;
+  hasAvatar: boolean;
+  hasVerifiedEmail: boolean;
+}
+
+export interface RadioFrequency {
+  id: string;
+  frequency: string;
+  name: string;
+  channelId: string;
+  roleId?: string;
+}
+
+export interface StaffLoaRequest {
+  id: string;
+  staffId: string;
+  staffTag: string;
+  reason: string;
+  startDate: string;
+  endDate: string;
+  status: 'pending' | 'approved' | 'denied';
+}
+
+export interface StaffInfraction {
+  id: string;
+  staffId: string;
+  staffTag: string;
+  type: 'warn' | 'strike' | 'demote';
+  reason: string;
+  issuedBy: string;
+  timestamp: string;
 }
 
 export interface ApplicationQuestion {
@@ -142,6 +188,21 @@ export interface WorkspaceCustomizations {
   promotionTargetRoleId?: string;
   infractionStrikeThreshold?: string;
   infractionDemoteRoleId?: string;
+  j4jEnabled?: boolean;
+  j4jRewardRoleId?: string;
+  j4jDailyTarget?: number;
+  j4jMinAccountAgeDays?: number;
+  j4jRequireAvatar?: boolean;
+  j4jRequireEmail?: boolean;
+  j4jBlockChurn?: boolean;
+  joinCredits?: number;
+  radioFrequencies?: RadioFrequency[];
+  radioAutoSync?: boolean;
+  sessionState?: 'OFFLINE' | 'VOTE_ACTIVE' | 'PATROL_LIVE' | 'CONCLUDED';
+  sessionQuorumVotes?: number;
+  staffLoaRequests?: StaffLoaRequest[];
+  staffInfractions?: StaffInfraction[];
+  j4jAuditLog?: J4JAuditEntry[];
   [key: string]: any;
 }
 

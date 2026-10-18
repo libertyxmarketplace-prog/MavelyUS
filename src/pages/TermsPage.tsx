@@ -11,21 +11,21 @@ export function TermsPage() {
             Back to Home
           </Link>
           <div className="flex items-center gap-2">
-            <img src="/civlink-mark.png" alt="CivLink" className="size-6 object-contain" />
-            <span className="font-semibold text-sm">CivLink Terms of Service</span>
+            <img src="/mavely-mark.png" alt="Mavely" className="size-6 rounded" />
+            <span className="font-semibold text-sm">Mavely Terms of Service</span>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
         <div className="space-y-3 pb-8 border-b border-white/[0.08]">
-          <div className="inline-flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs font-medium text-cyan-400">
+          <div className="inline-flex items-center gap-2 rounded-md border border-brand/30 bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand">
             <FileCheck className="size-3.5" />
             Effective Date: October 2026
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Terms of Service</h1>
           <p className="text-sm text-white/60">
-            Please review these Terms of Service before inviting CivLink to your Discord server or using our dashboard.
+            Please review these Terms of Service before inviting Mavely to your Discord server or using our dashboard.
           </p>
         </div>
 
@@ -33,46 +33,66 @@ export function TermsPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-semibold text-white">1. Acceptance of Terms</h2>
             <p>
-              By adding CivLink to your Discord server or signing in to the web dashboard, you agree to comply with and be bound by these Terms of Service, as well as the Discord Terms of Service and Roblox Developer Terms.
+              By adding Mavely to your Discord server, connecting via Discord OAuth2, or utilizing the web dashboard, you agree to comply with and be bound by these Terms of Service, as well as Discord&apos;s Terms of Service and Community Guidelines.
             </p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-white">2. Acceptable Use</h2>
-            <p>You agree not to use CivLink to:</p>
+            <h2 className="text-lg font-semibold text-white">2. Community Growth &amp; Join-for-Join Integrity</h2>
+            <p>
+              Mavely provides verified Discord community discovery and join-for-join progression. To maintain network integrity:
+            </p>
             <ul className="list-disc pl-5 space-y-2 text-white/70">
-              <li>Violate Discord&apos;s Community Guidelines or Developer Terms of Service.</li>
-              <li>Spam, harass, raid, or disrupt any Discord server or in-game Emergency Response: Liberty County server.</li>
-              <li>Attempt to reverse-engineer, exploit, or bypass bot permission boundaries or database security.</li>
-              <li>Input forged, stolen, or unauthorized bot tokens or ER:LC API keys.</li>
+              <li><strong>No Automated Bot Accounts:</strong> All joining accounts must be genuine Discord users. Automated user-bots, headless accounts, or scripted join farms are strictly prohibited and subject to automated platform bans.</li>
+              <li><strong>Account Authenticity:</strong> Accounts must be at least 7 days old and feature a non-default profile avatar to claim credit bounties.</li>
+              <li><strong>Permanent Invite Links:</strong> Community promoters must supply permanent, non-expiring Discord invite links without artificial member limits.</li>
             </ul>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-white">3. Bot Instance Responsibility</h2>
+            <h2 className="text-lg font-semibold text-white">3. 72-Hour Credit Retention Guarantee</h2>
             <p>
-              When hosting a dedicated customer bot instance through CivLink, you are responsible for maintaining your bot application in the Discord Developer Portal, ensuring appropriate gateway intents (Server Members Intent, Message Content Intent) are enabled, and complying with Discord rate limits.
+              When a user claims a growth bounty by joining a partnered community:
+            </p>
+            <ul className="list-disc pl-5 space-y-2 text-white/70">
+              <li>Credits awarded are held under an active <strong>72-Hour Retention Lock</strong>.</li>
+              <li>If an account departs or is kicked from the target Discord server prior to 72 hours, the bot automatically revokes the awarded credits.</li>
+              <li>Repeated churn-and-leave violations will trigger account restrictions from the global directory.</li>
+            </ul>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold text-white">4. Zero-Fee Treasury Transfers &amp; Campaign Funding</h2>
+            <p>
+              All peer-to-peer credit transfers and campaign treasury deposits are executed with 0% platform commission fees. Credits hold no monetary fiat cash value and cannot be exchanged for currency.
             </p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-white">4. Availability &amp; Disclaimer</h2>
+            <h2 className="text-lg font-semibold text-white">5. Anti-Raid &amp; Server Security Protection</h2>
             <p>
-              CivLink is provided &quot;as is&quot; without warranties of any kind. While our automated watchdog and reconnect systems strive for continuous 24/7 uptime, service may occasionally be interrupted for scheduled maintenance or Discord API outages.
+              Mavely actively monitors Discord gateway events to prevent raid cascades and malicious mass-joins. Community administrators reserve the right to configure custom verification roles and account age thresholds.
             </p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-white">5. Termination</h2>
+            <h2 className="text-lg font-semibold text-white">6. Availability &amp; Disclaimer</h2>
             <p>
-              We reserve the right to suspend or ban any bot instance or user that violates these Terms, engages in malicious abuse, or attempts unauthorized access to system resources.
+              Mavely is provided &quot;as is&quot; without warranties of any kind. While our automated watchdog and reconnect systems strive for continuous 24/7 uptime, service may occasionally be interrupted for scheduled maintenance or Discord API outages.
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold text-white">7. Account Termination</h2>
+            <p>
+              We reserve the right to suspend or ban any bot instance, server directory listing, or user account that violates these Terms or attempts unauthorized access to system resources.
             </p>
           </section>
         </div>
 
         <div className="mt-12 pt-6 border-t border-white/[0.08] flex items-center justify-between text-xs text-white/50">
-          <span>&copy; {new Date().getFullYear()} CivLink. All rights reserved.</span>
-          <Link to="/privacy" className="text-cyan-400 hover:underline">View Privacy Policy</Link>
+          <span>&copy; {new Date().getFullYear()} Mavely. All rights reserved.</span>
+          <Link to="/privacy" className="text-brand hover:underline">View Privacy Policy</Link>
         </div>
       </main>
     </div>
