@@ -21732,72 +21732,92 @@ client.on(Events.MessageCreate, async (message) => {
         return;
       }
 
-      // ── -loaend command (management safety net - ends an LOA early) ──
+      // ── -loaend command (ends an LOA early) ──
       if (lower === 'loaend' || lower.startsWith('loaend ') || lower.startsWith('loaend')) {
         const staff = message.member || (await message.guild.members.fetch(message.author.id).catch(() => null));
-        if (!isLoaApprover(staff)) {
-          await autoDeleteReply(message, `Only **LOA management** can view or end a leave early.`, 20000);
-          return;
-        }
-
         const targetMatch = message.content.match(/<@!?(\d{15,20})>/);
         const targetId = targetMatch ? targetMatch[1] : null;
 
-        // If no user was specified, list the amount of people in LOA
-        if (!targetId) {
-          const approvedLoas = [...activeLoas.values()].filter((r) => r.status === 'approved');
-          const count = approvedLoas.length;
-          if (count === 0) {
+        // If targetId is not specified or targets the author themselves:
+        if (!targetId || targetId === message.author.id) {
+          // Look for author's own active LOA record
+          const myRecord = [...activeLoas.values()].find((r) => r.userId === message.author.id && r.status === 'approved');
+          if (myRecord) {
+            await autoConcludeLoa(message.client, myRecord, { reason: 'ended early by member' });
             await autoDeleteReply(
               message,
-              `### Active Leaves of Absence (0)\nThere are currently no staff members on Leave of Absence.\n\n> Leaves end automatically when their scheduled date arrives.\n> To end someone's leave early: \`-loaend @user confirm\``,
-              30000
+              `Your Leave of Absence has ended. Welcome back, <@${message.author.id}>! Your LOA role was removed and nickname restored.`,
+              20000
             );
             return;
           }
 
-          const loaLines = approvedLoas.map((r, i) => {
-            const endDisplay = r.endsAt
-              ? `<t:${Math.floor(r.endsAt / 1000)}:D> (<t:${Math.floor(r.endsAt / 1000)}:R>)`
-              : (r.end || 'TBD');
-            return `• **${i + 1}.** <@${r.userId}> (\`${r.userTag || r.roblox || 'Staff'}\`)\n  Rank: ${r.rank || 'Staff'} | Ends: ${endDisplay}\n  Reason: ${r.reason || 'None provided'}`;
-          }).join('\n\n');
+          // Author does not have an active LOA
+          // If they are LOA management, display active LOA list:
+          if (isLoaApprover(staff)) {
+            const approvedLoas = [...activeLoas.values()].filter((r) => r.status === 'approved');
+            const count = approvedLoas.length;
+            if (count === 0) {
+              await autoDeleteReply(
+                message,
+                `### Active Leaves of Absence (0)\nThere are currently no staff members on Leave of Absence.\n\n> Leaves end automatically when their scheduled date arrives.\n> To end someone's leave early: \`-loaend @user confirm\``,
+                30000
+              );
+              return;
+            }
 
-          await message.reply({
-            content:
-              `### Active Leaves of Absence (${count})\n\n` +
-              `${loaLines}\n\n` +
-              `> Leaves automatically end when their end date arrives.\n` +
-              `> To end a staff member's leave early: \`-loaend @user confirm\``,
-            allowedMentions: { parse: [] }
-          });
+            const loaLines = approvedLoas.map((r, i) => {
+              const endDisplay = r.endsAt
+                ? `<t:${Math.floor(r.endsAt / 1000)}:D> (<t:${Math.floor(r.endsAt / 1000)}:R>)`
+                : (r.end || 'TBD');
+              return `• **${i + 1}.** <@${r.userId}> (\`${r.userTag || r.roblox || 'Staff'}\`)\n  Rank: ${r.rank || 'Staff'} | Ends: ${endDisplay}\n  Reason: ${r.reason || 'None provided'}`;
+            }).join('\n\n');
+
+            await message.reply({
+              content:
+                `### Active Leaves of Absence (${count})\n\n` +
+                `${loaLines}\n\n` +
+                `> Leaves automatically end when their end date arrives.\n` +
+                `> To end a staff member's leave early: \`-loaend @user confirm\``,
+              allowedMentions: { parse: [] }
+            });
+            return;
+          }
+
+          // Author is not in LOA and not management
+          await autoDeleteReply(message, `You do not have an active Leave of Absence.`, 15000);
           return;
         }
 
-        // When user does -loaend @user, require confirm so it doesn't accidentally shut off their LOA
-        const record = [...activeLoas.values()].find((r) => r.userId === targetId && r.status === 'approved');
-        if (!record) {
+        // A target user was specified other than the author: only LOA management can end another person's LOA
+        if (!isLoaApprover(staff)) {
+          await autoDeleteReply(message, `Only **LOA management** can end another staff member's leave early.`, 20000);
+          return;
+        }
+
+        const targetRecord = [...activeLoas.values()].find((r) => r.userId === targetId && r.status === 'approved');
+        if (!targetRecord) {
           await autoDeleteReply(message, `No active Leave of Absence was found for <@${targetId}>.`, 20000);
           return;
         }
 
         const hasConfirm = /\bconfirm\b/i.test(message.content);
         if (!hasConfirm) {
-          const endDisplay = record.endsAt
-            ? `<t:${Math.floor(record.endsAt / 1000)}:D> (<t:${Math.floor(record.endsAt / 1000)}:R>)`
-            : (record.end || 'TBD');
+          const endDisplay = targetRecord.endsAt
+            ? `<t:${Math.floor(targetRecord.endsAt / 1000)}:D> (<t:${Math.floor(targetRecord.endsAt / 1000)}:R>)`
+            : (targetRecord.end || 'TBD');
           await autoDeleteReply(
             message,
             `⚠️ **Confirm Early LOA Conclusion**\n` +
-            `<@${record.userId}> is currently on leave until **${endDisplay}**.\n` +
-            `> To confirm ending their leave early: \`-loaend <@${record.userId}> confirm\``,
+            `<@${targetRecord.userId}> is currently on leave until **${endDisplay}**.\n` +
+            `> To confirm ending their leave early: \`-loaend <@${targetRecord.userId}> confirm\``,
             25000
           );
           return;
         }
 
-        await autoConcludeLoa(message.client, record, { reason: 'ended early by management' });
-        await autoDeleteReply(message, `Leave ended early for <@${record.userId}>. Roles restored and DM notification delivered.`, 20000);
+        await autoConcludeLoa(message.client, targetRecord, { reason: 'ended early by management' });
+        await autoDeleteReply(message, `Leave of Absence concluded for <@${targetRecord.userId}>. Roles and nickname restored.`, 20000);
         return;
       }
 
