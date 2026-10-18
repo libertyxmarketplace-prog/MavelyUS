@@ -9708,22 +9708,9 @@ async function applyLoaToMember(guild, userId) {
     );
   }
 
-  const keep = new Set([...LOA_KEEP_ROLE_IDS, guild.id]);
+  // Member keeps all their roles while on LOA!
   const removedRoleIds = [];
   const blockedRoles = [];
-  for (const role of member.roles.cache.values()) {
-    if (keep.has(role.id) || role.managed) continue;
-    // Only staff/rank roles are suspended - the member keeps every other role
-    // so they can still see the whole server while they are on leave.
-    const isStaffRole = LOA_STAFF_ROLE_IDS.includes(role.id) || LOA_STAFF_ROLE_NAME.test(role.name || '');
-    if (!isStaffRole) continue;
-    try {
-      await member.roles.remove(role.id, 'LOA approved - staff roles suspended');
-      removedRoleIds.push(role.id);
-    } catch (err) {
-      blockedRoles.push(role.name);
-    }
-  }
 
   try {
     await member.roles.add(LOA_ROLE_ID, 'LOA approved - Leave of Absence role assigned');
@@ -9744,7 +9731,7 @@ async function applyLoaToMember(guild, userId) {
   return { ok: true, issues, removedRoleIds, blockedRoles, nicknameChanged, originalNickname };
 }
 
-/** Gives every stored role back and clears the 𝑳𝑶𝑨┃ nickname prefix. */
+/** Clears the Leave of Absence role and the 𝑳𝑶𝑨┃ nickname prefix. */
 async function concludeLoaForMember(guild, record) {
   const member = await guild.members.fetch(record.userId).catch(() => null);
   if (!member) return { ok: false, reason: 'Member is no longer in the server.' };
@@ -9832,27 +9819,15 @@ function parseLoaEndDate(value) {
   return null;
 }
 
-/** Ends the leave: restores roles + nickname, DMs the member, logs it in the LOA channel. */
+/** Ends the leave: removes LOA role + restores nickname, logs it in the LOA channel (no DM). */
 async function autoConcludeLoa(client, record, { reason = 'end date reached' } = {}) {
   if (record.status === 'concluded') return;
   const guild = client.guilds.cache.get(record.guildId) || client.guilds.cache.first();
-  let restoredNote = '';
   if (guild) {
-    const done = await concludeLoaForMember(guild, record);
-    restoredNote = done.ok
-      ? `\n> **Roles Restored:** ${done.restoredRoles} role(s) were put back.`
-      : `\n> Could not restore them - ${done.reason}`;
+    await concludeLoaForMember(guild, record);
   }
 
-  // The member gets a clean, well-designed DM.
   const banner = loaBanner();
-  const dmCard = buildLoaConcludedCard();
-  const dmFiles = banner.path ? [new AttachmentBuilder(banner.path, { name: banner.name })] : [];
-  await dmUser(client, record.userId, {
-    components: [dmCard.toJSON()],
-    files: dmFiles,
-    flags: MessageFlags.IsComponentsV2
-  }).catch(() => null);
 
   // Permanent record in the LOA channel.
   try {
@@ -9872,7 +9847,7 @@ async function autoConcludeLoa(client, record, { reason = 'end date reached' } =
         new TextDisplayBuilder().setContent(
           `> **Reason:** ${reason}\n` +
           `> **Window:** ${record.start || 'Not provided'} → ${record.end || 'Not provided'}\n` +
-          `> **Member notified:** Yes (DM)${restoredNote}\n` +
+          `> **Status:** Leave of Absence concluded - LOA role removed and nickname restored\n` +
           `-# Alabama State Roleplay • LOA`
         )
       );
