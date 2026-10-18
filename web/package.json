@@ -5,6 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "build": "vite build --config vite.config.ts",
     "dev": "vite --config web/vite.config.ts",
     "start": "node index.js",
     "deploy": "node deploy-commands.js",
