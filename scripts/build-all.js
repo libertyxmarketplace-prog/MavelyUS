@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { build } from 'vite';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,18 +9,28 @@ const rootDir = path.resolve(__dirname, '..');
 const distDir = path.join(rootDir, 'dist');
 const webDistDir = path.join(rootDir, 'web', 'dist');
 
-console.log('[BUILD] Running vite build for root application...');
-execSync('npm exec vite -- build --config vite.config.js', { stdio: 'inherit', cwd: rootDir });
+async function main() {
+  console.log('[BUILD] Running programmatic Vite build via JavaScript API...');
+  await build({
+    configFile: path.join(rootDir, 'vite.config.js'),
+    root: rootDir,
+  });
 
-// Ensure _redirects file exists in dist
-const redirectsContent = '/* /index.html 200\n';
-fs.writeFileSync(path.join(distDir, '_redirects'), redirectsContent);
+  // Ensure _redirects file exists in dist for Cloudflare Pages SPA routing
+  const redirectsContent = '/* /index.html 200\n';
+  fs.writeFileSync(path.join(distDir, '_redirects'), redirectsContent);
 
-// Copy dist to web/dist for server.js compatibility
-console.log('[BUILD] Syncing dist to web/dist...');
-if (!fs.existsSync(webDistDir)) {
-  fs.mkdirSync(webDistDir, { recursive: true });
+  // Sync dist to web/dist for server.js Express compatibility
+  console.log('[BUILD] Syncing dist to web/dist...');
+  if (!fs.existsSync(webDistDir)) {
+    fs.mkdirSync(webDistDir, { recursive: true });
+  }
+  fs.cpSync(distDir, webDistDir, { recursive: true });
+
+  console.log('[BUILD] Full build completed successfully with SPA _redirects!');
 }
-fs.cpSync(distDir, webDistDir, { recursive: true });
 
-console.log('[BUILD] Full build completed successfully with SPA _redirects!');
+main().catch(err => {
+  console.error('[BUILD] Build failed:', err);
+  process.exit(1);
+});
