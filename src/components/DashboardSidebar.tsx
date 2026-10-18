@@ -130,7 +130,7 @@ export function DashboardSidebar({
   onSignOut,
 }: AppShellSidebarProps) {
   const { state, toggleSidebar } = useSidebar();
-  const { toggleTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const collapsed = state === 'collapsed';
   const navigate = useNavigate();
   const location = useLocation();
@@ -473,7 +473,7 @@ export function DashboardSidebar({
                         <span>Toggle Theme</span>
                       </div>
                       <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/10 text-zinc-400">
-                        {theme}
+                        {theme || 'dark'}
                       </span>
                     </DropdownMenuItem>
 

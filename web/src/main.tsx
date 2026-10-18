@@ -270,9 +270,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
       return (
         <div className="min-h-screen bg-[#090a0f] flex flex-col items-center justify-center p-6 text-center text-white font-sans selection:bg-emerald-500/30">
           <div className="relative w-full max-w-lg p-6 sm:p-8 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-2xl space-y-5">
-            <div className="size-12 mx-auto rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400">
-              <AlertTriangle className="size-6" />
-            </div>
+            <AlertTriangle className="size-9 text-rose-400 mx-auto drop-shadow-md" />
             <div className="space-y-2">
               <h2 className="text-lg font-bold text-white tracking-tight">Dashboard Diagnostics</h2>
               <p className="text-xs sm:text-sm text-zinc-400 font-mono bg-black/40 p-3 rounded-lg border border-white/5 break-words text-left">
