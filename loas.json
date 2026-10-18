@@ -69,5 +69,58 @@
     "approvedBy": "1100907704807063724",
     "approvedAt": 1792125079149,
     "decisionDmSent": true
+  },
+  "1561218049200357416": {
+    "key": "1561218049200357416",
+    "userId": "692457474065956874",
+    "userTag": "acedsw212",
+    "guildId": "1232495211490443284",
+    "logChannelId": "1232495214162214922",
+    "logMessageId": "1561218049200357416",
+    "actionMessageId": "1561218049200357416",
+    "roblox": "acdsw212",
+    "rank": "Senior Internal Affairs",
+    "start": "now",
+    "end": "unknown",
+    "reason": "work and broken hand",
+    "status": "approved",
+    "createdAt": 1792293788000,
+    "removedRoleIds": [
+      "1341932342343897269",
+      "1557908002399592498",
+      "1341932334714454107",
+      "1345160526011039865"
+    ],
+    "originalNickname": "SIA/tcso captin/training dev/ace",
+    "approvedBy": "1393652309208207540",
+    "approvedAt": 1792293785000,
+    "decisionDmSent": true
+  },
+  "1560486646498197514": {
+    "key": "1560486646498197514",
+    "userId": "1481051792362963045",
+    "userTag": "austin_333333",
+    "guildId": "1232495211490443284",
+    "logChannelId": "1232495214162214922",
+    "logMessageId": "1560486646498197514",
+    "actionMessageId": "1560486646498197514",
+    "roblox": "Marvincat_9876y",
+    "rank": "IAS",
+    "start": "10/15/2026",
+    "end": "11/01/2026",
+    "reason": "Will not be able to be on and I am going to see someone married.",
+    "endsAt": 1793599199000,
+    "status": "approved",
+    "createdAt": 1792119408000,
+    "removedRoleIds": [
+      "1341932335175831582",
+      "1341932342343897269",
+      "1557908002399592498",
+      "1346603584132743288"
+    ],
+    "originalNickname": "IAS | Austin",
+    "approvedBy": "1100907704807063724",
+    "approvedAt": 1792119406000,
+    "decisionDmSent": true
   }
 }

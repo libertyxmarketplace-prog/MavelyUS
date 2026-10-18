@@ -493,9 +493,9 @@ const LOA_CHANNEL_ID = '1232495214162214922';
 const LOA_ACTION_CHANNEL_ID = '1232495214162214922';
 // Only this role (or Administrators) may Approve / Deny an LOA.
 const LOA_APPROVER_ROLE_IDS = ['1341932333741244476'];
-const LOA_APPROVER_ROLE_LABEL = LOA_APPROVER_ROLE_IDS.map((id) => `<@&${id}>`).join(' and ');
-// Roles that stay on the member while their LOA is active (@everyone + Staff Team).
-const LOA_KEEP_ROLE_IDS = ['1232495211490443285', '1341965114101731418'];
+const LOA_ROLE_ID = '1342320925315436555';
+// Roles that stay on the member while their LOA is active (@everyone + Staff Team + Leave of Absence).
+const LOA_KEEP_ROLE_IDS = ['1232495211490443285', '1341965114101731418', LOA_ROLE_ID];
 // Only these staff/rank roles are suspended during an LOA. Everything else
 // (colour, region, cosmetic, event roles) is untouched so the member can still
 // see the whole server while they are away.
@@ -9725,6 +9725,12 @@ async function applyLoaToMember(guild, userId) {
     }
   }
 
+  try {
+    await member.roles.add(LOA_ROLE_ID, 'LOA approved - Leave of Absence role assigned');
+  } catch (err) {
+    console.warn(`Could not add LOA role to ${userId}: ${err.message}`);
+  }
+
   const originalNickname = member.nickname || null;
   const base = (originalNickname || member.user.username).slice(0, 24);
   let nicknameChanged = false;
@@ -9742,6 +9748,12 @@ async function applyLoaToMember(guild, userId) {
 async function concludeLoaForMember(guild, record) {
   const member = await guild.members.fetch(record.userId).catch(() => null);
   if (!member) return { ok: false, reason: 'Member is no longer in the server.' };
+
+  try {
+    await member.roles.remove(LOA_ROLE_ID, 'LOA concluded - Leave of Absence role removed');
+  } catch (err) {
+    console.warn(`Could not remove LOA role from ${record.userId}: ${err.message}`);
+  }
 
   const restore = (record.removedRoleIds || []).filter((id) => guild.roles.cache.has(id));
   if (restore.length) {
