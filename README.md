@@ -1,189 +1,113 @@
-# 🌴 LIBERTX - Discord Ticket System
+# Mavely Bot
 
-<p align="center">
-  <img src="assets/config-header.png" alt="LIBERTX Ticket System" width="100%" style="border-radius: 12px; margin-bottom: 16px;" onerror="this.style.display='none'"/>
-</p>
-
-<p align="center">
-  <strong>Production-ready, ultra-modern Discord Ticket & Desk Management Engine</strong><br>
-  Built with <code>discord.js v14 (ESM)</code> • Zero-SQL Local JSON Persistence • Live Real-Time Auto-Updating Panels
-</p>
-
-<p align="center">
-  <a href="https://discord.js.org/"><img src="https://img.shields.io/badge/discord.js-v14.18.0-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="discord.js"></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node.js-v20%2B-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js"></a>
-  <img src="https://img.shields.io/badge/Architecture-ESM%20Modules-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="ESM">
-  <img src="https://img.shields.io/badge/Database-Local%20Atomic%20JSON-00C7B7?style=for-the-badge" alt="Local JSON">
-  <img src="https://img.shields.io/badge/Status-Production%20Ready-success?style=for-the-badge" alt="Production Ready">
-</p>
+Mavely is an all-in-one Discord bot and web management platform designed for Emergency Response: Liberty County (ER:LC) Roblox communities. It combines a multi-tenant Discord bot with a real-time web dashboard.
 
 ---
 
-## 🌟 What Makes LIBERTX Different?
+## The Mavely Website
 
-Most Discord ticket bots are clunky, rely on heavy external databases, and leave outdated panels sitting in channels when staff are offline. **LIBERTX** is engineered from the ground up for responsiveness, speed, and clean Discord UI design:
+The Mavely website gives server owners and staff a full web-based control room for their Discord community and in-game ER:LC server. Instead of configuring everything through Discord chat commands, you can manage your entire setup from your web browser.
 
-- 🔄 **Real-Time Live Panel Synchronization:** When you change the operational status or toggle a category, *every single posted panel across your server updates instantly* without manual reposting.
-- 🚦 **Operational Desk Status Engine:** Switch between `🟢 Online`, `🟡 Busy`, and `🔴 Closed` with `/ticket status` to manage community expectations.
-- 🔒 **Staff Claim & Lock Workflow:** Instant one-click claiming. The ticket embed dynamically locks to the assigned staff member and provides direct unclaim/close controls.
-- 📜 **Standalone Styled HTML Transcripts:** Generates clean, responsive HTML transcripts with dark-mode styling, message timestamps, avatars, and file embeds—automatically sent to your log channel and DMed to the ticket author.
-- ✏️ **Retroactive Reason Editing:** Ticket closed with a generic note? Staff can easily update close reasons retroactively in the database records.
-- 💾 **100% Local Persistence:** Never worry about database outages or complex setup. All states, panels, and tickets are stored in atomic JSON files under `data/`.
+### Key Website Features
+
+1. **Web Dashboard (`/dashboard`)**
+   - Manage your bot customizations: change the bot nickname, activity status, and embed colors.
+   - Configure server join codes, banner URLs, and channel links visually.
+   - View real-time statistics including active tickets, total members, and server uptime.
+
+2. **Live ER:LC Telemetry**
+   - Connect your private server API key to view live in-game data.
+   - Track current player counts, server queue numbers, and on-duty police rosters.
+   - Schedule and broadcast Server Start Up (SSU) patrol notifications with one click.
+
+3. **Support Ticket Center**
+   - Monitor open and closed tickets across your server.
+   - View styled HTML transcripts of closed tickets.
+   - Edit ticket close reasons and track staff response times.
+
+4. **Staff Management and Applications**
+   - Review submitted staff quiz applications with accept and deny actions.
+   - Track staff Leave of Absence (LOA) records.
+   - View staff action logs, warnings, and activity records.
+
+5. **Discord Login**
+   - Secure login through Discord OAuth2.
+   - Automatically detects the servers where you have management permissions.
 
 ---
 
-## 🚀 Quick Setup & Installation
+## How to Run the Website and Bot
 
 ### 1. Install Dependencies
-Ensure you have **Node.js 18+** installed. In this folder, run:
+Open PowerShell or your terminal in this directory and run:
 ```bash
 npm install
 ```
 
 ### 2. Configure Environment Variables
-Create or open your `.env` file in the project root:
+Create or open the `.env` file in the project root and add your Discord credentials:
 ```env
-# Discord Bot Credentials
 DISCORD_TOKEN=your_bot_token_here
 CLIENT_ID=your_bot_client_id_here
-GUILD_ID=your_discord_server_id_here   # Recommended for instant server-wide slash command sync!
+GUILD_ID=your_discord_server_id_here
 ```
 
-| Variable | Description |
-| :--- | :--- |
-| `DISCORD_TOKEN` | Your Discord Bot Token from the [Discord Developer Portal](https://discord.com/developers/applications). |
-| `CLIENT_ID` | Your Bot's Application ID. |
-| `GUILD_ID` | *(Recommended)* Your server ID. Registers slash commands instantly without the 1-hour global Discord cache delay. |
+- `DISCORD_TOKEN`: Your Discord bot token from the Discord Developer Portal.
+- `CLIENT_ID`: Your bot application ID.
+- `GUILD_ID`: Your Discord server ID (recommended for instant slash command registration).
 
-### 3. Customize Config (`config.js`)
-Open `config.js` to tailor the ticket system to your server's needs:
-```javascript
-export const CONFIG = {
-  // Command Prefix for quick management commands (-close, -open)
-  PREFIX: "-",
-
-  // Channel ID where closed ticket logs and HTML transcripts are dispatched
-  TRANSCRIPTS_CHANNEL_ID: "1548876816171798678",
-
-  // Array of Role IDs permitted to view, claim, and manage tickets
-  STAFF_ROLE_IDS: ["YOUR_STAFF_ROLE_ID", "YOUR_ADMIN_ROLE_ID"],
-
-  // Top & Bottom Custom Embed Banners
-  TOP_BANNER_URL: "https://your-domain.com/banner.png",
-  BOTTOM_BANNER_URL: null,
-
-  // Support categories mapping
-  CATEGORIES: [
-    {
-      id: "general",
-      label: "General",
-      fullName: "General Support",
-      categoryId: "1548331057911173140"
-    },
-    {
-      id: "management",
-      label: "Management",
-      fullName: "Management Support",
-      categoryId: "1548330987128229989"
-    }
-  ]
-};
+### 3. Start the Website Frontend
+Run the Vite development server:
+```bash
+npm run dev
 ```
+Open your browser and navigate to: `http://localhost:3000`
 
-### 4. Deploy Slash Commands
-Push all slash commands to Discord's API with one command:
+### 4. Start the Web Backend API
+In a second terminal window, start the Express backend server:
+```bash
+node server.js
+```
+The backend listens on port 3001 and handles all dashboard data and Discord authentication.
+
+### 5. Deploy Slash Commands
+Register all bot slash commands with Discord:
 ```bash
 npm run deploy
 ```
 
-### 5. Launch the Bot
+### 6. Start the Discord Bot
+Run the master bot process:
 ```bash
-npm start
+node index.js
 ```
 
 ---
 
-## 🛠️ Slash Commands Reference
+## Discord Slash Commands Reference
 
-All commands are organized under the unified `/ticket` namespace:
-
-| Command | Syntax | Permission | Description |
-| :--- | :--- | :---: | :--- |
-| **Deploy Panel** | `/ticket panel [channel]` | `Staff / Admin` | Sends the interactive ticket creation panel to the specified channel and registers it for live synchronization. |
-| **Desk Status** | `/ticket status <online\|busy\|closed>` | `Staff / Admin` | Toggles the operational desk state and instantly refreshes all active panels across the server. |
-| **Toggle Category** | `/ticket category <category> <enable\|disable>` | `Staff / Admin` | Dynamically enables or disables specific ticket categories without deleting panel messages. |
-| **Close Ticket** | `/ticket close [reason]` | `Staff / Author` | Archives the ticket, compiles the HTML transcript, logs to the transcript channel, and DMs the ticket creator. |
-| **Claim Ticket** | `/ticket claim` | `Staff` | Assigns the ticket to you, locks staff controls, and updates the ticket header in real-time. |
-| **Unclaim Ticket** | `/ticket unclaim` | `Staff` | Releases the ticket back to the public staff queue. |
-| **Add Member** | `/ticket add <user>` | `Staff` | Grants a specific member read/write access to the current ticket channel. |
-| **Remove Member** | `/ticket remove <user>` | `Staff` | Revokes a member's access from the ticket channel. |
-| **Rename Ticket** | `/ticket rename <name>` | `Staff` | Updates the ticket channel name (e.g. `resolved-john`). |
-
----
-
-## ⚡ Fast Prefix Commands
-
-Staff members inside an active ticket channel can also use quick prefix shortcuts:
-- `-close [reason]` — Closes and archives the current ticket.
-- `-claim` — Instantly claims the ticket.
-- `-unclaim` — Returns the ticket to the open queue.
+| Command | Permission | Description |
+| :--- | :---: | :--- |
+| `/ticket panel [channel]` | Staff / Admin | Sends the ticket creation panel to a channel and enables live updates. |
+| `/ticket status <online\|busy\|closed>` | Staff / Admin | Sets the desk status (online, busy, or closed) and refreshes active panels. |
+| `/ticket category <category> <enable\|disable>` | Staff / Admin | Turns a support category on or off in the ticket panels. |
+| `/ticket close [reason]` | Staff / Author | Closes the ticket, creates an HTML transcript, and logs it to the transcripts channel. |
+| `/ticket claim` | Staff | Claims the ticket and assigns it to you. |
+| `/ticket unclaim` | Staff | Releases the ticket back to the public staff queue. |
+| `/ticket add <user>` | Staff | Adds a member to the ticket channel. |
+| `/ticket remove <user>` | Staff | Removes a member from the ticket channel. |
+| `/ticket rename <name>` | Staff | Renames the current ticket channel. |
+| `/config` | Admin | Opens the interactive bot setup panel inside Discord. |
+| `/panel` | Admin | Opens the unified panel menu to post tickets, applications, or session embeds. |
 
 ---
 
-## 📂 Architecture & Persistence
+## File Storage and Persistence
 
-Data is stored locally under the `data/` directory using atomic disk writes so nothing is lost during bot reboots or crashes:
-
-```
-data/
-├── tickets.json          # Active & archived ticket metadata, participants, claims, and close reasons
-├── ticket_desk.json      # Current operational desk state (online, busy, closed) and category toggles
-└── ticket_panels.json    # Registry of posted panel messages (channelId & messageId) for live sync
-```
-
-### Data Structures at a Glance:
-
-<details>
-<summary><strong>🔍 Click to view sample <code>ticket_desk.json</code></strong></summary>
-
-```json
-{
-  "status": "online",
-  "disabledCategories": [],
-  "updatedAt": "2026-10-18T23:45:00.000Z"
-}
-```
-</details>
-
-<details>
-<summary><strong>🔍 Click to view sample <code>ticket_panels.json</code></strong></summary>
-
-```json
-[
-  {
-    "channelId": "1548331111222333444",
-    "messageId": "1548331555666777888",
-    "createdAt": "2026-10-18T23:30:00.000Z"
-  }
-]
-```
-</details>
-
----
-
-## 🛡️ Security & Role Hierarchy Requirements
-
-To ensure smooth operation:
-1. **Bot Role Position:** In **Server Settings > Roles**, ensure the bot's highest role is positioned **above** the ticket staff roles and any role it needs to manage.
-2. **Channel Permissions:** The bot requires:
-   - `Manage Channels` (to spawn and archive private ticket rooms)
-   - `Manage Messages` (to clean up panel inputs and interactions)
-   - `Attach Files` & `Embed Links` (to dispatch HTML transcripts and styled panels)
-   - `Read Message History` (to compile transcript logs)
-3. **Privileged Gateway Intents:** Ensure **Server Members Intent** and **Message Content Intent** are toggled **ON** in the Discord Developer Portal under the Bot tab.
-
----
-
-<p align="center">
-  <sub>Developed for LIBERTX • Crafted for high-traffic Discord communities.</sub>
-</p>
+All data is saved locally in the `data/` folder as JSON files:
+- `data/tickets.json`: Active tickets, claim data, and closed ticket records.
+- `data/ticket_desk.json`: Current operational desk status and disabled categories.
+- `data/ticket_panels.json`: List of all posted panel messages for live auto-updating.
+- `data/bot_instances.db.json`: Customer bot configurations and saved settings.
+- `data/applications.json`: Submitted staff application responses and scores.
+- `data/web_sessions.json`: Active web dashboard sessions.

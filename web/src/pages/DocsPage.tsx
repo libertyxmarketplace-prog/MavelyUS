@@ -349,7 +349,7 @@ export function DocsPage() {
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[11px] font-mono font-semibold tracking-wider text-emerald-400 uppercase">
-                      🌴 LIBERTX Engine
+                      Mavely Engine
                     </span>
                     <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[10px]">
                       discord.js v14 ESM
@@ -434,7 +434,7 @@ export function DocsPage() {
                     <div className="rounded-lg border-l-4 border-emerald-500 bg-[#16181e] p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                          <span>🌴 LIBERTX Support Desk</span>
+                          <span>Mavely Support Desk</span>
                         </h4>
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
                           ticketDeskStatus === 'online'
