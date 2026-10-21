@@ -7,16 +7,14 @@ export function getBotInviteUrl(guildId?: string): string {
   const redirectUri = isLocal
     ? `${window.location.origin}/auth/discord/callback`
     : 'https://erlc.us/auth/discord/callback';
-  const base = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&redirect_uri=${encodeURIComponent(redirectUri)}&integration_type=0&scope=bot`;
+  const base = `https://discord.com/oauth2/authorize?client_id=1562365417815543808&permissions=8&redirect_uri=${encodeURIComponent(redirectUri)}&integration_type=0&scope=bot`;
   return guildId ? `${base}&guild_id=${guildId}` : base;
 }
 
 export function getDiscordLoginUrl(): string {
-  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const redirectUri = isLocal
-    ? `${window.location.origin}/auth/discord/callback`
-    : 'https://erlc.us/auth/discord/callback';
-  return `https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=identify+guilds+guilds.join`;
+  // Login always goes through the backend: it uses the ERLC US app from the server env and checks
+  // the user is in an allowed server before creating a session.
+  return '/api/auth/discord/start?returnTo=%2Fdashboard';
 }
 
 export function setCsrfToken(token: string) {
@@ -86,9 +84,9 @@ export async function fetchWorkspace(guildId: string): Promise<{ workspace: Work
         id: `ws-${guildId}`,
         guildId,
         isMainBot: false,
-        discordBotId: '1552165138017165372',
+        discordBotId: '1562365417815543808',
         botUser: {
-          id: '1552165138017165372',
+          id: '1562365417815543808',
           username: 'CivLink Bot',
           avatarUrl: ''
         },
@@ -132,8 +130,8 @@ export async function createWorkspace(guildId: string): Promise<{ workspace: Wor
         id: `ws-${guildId}`,
         guildId,
         isMainBot: false,
-        discordBotId: '1552165138017165372',
-        botUser: { id: '1552165138017165372', username: 'CivLink Bot', avatarUrl: '' },
+        discordBotId: '1562365417815543808',
+        botUser: { id: '1562365417815543808', username: 'CivLink Bot', avatarUrl: '' },
         isInGuild: true,
         inviteUrl: getBotInviteUrl(guildId),
         status: 'online',

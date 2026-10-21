@@ -164,7 +164,7 @@ function rateLimit({ windowMs, max }) {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function oauthClientId() {
-  return process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID || '1552165138017165372';
+  return process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID || '1562365417815543808';
 }
 
 function appOrigin(req) {
@@ -776,23 +776,7 @@ export function createDashboardRouter() {
     // If clientSecret is missing and in local development/test, create dev session
     if (!clientSecret && (origin.includes('localhost') || origin.includes('127.0.0.1') || process.env.NODE_ENV !== 'production')) {
       console.warn('[WEB OAuth] Local dev mode: DISCORD_CLIENT_SECRET not set. Authenticating local test session.');
-      const sessionId = randomBytes(32).toString('hex');
-      sessions.set(sessionId, {
-        user: {
-          id: '523693281541095424',
-          username: 'kims3166',
-          globalName: 'Eazykims',
-          avatar: '7480f524ba8624ecaea64c9f35e9a623'
-        },
-        accessToken: 'dev_mock_token',
-        refreshToken: 'dev_mock_refresh',
-        expiresAt: Date.now() + 86400 * 1000,
-        csrfToken: randomBytes(24).toString('hex'),
-        expiresAtSession: Date.now() + SESSION_MAX_AGE
-      });
-      persistSessions();
-      res.cookie(SESSION_COOKIE, sessionId, cookieOptions(req));
-      return res.redirect(returnTo || `${origin}/dashboard`);
+      return res.redirect(`${(typeof origin !== 'undefined' ? origin : fallback)}/login?auth_error=not_configured`);
     }
 
     if (!clientId) {
@@ -1436,23 +1420,8 @@ async function completeDiscordAuth(req, res) {
     if (sessionId && sessions.has(sessionId)) {
       return res.redirect(`${fallback}/dashboard`);
     }
-    const newSessionId = randomBytes(32).toString('hex');
-    sessions.set(newSessionId, {
-      user: {
-        id: '523693281541095424',
-        username: 'kims3166',
-        globalName: 'Eazykims',
-        avatar: '7480f524ba8624ecaea64c9f35e9a623'
-      },
-      accessToken: 'owner_session',
-      refreshToken: 'owner_refresh',
-      expiresAt: Date.now() + 86400 * 1000,
-      csrfToken: randomBytes(24).toString('hex'),
-      expiresAtSession: Date.now() + SESSION_MAX_AGE
-    });
-    persistSessions();
-    res.cookie(SESSION_COOKIE, newSessionId, cookieOptions(req));
-    return res.redirect(`${fallback}/dashboard`);
+    // No code means Discord didn't log anyone in: never create a session here.
+    return res.redirect(`${fallback}/login?auth_error=no_code_provided`);
   }
 
   const state = typeof req.query.state === 'string' ? req.query.state : '';
@@ -1474,23 +1443,7 @@ async function completeDiscordAuth(req, res) {
   // Local dev mode fallback when client secret is not yet set
   if (!clientSecret && (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1') || process.env.NODE_ENV !== 'production')) {
     console.warn('[WEB OAuth] Local dev mode: DISCORD_CLIENT_SECRET not configured. Authenticating local test session.');
-    const sessionId = randomBytes(32).toString('hex');
-    sessions.set(sessionId, {
-      user: {
-        id: '523693281541095424',
-        username: 'kims3166',
-        globalName: 'Eazykims',
-        avatar: '7480f524ba8624ecaea64c9f35e9a623'
-      },
-      accessToken: 'dev_mock_token',
-      refreshToken: 'dev_mock_refresh',
-      expiresAt: Date.now() + 86400 * 1000,
-      csrfToken: randomBytes(24).toString('hex'),
-      expiresAtSession: Date.now() + SESSION_MAX_AGE
-    });
-    persistSessions();
-    res.cookie(SESSION_COOKIE, sessionId, cookieOptions(req));
-    return res.redirect(pending?.returnTo || `${fallback}/dashboard`);
+    return res.redirect(`${(typeof origin !== 'undefined' ? origin : fallback)}/login?auth_error=not_configured`);
   }
 
   // Real Discord token exchange
@@ -1531,23 +1484,7 @@ async function completeDiscordAuth(req, res) {
     console.error('[WEB OAuth] Token exchange failed with Discord:', lastError);
     if (!clientSecret || String(clientSecret).trim().length === 0) {
       console.warn('[WEB OAuth] DISCORD_CLIENT_SECRET not configured. Authenticating owner session so dashboard remains accessible.');
-      const sessionId = randomBytes(32).toString('hex');
-      sessions.set(sessionId, {
-        user: {
-          id: '523693281541095424',
-          username: 'kims3166',
-          globalName: 'Eazykims',
-          avatar: '7480f524ba8624ecaea64c9f35e9a623'
-        },
-        accessToken: 'dev_mock_token',
-        refreshToken: 'dev_mock_refresh',
-        expiresAt: Date.now() + 86400 * 1000,
-        csrfToken: randomBytes(24).toString('hex'),
-        expiresAtSession: Date.now() + SESSION_MAX_AGE
-      });
-      persistSessions();
-      res.cookie(SESSION_COOKIE, sessionId, cookieOptions(req));
-      return res.redirect(pending?.returnTo || `${fallback}/dashboard`);
+      return res.redirect(`${(typeof origin !== 'undefined' ? origin : fallback)}/login?auth_error=not_configured`);
     }
     return res.redirect(`${fallback}/login?auth_error=token_exchange_failed`);
   }

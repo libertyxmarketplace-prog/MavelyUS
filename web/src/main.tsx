@@ -44,26 +44,9 @@ export function LoginPage() {
   const error = params.get('auth_error');
 
   const handleDiscordLogin = () => {
-    // Prime default session so dashboard is guaranteed to be accessible immediately
-    try {
-      if (!localStorage.getItem('mavely_user')) {
-        localStorage.setItem(
-          'mavely_user',
-          JSON.stringify({
-            id: '523693281541095424',
-            username: 'kims3166',
-            globalName: 'Eazykims',
-            avatar: '7480f524ba8624ecaea64c9f35e9a623'
-          })
-        );
-      }
-    } catch {}
-
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://erlc.us';
-    const redirectUri = encodeURIComponent(`${origin}/auth/discord/callback`);
-    // Standard Discord OAuth2 authorization with code
-    window.location.href = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=${redirectUri}&scope=identify+guilds`;
+    window.location.href = '/api/auth/discord/start?returnTo=%2Fdashboard';
   };
+
 
   return (
     <div className="min-h-screen relative flex flex-col justify-between text-white font-sans overflow-x-hidden selection:bg-emerald-500/30">
@@ -303,19 +286,6 @@ function CallbackPage() {
       if (guildId) {
         window.location.assign(`/dashboard/${guildId}?bot_installed=true`);
         return;
-      }
-
-      // 3. Fallback: Always ensure valid owner session in localStorage so dashboard ALWAYS opens
-      if (!localStorage.getItem('mavely_user')) {
-        localStorage.setItem(
-          'mavely_user',
-          JSON.stringify({
-            id: '523693281541095424',
-            username: 'kims3166',
-            globalName: 'Eazykims',
-            avatar: '7480f524ba8624ecaea64c9f35e9a623'
-          })
-        );
       }
 
       // If backend code was received and reachable, exchange it

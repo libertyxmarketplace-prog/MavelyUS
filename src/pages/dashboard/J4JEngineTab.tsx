@@ -45,7 +45,7 @@ export function J4JEngineTab({
   const requireEmail = config.j4jRequireEmail !== false;
   const blockChurn = config.j4jBlockChurn !== false;
 
-  const clientId = '1552165138017165372';
+  const clientId = '1562365417815543808';
   const redirectUri = typeof window !== 'undefined'
     ? `${window.location.origin}/auth/discord/callback`
     : 'https://erlc.us/auth/discord/callback';
