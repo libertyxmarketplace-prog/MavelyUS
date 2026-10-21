@@ -45,8 +45,9 @@ export function LoginPage() {
 
   const handleDiscordLogin = () => {
     // The backend runs the OAuth code flow, creates the session and checks server membership.
-    window.location.href = '/api/auth/discord/start';
+    window.location.href = '/api/auth/discord/start?returnTo=%2Fdashboard';
   };
+
 
   return (
     <div className="min-h-screen relative flex flex-col justify-between text-white font-sans overflow-x-hidden selection:bg-emerald-500/30">

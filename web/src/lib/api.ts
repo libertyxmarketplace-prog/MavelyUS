@@ -4,7 +4,7 @@ let csrfToken = '';
 
 export function getDiscordLoginUrl(): string {
   // The backend builds the Discord authorize URL so the OAuth state and server-membership check apply.
-  return '/api/auth/discord/start';
+  return '/api/auth/discord/start?returnTo=%2Fdashboard';
 }
 
 export function setCsrfToken(token: string) {
