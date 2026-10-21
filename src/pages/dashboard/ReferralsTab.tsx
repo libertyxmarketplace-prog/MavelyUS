@@ -31,12 +31,12 @@ interface ReferralsTabProps {
 export function ReferralsTab({ currentGuildId, addToast }: ReferralsTabProps) {
   const [copied, setCopied] = useState(false);
   const [referredCount] = useState<number>(() => {
-    const saved = localStorage.getItem('civlink_referrals_count');
+    const saved = localStorage.getItem('erlcus_referrals_count');
     return saved ? parseInt(saved, 10) : 0;
   });
 
   const [earnedCredits] = useState<number>(() => {
-    const saved = localStorage.getItem('civlink_referrals_earned');
+    const saved = localStorage.getItem('erlcus_referrals_earned');
     return saved ? parseInt(saved, 10) : 0;
   });
 
@@ -50,7 +50,7 @@ export function ReferralsTab({ currentGuildId, addToast }: ReferralsTabProps) {
   };
 
   const handleCopyDiscordMessage = () => {
-    const text = `Join Mavely and boost your Discord server with verified members! Claim free growth credits here: ${refLink}`;
+    const text = `Join ERLC.US and boost your Discord server with verified members! Claim free growth credits here: ${refLink}`;
     navigator.clipboard.writeText(text);
     addToast('success', 'Message Template Copied', 'Discord invite message copied to clipboard.');
   };
@@ -146,7 +146,7 @@ export function ReferralsTab({ currentGuildId, addToast }: ReferralsTabProps) {
           </div>
 
           <CardDescription className="text-xs text-slate-400 leading-relaxed pt-1">
-            Share this link with Discord server owners and community leaders. When they invite Mavely and register their server, you both receive +15 free growth credits.
+            Share this link with Discord server owners and community leaders. When they invite ERLC.US and register their server, you both receive +15 free growth credits.
           </CardDescription>
         </CardHeader>
 
@@ -184,9 +184,9 @@ export function ReferralsTab({ currentGuildId, addToast }: ReferralsTabProps) {
               <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-[10px] font-mono px-1.5 py-0">
                 STEP 2
               </Badge>
-              <h4 className="text-xs font-semibold text-white pt-1">They Add Mavely Bot</h4>
+              <h4 className="text-xs font-semibold text-white pt-1">They Sign In</h4>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                The owner invites Mavely to their Discord server and configures their community.
+                The owner signs in with Discord and sets up their community on the dashboard.
               </p>
             </div>
 

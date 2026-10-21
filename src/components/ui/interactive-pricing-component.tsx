@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Check, X } from 'lucide-react';
-import { getBotInviteUrl } from '@/lib/api';
 
 // Types
 export interface Feature {
@@ -35,7 +34,7 @@ export interface PricingComponentProps {
   showComparison?: boolean;
 }
 
-// Default plans tailored for Mavely ER:LC Communities
+// Default plans tailored for ERLC.US ER:LC Communities
 export const defaultPlans: PricingPlan[] = [
   {
     id: 'starter',
@@ -45,14 +44,12 @@ export const defaultPlans: PricingPlan[] = [
     annualPrice: 0,
     features: [
       { name: '1 ER:LC Private Server key', included: true },
-      { name: '5 Customizable ticket categories', included: true },
       { name: 'Basic PRC live player count radar', included: true },
-      { name: 'Discord OAuth2 web dashboard', included: true },
-      { name: 'Staff quiz applications', included: false },
-      { name: 'Radio VC frequency sync', included: false },
-      { name: 'Custom bot token & whitelabel', included: false }
+      { name: 'Discord sign-in web dashboard', included: true },
+      { name: 'Public directory listing', included: true },
+      { name: 'Live server queue tracker', included: false }
     ],
-    buttonText: 'Add to Server'
+    buttonText: 'Get Started'
   },
   {
     id: 'professional',
@@ -62,32 +59,26 @@ export const defaultPlans: PricingPlan[] = [
     annualPrice: 12,
     features: [
       { name: 'Up to 3 ER:LC Private Server keys', included: true },
-      { name: 'Unlimited support ticket categories & transcripts', included: true },
       { name: 'Live PRC server radar & queue tracker', included: true },
-      { name: 'Shift logs, LOA manager & staff quota', included: true },
-      { name: 'Interactive staff application review channels', included: true },
-      { name: 'In-game radio frequency voice sync', included: true },
-      { name: 'Custom bot token & whitelabel', included: false }
+      { name: 'Featured directory placement', included: true },
+      { name: 'Roster & data import', included: true }
     ],
     popular: true,
     buttonText: 'Upgrade to Pro'
   },
   {
     id: 'enterprise',
-    name: 'Network Whitelabel',
-    description: 'Dedicated custom bot runtime with full branding & multi-server support',
+    name: 'Network',
+    description: 'For networks that run many ER:LC servers',
     monthlyPrice: 35,
     annualPrice: 28,
     features: [
       { name: 'Unlimited ER:LC Private Servers', included: true },
-      { name: 'Your server’s own custom bot name & avatar', included: true },
-      { name: 'Dedicated private bot process & token', included: true },
-      { name: 'Custom moderation lineage & interview stages', included: true },
       { name: 'Full Webhook & REST API integration', included: true },
       { name: '24/7 Priority Discord developer support', included: true },
       { name: 'Automated database backups & zero downtime', included: true }
     ],
-    buttonText: 'Deploy Whitelabel',
+    buttonText: 'Contact Us',
     buttonVariant: 'outline'
   }
 ];
@@ -108,7 +99,7 @@ export const PricingComponent: React.FC<PricingComponentProps> = ({
     if (onPlanSelect) {
       onPlanSelect(planId, billingCycle);
     } else {
-      window.location.href = getBotInviteUrl();
+      window.location.href = '/login';
     }
   };
 

@@ -70,12 +70,12 @@ export function shellNotifications() {
   ]
 }
 
-/** The person looking at the page: CivLink operator or authenticated Discord admin. */
+/** The person looking at the page: ERLC.US operator or authenticated Discord admin. */
 export function currentUser(customUser?: { username?: string; id?: string; avatar?: string | null } | null) {
   if (customUser && customUser.username) {
     const avatarUrl = customUser.avatar
       ? `https://cdn.discordapp.com/avatars/${customUser.id}/${customUser.avatar}.png`
-      : "/mavely-mark.png"
+      : "/erlcus-mark.png"
     return {
       name: customUser.username,
       email: `${customUser.username.toLowerCase()}@discord.user`,
@@ -85,10 +85,10 @@ export function currentUser(customUser?: { username?: string; id?: string; avata
   }
 
   return {
-    name: "CivLink Operator",
-    email: "operator@civlink.app",
+    name: "ERLC.US Operator",
+    email: "operator@erlc.us",
     initials: "CL",
-    avatarUrl: "/mavely-mark.png",
+    avatarUrl: "/erlcus-mark.png",
   }
 }
 

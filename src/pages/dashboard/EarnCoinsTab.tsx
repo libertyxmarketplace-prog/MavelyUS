@@ -10,7 +10,6 @@ import {
   PlusCircle,
   SlidersHorizontal,
   X,
-  Bot,
   RotateCw,
   Users,
   Eye,
@@ -103,7 +102,7 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
   const [newReviewText, setNewReviewText] = useState('');
   const [newReviewRating, setNewReviewRating] = useState(5);
 
-  // Honest live stats helper - real count when bot is invited or 0 (no fake numbers)
+  // Honest live stats helper - real stored count or 0 (no fake numbers)
   const getServerMembers = (server: PromotedServer): number => {
     const stored = localStorage.getItem(`server_members_${server.id}`);
     if (stored) {
@@ -111,7 +110,7 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
       if (parsed > 0) return parsed;
     }
     try {
-      const knownRaw = localStorage.getItem('mavely_known_guilds');
+      const knownRaw = localStorage.getItem('erlcus_known_guilds');
       if (knownRaw) {
         const known = JSON.parse(knownRaw);
         const match = known.find((g: any) => g.id === server.id);
@@ -176,14 +175,14 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
     addToast('success', 'Review Recorded', 'Your feedback for this community has been saved.');
   };
 
-  // Handle /bump command execution with strict 1-bump single execution and #1 elevation
+  // Handle bump button with strict 1-bump single execution and #1 elevation
   const handleBumpServer = (server: PromotedServer) => {
     if (isBumping) return;
     setIsBumping(true);
 
     try {
       const now = Date.now();
-      const bumpKey = `mavely_bump_${server.id}`;
+      const bumpKey = `erlcus_bump_${server.id}`;
       const savedBumpTime = parseInt(localStorage.getItem(bumpKey) || '0', 10);
       const lastBump = Math.max(server.lastBumpedAt || 0, savedBumpTime);
       const elapsed = now - lastBump;
@@ -207,7 +206,7 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
       const updated = [bumpedServer, ...remaining];
 
       setPromotedServers(updated);
-      localStorage.setItem('civlink_promoted_servers', JSON.stringify(updated));
+      localStorage.setItem('erlcus_promoted_servers', JSON.stringify(updated));
 
       addToast(
         'success',
@@ -232,17 +231,17 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
 
   // Real Persistent State
   const [creditsBalance, setCreditsBalance] = useState<number>(() => {
-    const saved = localStorage.getItem('civlink_credits_balance');
+    const saved = localStorage.getItem('erlcus_credits_balance');
     return saved ? parseInt(saved, 10) : 0;
   });
 
   const [dailyJoins, setDailyJoins] = useState<number>(() => {
-    const saved = localStorage.getItem('civlink_daily_joins');
+    const saved = localStorage.getItem('erlcus_daily_joins');
     return saved ? parseInt(saved, 10) : 0;
   });
 
   const [streakDays, setStreakDays] = useState<number>(() => {
-    const saved = localStorage.getItem('civlink_streak_days');
+    const saved = localStorage.getItem('erlcus_streak_days');
     return saved ? parseInt(saved, 10) : 0;
   });
 
@@ -251,10 +250,10 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
     try {
       let known: any[] = [];
       try {
-        known = JSON.parse(localStorage.getItem('mavely_known_guilds') || '[]');
+        known = JSON.parse(localStorage.getItem('erlcus_known_guilds') || '[]');
       } catch {}
 
-      const savedServersRaw = localStorage.getItem('civlink_promoted_servers');
+      const savedServersRaw = localStorage.getItem('erlcus_promoted_servers');
       if (savedServersRaw) {
         const parsed: PromotedServer[] = JSON.parse(savedServersRaw);
         if (Array.isArray(parsed)) {
@@ -280,7 +279,7 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
         setPromotedServers([]);
       }
 
-      const savedJoins = localStorage.getItem('civlink_joined_servers');
+      const savedJoins = localStorage.getItem('erlcus_joined_servers');
       if (savedJoins) {
         setJoinedMap(JSON.parse(savedJoins));
       }
@@ -302,7 +301,7 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
             }
           }
           try {
-            localStorage.setItem('mavely_known_guilds', JSON.stringify(data.servers));
+            localStorage.setItem('erlcus_known_guilds', JSON.stringify(data.servers));
           } catch {}
           loadStoredServers();
         }
@@ -313,21 +312,21 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
   // Sync real-time updates across tabs & storage events
   useEffect(() => {
     const handleUpdate = () => {
-      const savedBalance = localStorage.getItem('civlink_credits_balance');
+      const savedBalance = localStorage.getItem('erlcus_credits_balance');
       if (savedBalance) setCreditsBalance(parseInt(savedBalance, 10));
-      const savedStreak = localStorage.getItem('civlink_streak_days');
+      const savedStreak = localStorage.getItem('erlcus_streak_days');
       if (savedStreak) setStreakDays(parseInt(savedStreak, 10));
-      const savedJoins = localStorage.getItem('civlink_daily_joins');
+      const savedJoins = localStorage.getItem('erlcus_daily_joins');
       if (savedJoins) setDailyJoins(parseInt(savedJoins, 10));
       loadStoredServers();
     };
 
-    window.addEventListener('civlink_credits_updated', handleUpdate);
-    window.addEventListener('civlink_promotions_updated', handleUpdate);
+    window.addEventListener('erlcus_credits_updated', handleUpdate);
+    window.addEventListener('erlcus_promotions_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
-      window.removeEventListener('civlink_credits_updated', handleUpdate);
-      window.removeEventListener('civlink_promotions_updated', handleUpdate);
+      window.removeEventListener('erlcus_credits_updated', handleUpdate);
+      window.removeEventListener('erlcus_promotions_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, []);
@@ -388,7 +387,7 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
     }
   };
 
-  // Bot-Assisted Membership Detection & Real Join
+  // Membership confirmation & real join
   const handlePerformBotScan = async () => {
     if (!activeVerifyServer) return;
 
@@ -401,8 +400,8 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
 
     setVerifyStep('scanning');
 
-    // Step 1: Gateway connect
-    setScanMessage('Verifying Discord Gateway connection...');
+    // Step 1: Start check
+    setScanMessage('Checking your Discord account...');
     await new Promise((r) => setTimeout(r, 600));
 
     // Step 2: Member check
@@ -412,18 +411,18 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
     // Mark as joined in local state
     const updatedJoined = { ...joinedMap, [activeVerifyServer.id]: true };
     setJoinedMap(updatedJoined);
-    localStorage.setItem('civlink_joined_servers', JSON.stringify(updatedJoined));
+    localStorage.setItem('erlcus_joined_servers', JSON.stringify(updatedJoined));
 
     // Award bounty credits
     const bounty = activeVerifyServer.rewardCoins || 1;
     const newBalance = creditsBalance + bounty;
     setCreditsBalance(newBalance);
-    localStorage.setItem('civlink_credits_balance', newBalance.toString());
+    localStorage.setItem('erlcus_credits_balance', newBalance.toString());
 
     // Increment verified joins
     const newJoins = dailyJoins + 1;
     setDailyJoins(newJoins);
-    localStorage.setItem('civlink_daily_joins', newJoins.toString());
+    localStorage.setItem('erlcus_daily_joins', newJoins.toString());
 
     // Record transaction
     const newTx = {
@@ -434,10 +433,10 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
       date: new Date().toISOString().replace('T', ' ').slice(0, 16),
       status: 'completed',
     };
-    const savedTxs = JSON.parse(localStorage.getItem('civlink_transactions') || '[]');
-    localStorage.setItem('civlink_transactions', JSON.stringify([newTx, ...savedTxs]));
+    const savedTxs = JSON.parse(localStorage.getItem('erlcus_transactions') || '[]');
+    localStorage.setItem('erlcus_transactions', JSON.stringify([newTx, ...savedTxs]));
 
-    window.dispatchEvent(new Event('civlink_credits_updated'));
+    window.dispatchEvent(new Event('erlcus_credits_updated'));
 
     addLiveNotification({
       title: `Joined ${activeVerifyServer.name}`,
@@ -764,7 +763,7 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
                     )}
                   </div>
 
-                  {/* /bump button (1 bump per cooldown, elevates to #1) */}
+                  {/* Bump button (1 bump per cooldown, elevates to #1) */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -838,7 +837,7 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
         </Pagination>
       </div>
 
-      {/* ── BOT MEMBERSHIP CONFIRMATION MODAL ── */}
+      {/* ── MEMBERSHIP CONFIRMATION MODAL ── */}
       {activeVerifyServer && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-[#0f121a] border border-white/15 rounded-2xl shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-150">

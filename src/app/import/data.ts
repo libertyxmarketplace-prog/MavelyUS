@@ -14,7 +14,7 @@ export type StoredNotification = {
 /** Real community growth notifications with Discord events, dynamically loaded */
 export function shellNotifications(): StoredNotification[] {
   try {
-    const raw = localStorage.getItem('civlink_live_notifications')
+    const raw = localStorage.getItem('erlcus_live_notifications')
     if (raw) {
       const parsed = JSON.parse(raw)
       if (Array.isArray(parsed)) {
@@ -49,14 +49,14 @@ export function addLiveNotification(notif: {
       avatar: notif.avatar,
     }
     const updated = [newNotif, ...existing].slice(0, 30)
-    localStorage.setItem('civlink_live_notifications', JSON.stringify(updated))
-    window.dispatchEvent(new Event('civlink_notifications_updated'))
+    localStorage.setItem('erlcus_live_notifications', JSON.stringify(updated))
+    window.dispatchEvent(new Event('erlcus_notifications_updated'))
   } catch (e) {
     console.warn('Error saving notification:', e)
   }
 }
 
-/** The person looking at the page: Mavely operator or authenticated Discord admin. */
+/** The person looking at the page: ERLC.US operator or authenticated Discord admin. */
 export function currentUser(customUser?: { username?: string; globalName?: string; id?: string; avatar?: string | null } | null) {
   if (customUser && customUser.username) {
     const avatarUrl = customUser.avatar
@@ -75,7 +75,7 @@ export function currentUser(customUser?: { username?: string; globalName?: strin
   }
 
   return {
-    name: "Mavely Operator",
+    name: "ERLC.US Operator",
     username: "operator",
     handle: "@operator",
     email: "@operator",

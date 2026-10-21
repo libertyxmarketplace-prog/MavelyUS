@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LayoutGrid, ExternalLink } from 'lucide-react';
 import sunsetBg from '@/assets/erlc_sunset.png';
-import mavelyLogo from '@/assets/mavely_logo.png';
+import erlcusLogo from '@/assets/erlcus_logo.png';
 
 export function HomePage() {
   useEffect(() => {
-    document.title = 'Mavely - Coming Soon';
+    document.title = 'ERLC.US - Coming Soon';
   }, []);
 
   // 15 days countdown target
@@ -51,12 +51,12 @@ export function HomePage() {
       <header className="relative z-20 w-full px-6 sm:px-12 pt-8 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img
-            src={mavelyLogo}
-            alt="Mavely"
+            src={erlcusLogo}
+            alt="ERLC.US"
             className="h-10 sm:h-12 w-auto object-contain filter drop-shadow-[0_2px_12px_rgba(255,255,255,0.15)]"
           />
           <div className="flex flex-col">
-            <span className="text-sm font-bold tracking-tight text-white leading-tight">Mavely</span>
+            <span className="text-sm font-bold tracking-tight text-white leading-tight">ERLC.US</span>
             <span className="text-[10px] text-zinc-400 font-mono">Community Platform</span>
           </div>
         </div>
@@ -127,7 +127,7 @@ export function HomePage() {
       {/* Clean Footer Bar */}
       <footer className="relative z-20 w-full px-6 sm:px-12 pb-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-zinc-500 font-mono">
         <div>
-          <span>Mavely Systems · Reciprocal Discord Community Growth</span>
+          <span>ERLC.US Systems · Reciprocal Discord Community Growth</span>
         </div>
         <div className="flex items-center gap-4">
           <Link to="/dashboard/1530147023754367006/earn" className="hover:text-zinc-300 transition-colors">
@@ -135,12 +135,10 @@ export function HomePage() {
           </Link>
           <span>·</span>
           <a
-            href="https://discord.gg/mZcp3VBtBq"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/docs"
             className="hover:text-zinc-300 transition-colors inline-flex items-center gap-1"
           >
-            <span>Discord Support</span>
+            <span>Help & Support</span>
             <ExternalLink className="size-2.5" />
           </a>
         </div>

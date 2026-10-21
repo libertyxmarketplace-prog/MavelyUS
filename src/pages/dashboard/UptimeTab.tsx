@@ -6,7 +6,6 @@ import {
   Clock,
   HardDrive,
   Globe,
-  Radio,
   Database,
   CheckCircle2,
   Cpu
@@ -19,8 +18,6 @@ interface ServerStatus {
   uptimeSeconds: number;
   memoryUsageMB?: number;
   heapUsedMB?: number;
-  activeClients?: number;
-  totalInstances?: number;
   nodeVersion?: string;
   latencyMs: number;
   lastChecked: Date;
@@ -58,8 +55,6 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
         uptimeSeconds: data.uptimeSeconds || 0,
         memoryUsageMB: data.memoryUsageMB,
         heapUsedMB: data.heapUsedMB,
-        activeClients: data.activeClients,
-        totalInstances: data.totalInstances,
         nodeVersion: data.nodeVersion || 'v20.x',
         latencyMs: latency,
         lastChecked: new Date(),
@@ -90,7 +85,7 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
     setIsRefreshing(true);
     await checkStatus();
     setIsRefreshing(false);
-    addToast?.('info', 'Status Refreshed', 'Telemetry pinged live from backend gateway.');
+    addToast?.('info', 'Status Refreshed', 'Telemetry pinged live from the backend.');
   };
 
   const formatUptime = (totalSeconds: number) => {
@@ -117,7 +112,7 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
             System Uptime & Cluster Reliability
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Real-time server metrics polled live from your Node.js runtime and Discord gateway connection.
+            Real-time server metrics polled live from the Node.js backend.
           </p>
         </div>
 
@@ -232,29 +227,12 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
               <span>Real Architecture Telemetry & Endpoints</span>
             </h3>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Live status confirmed from active local server processes and Discord gateway
+              Live status confirmed from the running backend process
             </p>
           </div>
         </div>
 
         <div className="divide-y divide-white/5 text-xs">
-          {/* Node 1: Discord Gateway */}
-          <div className="p-4 flex items-center justify-between hover:bg-white/[0.01] transition-colors">
-            <div className="flex items-center gap-3.5">
-              <Radio className="size-5 text-indigo-400 shrink-0" />
-              <div className="space-y-0.5">
-                <span className="font-semibold text-white block">Discord Bot Gateway Connection</span>
-                <span className="text-[11px] text-zinc-400 block font-mono">
-                  Active Bot Instances: {serverStatus.totalInstances || 1} · Connected Clients: {serverStatus.activeClients || 0}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-emerald-400">
-              <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>ONLINE</span>
-            </div>
-          </div>
-
           {/* Node 2: Express REST API */}
           <div className="p-4 flex items-center justify-between hover:bg-white/[0.01] transition-colors">
             <div className="flex items-center gap-3.5">
@@ -360,7 +338,7 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
         <div className="flex items-center gap-3">
           <span>Polling frequency: 4,000ms</span>
           <span className="text-zinc-700">·</span>
-          <span className="text-emerald-400">Live Gateway Metrics</span>
+          <span className="text-emerald-400">Live Backend Metrics</span>
         </div>
       </div>
     </div>

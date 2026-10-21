@@ -54,9 +54,9 @@ export function Sidebar() {
       <aside className="fixed left-0 top-0 bottom-0 z-50 w-14 sm:w-16 flex flex-col items-center justify-between py-5 border-r border-white/[0.08] bg-[#0b0c10]/95 backdrop-blur-md select-none">
       {/* Top Branding / Logo */}
       <div className="flex flex-col items-center gap-7">
-        <Link to="/" className="flex items-center justify-center p-0 hover:opacity-80 transition-opacity outline-none focus:outline-none" title="Mavely">
-          <img src="/mavely-mark.png" alt="Mavely" className="size-7 object-contain" />
-          <span className="sr-only">Mavely Home</span>
+        <Link to="/" className="flex items-center justify-center p-0 hover:opacity-80 transition-opacity outline-none focus:outline-none" title="ERLC.US">
+          <img src="/erlcus-mark.png" alt="ERLC.US" className="size-7 object-contain" />
+          <span className="sr-only">ERLC.US Home</span>
         </Link>
 
         {/* Main Nav Icons */}
@@ -85,10 +85,8 @@ export function Sidebar() {
       {/* Bottom Icons */}
       <div className="flex flex-col items-center gap-3 pt-4 border-t border-white/[0.06] relative" ref={menuRef}>
         <a
-          href="https://discord.gg/UCqXrvHFqh"
-          target="_blank"
-          rel="noreferrer"
-          title="Discord Support"
+          href="/docs"
+          title="Help & Support"
           className="flex size-8 items-center justify-center text-white/40 hover:text-white transition-colors outline-none focus:outline-none"
         >
           <MessageSquare className="size-[18px]" />

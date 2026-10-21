@@ -35,33 +35,15 @@ interface FaqProps extends Omit<
 const DEFAULT_ITEMS: FaqItem[] = [
   {
     id: "setup",
-    question: "How do I add Mavely to my Discord server?",
+    question: "How do I set up my Discord server?",
     answer:
-      "Simply click 'Add your server' or 'Open Dashboard', authorize the bot with Administrator permissions in your server, and configure your modules through the web dashboard.",
+      "Sign in with Discord and open the dashboard. Every server where you have Manage Server permission is listed there, and you can fill in its details and settings.",
   },
   {
     id: "erlc-api",
     question: "Do I need an ER:LC Server Key?",
     answer:
-      "For live radar, player counts, join codes, and server commands, you will need to paste your Emergency Response: Liberty County server API key into your server settings in the dashboard.",
-  },
-  {
-    id: "tickets",
-    question: "How many ticket categories can I configure?",
-    answer:
-      "Mavely supports 5 completely customizable ticket category slots, each with its own spawn category ID, claim permissions, ping roles, and HTML transcripts.",
-  },
-  {
-    id: "customer-bots",
-    question: "Can I use my own custom bot token and branding?",
-    answer:
-      "Yes! With Mavely's multi-tenant bot runner engine, you can run your community's own custom bot token, name, and avatar while using Mavely's backend systems.",
-  },
-  {
-    id: "staff-apps",
-    question: "How do staff application quizzes work?",
-    answer:
-      "Applications allow you to write custom interview questions. When applicants submit answers in Discord, results are automatically posted to your designated review channel with approve/deny buttons.",
+      "For live player counts, queue and join codes, you will need to paste your Emergency Response: Liberty County server API key into your server settings in the dashboard.",
   },
   {
     id: "support",
@@ -75,12 +57,10 @@ const DEFAULT_FOOTER = (
   <div className="text-zinc-400 text-sm">
     Still have questions?{" "}
     <a
-      href="https://discord.gg/UCqXrvHFqh"
-      target="_blank"
-      rel="noreferrer"
+      href="/docs"
       className="text-[#2ecc71] hover:underline font-medium outline-none"
     >
-      Join our Discord
+      Read the docs
     </a>
   </div>
 );
@@ -89,7 +69,7 @@ function Faq({
   className,
   eyebrow = "FAQ",
   title = "Frequently asked questions",
-  description = "Answers to common questions about configuring Mavely for your ER:LC community.",
+  description = "Answers to common questions about configuring ERLC.US for your ER:LC community.",
   items = DEFAULT_ITEMS,
   layout = "split",
   type = "single",

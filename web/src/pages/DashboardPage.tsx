@@ -1,31 +1,23 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  RotateCw,
   Save,
-  AlertTriangle,
-  ExternalLink,
-  Bot
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AsyncButton } from '@/components/ui/async-button';
-import { Badge } from '@/components/ui/badge';
 import NotificationsBlock, { type ToastNotification } from '@/components/ui/notifications-5';
 import {
   fetchGuilds,
   fetchWorkspace,
-  saveWorkspaceConfig,
-  triggerBotAction,
-  fetchGuildResources
+  saveWorkspaceConfig
 } from '@/lib/api';
 import type {
   DiscordGuild,
   WorkspaceBot,
-  WorkspaceCustomizations,
-  GuildResources
+  WorkspaceCustomizations
 } from '@/types';
 import { useAuth } from '@/lib/auth';
-import { getBotInviteUrl } from '@/lib/api';
 
 // AppShell & Vibra UI Architecture
 import { AppShell } from '@/components/ui/app-shell';
@@ -36,7 +28,6 @@ import { type NavConfig } from '@/lib/nav-config';
 
 // Tab Modules
 import { OverviewTab } from './dashboard/OverviewTab';
-import { ComingSoonTab } from './dashboard/ComingSoonTab';
 import { DataImportTab } from './dashboard/DataImportTab';
 import { PromoteTab } from './dashboard/PromoteTab';
 import { EarnCoinsTab } from './dashboard/EarnCoinsTab';
@@ -46,12 +37,9 @@ import { LeaderboardTab } from './dashboard/LeaderboardTab';
 import { MyJoinsTab } from './dashboard/MyJoinsTab';
 import { HistoryTab } from './dashboard/HistoryTab';
 import { TransferTab } from './dashboard/TransferTab';
-import { CredentialsTab } from './dashboard/CredentialsTab';
 import { UptimeTab } from './dashboard/UptimeTab';
 import { ChangelogTab } from './dashboard/ChangelogTab';
 import { ServerDetailsTab } from './dashboard/ServerDetailsTab';
-import { ServerConnectionModal } from '@/components/ui/ServerConnectionModal';
-import { SlidersHorizontal } from 'lucide-react';
 
 export function DashboardPage() {
   const { guildId, tab } = useParams();
@@ -65,28 +53,12 @@ export function DashboardPage() {
   const currentGuildId = guildId || selectedGuild?.id || '1530147023754367006';
 
   const [workspace, setWorkspace] = useState<WorkspaceBot | null>(null);
-  const [_resources, setResources] = useState<GuildResources>({ available: false, channels: [], roles: [] });
 
   const [_loadingGuilds, setLoadingGuilds] = useState(true);
-  const [checkingConnection, setCheckingConnection] = useState(false);
-  const [demoBypass, setDemoBypass] = useState(false);
-  const [connectModalOpen, setConnectModalOpen] = useState(false);
-
-  // Standalone Mode: enables full server customization without requiring bot addition
-  const [standaloneMode, setStandaloneMode] = useState<boolean>(() => {
-    return localStorage.getItem(`standalone_mode_${currentGuildId}`) === 'true';
-  });
-
-  useEffect(() => {
-    setStandaloneMode(localStorage.getItem(`standalone_mode_${currentGuildId}`) === 'true');
-  }, [currentGuildId]);
-
   // Form Configuration State & Baseline Tracking for Unsaved Changes
   const [config, setConfig] = useState<WorkspaceCustomizations>({});
   const [baselineConfig, setBaselineConfig] = useState<string>('');
   const hasUnsavedChanges = Boolean(baselineConfig && JSON.stringify(config) !== baselineConfig);
-
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Dynamic Live Notifications State (No fake static text)
   const [notificationsList, setNotificationsList] = useState(() => shellNotifications());
@@ -95,8 +67,8 @@ export function DashboardPage() {
     const handleNotifUpdate = () => {
       setNotificationsList(shellNotifications());
     };
-    window.addEventListener('civlink_notifications_updated', handleNotifUpdate);
-    return () => window.removeEventListener('civlink_notifications_updated', handleNotifUpdate);
+    window.addEventListener('erlcus_notifications_updated', handleNotifUpdate);
+    return () => window.removeEventListener('erlcus_notifications_updated', handleNotifUpdate);
   }, []);
 
   // Notifications Block Toasts
@@ -116,7 +88,7 @@ export function DashboardPage() {
   // Synchronize document title
   useEffect(() => {
     const serverName = selectedGuild?.name || 'Community Server';
-    document.title = `Mavely - ${serverName} Dashboard`;
+    document.title = `ERLC.US - ${serverName} Dashboard`;
   }, [selectedGuild]);
 
   // Load user guilds with persistent multi-server cache and icon preservation
@@ -127,7 +99,7 @@ export function DashboardPage() {
         list = list.filter((g) => g && g.name && !g.name.includes('Orlando') && !g.name.includes('Strict'));
 
         // Restore any previously known Discord servers from localStorage
-        const storedRaw = localStorage.getItem('mavely_known_guilds');
+        const storedRaw = localStorage.getItem('erlcus_known_guilds');
         let storedList: DiscordGuild[] = [];
         if (storedRaw) {
           try {
@@ -180,7 +152,7 @@ export function DashboardPage() {
         }
 
         try {
-          localStorage.setItem('mavely_known_guilds', JSON.stringify(list));
+          localStorage.setItem('erlcus_known_guilds', JSON.stringify(list));
         } catch {}
 
         setGuilds(list);
@@ -208,7 +180,7 @@ export function DashboardPage() {
           localStorage.setItem(`server_icon_${targetId}`, data.workspace.customizations.serverIconUrl);
           setGuilds((prev) => {
             const updated = prev.map((g) => g.id === targetId ? { ...g, iconUrl: g.iconUrl || data.workspace.customizations.serverIconUrl } : g);
-            try { localStorage.setItem('mavely_known_guilds', JSON.stringify(updated)); } catch {}
+            try { localStorage.setItem('erlcus_known_guilds', JSON.stringify(updated)); } catch {}
             return updated;
           });
         }
@@ -231,12 +203,12 @@ export function DashboardPage() {
             iconUrl: data.guild.iconUrl || g.iconUrl,
             memberCount: data.guild.memberCount || g.memberCount
           } : g);
-          try { localStorage.setItem('mavely_known_guilds', JSON.stringify(updated)); } catch {}
+          try { localStorage.setItem('erlcus_known_guilds', JSON.stringify(updated)); } catch {}
           return updated;
         });
 
         try {
-          const promoRaw = localStorage.getItem('civlink_promoted_servers');
+          const promoRaw = localStorage.getItem('erlcus_promoted_servers');
           if (promoRaw) {
             const list = JSON.parse(promoRaw);
             const idx = list.findIndex((s: any) => s.id === targetId);
@@ -245,14 +217,12 @@ export function DashboardPage() {
               list[idx].icon = data.guild.iconUrl || list[idx].icon;
               const count = data.guild.memberCount || (data.guild as any).approximateMemberCount;
               if (typeof count === 'number' && count > 0) list[idx].memberCount = count;
-              localStorage.setItem('civlink_promoted_servers', JSON.stringify(list));
-              window.dispatchEvent(new Event('civlink_promotions_updated'));
+              localStorage.setItem('erlcus_promoted_servers', JSON.stringify(list));
+              window.dispatchEvent(new Event('erlcus_promotions_updated'));
             }
           }
         } catch {}
       }
-      const resData = await fetchGuildResources(targetId).catch(() => null);
-      if (resData) setResources(resData);
     } catch (err: any) {
       console.warn('Workspace data fetch notice:', err.message);
     }
@@ -269,27 +239,8 @@ export function DashboardPage() {
     const found = guilds.find((g) => g.id === newGuildId);
     if (found) {
       setSelectedGuild(found);
-      setDemoBypass(false);
       const nextTab = tab ? `/${tab}` : '';
       navigate(`/dashboard/${newGuildId}${nextTab}`);
-    }
-  };
-
-  // Bot action triggers
-  const handleBotAction = async (action: string, payload?: Record<string, any>) => {
-    setActionLoading(action);
-    try {
-      await triggerBotAction(currentGuildId, action, payload);
-      addToast(
-        'success',
-        action === 'deploy' ? 'Commands Synchronized' : action === 'restart' ? 'Gateway Restarted' : 'Action Executed',
-        'Operation executed successfully with Discord API.'
-      );
-      await loadWorkspaceData(currentGuildId);
-    } catch (err: any) {
-      addToast('error', 'Execution Notice', err.message || 'Operation failed.');
-    } finally {
-      setActionLoading(null);
     }
   };
 
@@ -298,7 +249,7 @@ export function DashboardPage() {
     try {
       await saveWorkspaceConfig(currentGuildId, config);
       setBaselineConfig(JSON.stringify(config));
-      addToast('success', 'Changes Saved', 'All workspace parameters synchronized with the bot.');
+      addToast('success', 'Changes Saved', 'Your server settings were saved.');
     } catch (err: any) {
       addToast('error', 'Save Failed', err.message || 'Could not save parameters.');
     }
@@ -334,10 +285,6 @@ export function DashboardPage() {
   const userProfile = useMemo(() => {
     return currentUser(auth?.user);
   }, [auth?.user]);
-
-  // Determine whether the bot is in the selected server (or in standalone mode)
-  const isPrimaryServer = currentGuildId === '1232495211490443284' || currentGuildId === '1530147023754367006';
-  const isBotInGuild = standaloneMode || demoBypass || (workspace ? (workspace.isInGuild !== false && workspace.status !== 'unconfigured') : isPrimaryServer);
 
   // Construct workspaces dropdown list for the Server Switcher button (real Discord server icons)
   const workspacesConfig = useMemo(() => {
@@ -382,32 +329,15 @@ export function DashboardPage() {
         items: [
           { title: 'System Telemetry', href: `/dashboard/${currentGuildId}/uptime`, icon: 'activity' },
           { title: 'Roster & Data Import', href: `/dashboard/${currentGuildId}/import`, icon: 'folder' },
-          { title: 'Credentials & API', href: `/dashboard/${currentGuildId}/credentials`, icon: 'key' },
           { title: 'Changelog', href: `/dashboard/${currentGuildId}/changelog`, icon: 'list' },
-        ],
-      },
-      {
-        label: 'Custom Bot',
-        items: [
-          { title: 'Patrol Sessions & Radio', href: `/dashboard/${currentGuildId}/patrol`, icon: 'audio-lines' },
-          { title: 'Support & Tickets', href: `/dashboard/${currentGuildId}/tickets`, icon: 'life-buoy' },
-          { title: 'Staff Applications', href: `/dashboard/${currentGuildId}/staff-apps`, icon: 'file-text' },
-          { title: 'Staff Handbook & LOA', href: `/dashboard/${currentGuildId}/staff-handbook`, icon: 'shield' },
         ],
       },
     ],
     footer: [
       {
-        title: 'Add Bot to Server',
-        href: getBotInviteUrl(currentGuildId),
-        icon: 'bot',
-        external: true,
-      },
-      {
-        title: 'Support Server',
-        href: 'https://discord.gg/mZcp3VBtBq',
+        title: 'Help & Support',
+        href: '/docs',
         icon: 'life-buoy',
-        external: true,
       },
     ],
   }), [selectedGuild, currentGuildId, workspace]);
@@ -418,23 +348,6 @@ export function DashboardPage() {
     : `/dashboard/${currentGuildId}/${activeTabKey}`;
 
   const serverName = selectedGuild?.name || 'Community Discord Server';
-  const serverIconUrl = selectedGuild?.iconUrl || (selectedGuild?.icon ? `https://cdn.discordapp.com/icons/${selectedGuild.id}/${selectedGuild.icon}.png` : null);
-  const botInviteUrl = getBotInviteUrl(currentGuildId);
-
-  const handleCheckConnection = async () => {
-    setCheckingConnection(true);
-    addToast('info', 'Checking Connection', `Verifying Mavely presence in ${serverName}...`);
-    try {
-      await loadWorkspaceData(currentGuildId);
-      await fetchGuilds(true);
-      await new Promise((r) => setTimeout(r, 1000));
-      addToast('success', 'Connection Checked', 'Guild status refreshed from Discord API.');
-    } catch {
-      addToast('warning', 'Notice', 'Could not reach Discord gateway. You may continue to explore.');
-    } finally {
-      setCheckingConnection(false);
-    }
-  };
 
   const handleSignOut = async () => {
     try {
@@ -468,59 +381,17 @@ export function DashboardPage() {
               <span className="font-mono text-zinc-400">{selectedGuild?.id || currentGuildId}</span>
             </div>
           }
-          actions={
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleBotAction('deploy')}
-                disabled={actionLoading === 'deploy'}
-                className="h-8 border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 text-xs rounded-lg"
-              >
-                <RotateCw className={`size-3 mr-1.5 ${actionLoading === 'deploy' ? 'animate-spin' : ''}`} />
-                Sync Bot
-              </Button>
-            </div>
-          }
         />
       )}
 
-      {activeTabKey === 'patrol' && (
-        <PageHeader
-          title="Patrol Sessions & Radio Channels"
-          description="Manage active ER:LC patrol shifts, voice channel frequency sync, and patrol announcements."
-          meta="Live Patrol Dispatch"
-        />
-      )}
 
-      {activeTabKey === 'tickets' && (
-        <PageHeader
-          title="Support Tickets & Player Reports"
-          description="Configure multi-category ticket panels, staff claim roles, and transcript logs."
-          meta="5 Categories Configured"
-        />
-      )}
 
-      {activeTabKey === 'staff-apps' && (
-        <PageHeader
-          title="Staff Applications & Recruitment"
-          description="Design custom application forms, review pipelines, and automated role grants."
-          meta="Active Review Pipeline"
-        />
-      )}
 
-      {activeTabKey === 'staff-handbook' && (
-        <PageHeader
-          title="Staff Handbook, Quotas & LOA"
-          description="Manage staff leave of absence requests, disciplinary infraction logs, and server shift quotas."
-          meta="Shift Regulations"
-        />
-      )}
 
       {activeTabKey === 'import' && (
         <PageHeader
           title="Server Data & Roster Import"
-          description="Import staff rosters, member spreadsheets, and previous bot configurations."
+          description="Import staff rosters and member spreadsheets."
           meta="RFC 4180 CSV / JSON"
         />
       )}
@@ -600,7 +471,7 @@ export function DashboardPage() {
       {activeTabKey === 'uptime' && (
         <PageHeader
           title="System Uptime & Cluster Reliability"
-          description="30-day continuous health check for Mavely API gateway, verification workers, and audit database"
+          description="30-day continuous health check for ERLC.US API gateway, verification workers, and audit database"
           meta="99.98% overall uptime"
         />
       )}
@@ -613,12 +484,6 @@ export function DashboardPage() {
         />
       )}
 
-      {activeTabKey === 'credentials' && (
-        <PageHeader
-          title="Credentials & API"
-          description="Manage Discord bot token, community webhook endpoints, and API security keys"
-        />
-      )}
 
       <div className="p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Floating Bottom Toast Notifications */}
@@ -666,67 +531,6 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* ── BOT CONNECTION BANNER (IF NOT CONNECTED TO GUILD AND NOT STANDALONE) ── */}
-        {!isBotInGuild && (
-          <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/[0.06] p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              {serverIconUrl ? (
-                <img src={serverIconUrl} alt={serverName} className="size-11 rounded-xl object-cover shrink-0 border border-white/10" />
-              ) : (
-                <div className="size-11 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
-                  <Bot className="size-5" />
-                </div>
-              )}
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-white">Connect Bot or Setup Without Bot (Soon)</h3>
-                  <Badge variant="outline" className="border-amber-500/30 text-amber-300 text-[10px] bg-amber-500/10">
-                    SETUP REQUIRED
-                  </Badge>
-                </div>
-                <p className="text-xs text-slate-400">
-                  Connect the bot for automated member verification and dispatch, or configure without bot permissions (Soon).
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
-              <Button
-                size="sm"
-                onClick={() => setConnectModalOpen(true)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
-              >
-                <Bot className="size-3.5" />
-                <span>Connect Bot</span>
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  localStorage.setItem(`standalone_mode_${currentGuildId}`, 'true');
-                  setStandaloneMode(true);
-                  addToast('info', 'Setup Without Bot (Soon)', 'You can now configure server details and promote listings.');
-                }}
-                className="border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 text-xs h-9 px-3.5 rounded-xl font-medium cursor-pointer"
-              >
-                <SlidersHorizontal className="size-3.5 mr-1 text-zinc-400" />
-                <span>Setup Without Bot (Soon)</span>
-              </Button>
-              <AsyncButton
-                size="sm"
-                variant="outline"
-                loadingText="Verifying…"
-                onClick={handleCheckConnection}
-                disabled={checkingConnection}
-                className="border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 text-xs h-9 px-3.5 rounded-xl font-medium"
-              >
-                <RotateCw className={`size-3 mr-1.5 ${checkingConnection ? 'animate-spin' : ''}`} />
-                <span>Verify</span>
-              </AsyncButton>
-            </div>
-          </div>
-        )}
-
         {/* ── ACTIVE CONTENT MODULE ── */}
         <main className="space-y-6 min-w-0">
           {activeTabKey === 'overview' && (
@@ -734,10 +538,7 @@ export function DashboardPage() {
               guild={selectedGuild}
               workspace={workspace}
               config={config}
-              standaloneMode={standaloneMode}
-              onOpenConnectModal={() => setConnectModalOpen(true)}
               onNavigateTab={(t) => navigate(`/dashboard/${currentGuildId}/${t}`)}
-              onBotAction={handleBotAction}
               addToast={addToast}
             />
           )}
@@ -748,66 +549,6 @@ export function DashboardPage() {
               workspace={workspace}
               config={config}
               onNavigateTab={(t) => navigate(`/dashboard/${currentGuildId}/${t}`)}
-              addToast={addToast}
-            />
-          )}
-
-          {activeTabKey === 'patrol' && (
-            <ComingSoonTab
-              title="Patrol Sessions & In-Game Radio"
-              subtitle="Live Emergency Response: Liberty County in-game patrol tracking, voice radio frequencies, and CAD server integration."
-              category="ER:LC Operations"
-              features={[
-                'Automated in-game patrol start/end logging and duty time tracking',
-                'Live radio channel voice link and dispatcher status',
-                'Server player activity and duty-time leaderboards'
-              ]}
-              onBackToOverview={() => navigate(`/dashboard/${currentGuildId}`)}
-              addToast={addToast}
-            />
-          )}
-
-          {activeTabKey === 'tickets' && (
-            <ComingSoonTab
-              title="Support Desk & Ticket Engine"
-              subtitle="Automated Discord support ticket desks, category routing, staff assignment, and HTML transcript archiving."
-              category="Community Support"
-              features={[
-                'One-click interactive Discord ticket creation panels',
-                'Role-restricted staff ticket channels with claim workflow',
-                'Full web HTML transcript generation and archival'
-              ]}
-              onBackToOverview={() => navigate(`/dashboard/${currentGuildId}`)}
-              addToast={addToast}
-            />
-          )}
-
-          {activeTabKey === 'staff-apps' && (
-            <ComingSoonTab
-              title="Staff Application & Interview Hub"
-              subtitle="Discord modal applications, automated staff review channels, upvote/downvote scoring, and role elevation."
-              category="Staff Operations"
-              features={[
-                'Discord modal popups with customizable application questions',
-                'Private staff review channel with accept/deny voting buttons',
-                'Automated acceptance DMs and Discord role granting'
-              ]}
-              onBackToOverview={() => navigate(`/dashboard/${currentGuildId}`)}
-              addToast={addToast}
-            />
-          )}
-
-          {activeTabKey === 'staff-handbook' && (
-            <ComingSoonTab
-              title="Staff Handbook & Leave of Absence (LOA)"
-              subtitle="Staff policies, disciplinary guidelines, and automated Leave of Absence request review workflow."
-              category="Staff Operations"
-              features={[
-                'Dynamic server handbook documentation and rule indexes',
-                'Leave of Absence request form with date range picker',
-                'Automatic temporary LOA role toggle and activity exemption'
-              ]}
-              onBackToOverview={() => navigate(`/dashboard/${currentGuildId}`)}
               addToast={addToast}
             />
           )}
@@ -869,26 +610,9 @@ export function DashboardPage() {
             <ChangelogTab />
           )}
 
-          {activeTabKey === 'credentials' && (
-            <CredentialsTab />
-          )}
         </main>
       </div>
 
-      <ServerConnectionModal
-        isOpen={connectModalOpen}
-        onClose={() => setConnectModalOpen(false)}
-        guildId={currentGuildId}
-        serverName={serverName}
-        onStandaloneSelect={() => {
-          localStorage.setItem(`standalone_mode_${currentGuildId}`, 'true');
-          setStandaloneMode(true);
-          addToast('info', 'Setup Without Bot (Soon)', 'Server configuration mode active.');
-        }}
-        onBotConnected={() => {
-          handleCheckConnection();
-        }}
-      />
     </AppShell>
   );
 }

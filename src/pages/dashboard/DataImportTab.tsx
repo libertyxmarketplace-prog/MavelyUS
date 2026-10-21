@@ -567,7 +567,7 @@ export function DataImportTab({ workspace: _workspace, onImportSuccess }: DataIm
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <SlidersHorizontal className="size-4 text-zinc-400" />
-                <span>Map Columns to CivLink Attributes</span>
+                <span>Map Columns to ERLC.US Attributes</span>
               </h3>
               <p className="text-xs text-zinc-400 mt-0.5">
                 File: <strong className="text-zinc-200">{fileName}</strong> ({table.columns.length} columns, {table.rows.length} data rows)

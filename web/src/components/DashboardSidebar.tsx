@@ -11,13 +11,7 @@ import {
   Users,
   Activity,
   FileSpreadsheet,
-  Key,
   GitBranch,
-  Radio,
-  LifeBuoy,
-  FileText,
-  Shield,
-  Bot,
   TrendingUp,
   Home,
   LogOut,
@@ -25,23 +19,18 @@ import {
   ChevronUp,
   Eye,
   Search,
-  Plus,
-  SlidersHorizontal,
   X,
   Sparkles,
   ExternalLink
 } from 'lucide-react';
 import { useRef, useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'sonner';
 
 import { Logo } from '@/components/library/logo';
-import { getBotInviteUrl } from '@/lib/api';
 
 import {
   ArrowDown01Icon,
   HelpIcon,
-  SettingsIcon,
 } from '@/components/library/icons';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -120,7 +109,6 @@ export type AppShellSidebarProps = {
   workspaces?: AppShellWorkspace[];
   workspaceId?: string;
   onWorkspaceChange?: (id: string) => void;
-  onOpenConnectModal?: () => void;
   side?: 'left' | 'right';
   user?: AppShellUser;
   onSignOut?: () => void;
@@ -212,7 +200,6 @@ export function DashboardSidebar({
   workspaces,
   workspaceId,
   onWorkspaceChange,
-  onOpenConnectModal,
   side = 'left',
   user,
   onSignOut,
@@ -238,12 +225,7 @@ export function DashboardSidebar({
     if (path.includes('/joins')) return { activeSection: 'growth', activeSubsection: 'joins' };
     if (path.includes('/uptime')) return { activeSection: 'system', activeSubsection: 'uptime' };
     if (path.includes('/import')) return { activeSection: 'system', activeSubsection: 'import' };
-    if (path.includes('/credentials')) return { activeSection: 'system', activeSubsection: 'credentials' };
     if (path.includes('/changelog')) return { activeSection: 'system', activeSubsection: 'changelog' };
-    if (path.includes('/patrol')) return { activeSection: 'custom-bot', activeSubsection: 'patrol' };
-    if (path.includes('/tickets')) return { activeSection: 'custom-bot', activeSubsection: 'tickets' };
-    if (path.includes('/staff-apps')) return { activeSection: 'custom-bot', activeSubsection: 'staff-apps' };
-    if (path.includes('/staff-handbook')) return { activeSection: 'custom-bot', activeSubsection: 'staff-handbook' };
     return { activeSection: 'overview', activeSubsection: undefined };
   }, [path]);
 
@@ -277,20 +259,7 @@ export function DashboardSidebar({
       subItems: [
         { label: 'System Telemetry', href: `/dashboard/${currentGuildId}/uptime`, icon: Activity },
         { label: 'Roster & Data Import', href: `/dashboard/${currentGuildId}/import`, icon: FileSpreadsheet },
-        { label: 'Credentials & API', href: `/dashboard/${currentGuildId}/credentials`, icon: Key },
         { label: 'Changelog', href: `/dashboard/${currentGuildId}/changelog`, icon: GitBranch },
-      ],
-    },
-    {
-      section: 'custom-bot',
-      label: 'Custom Bot',
-      href: `/dashboard/${currentGuildId}/patrol`,
-      icon: Bot,
-      subItems: [
-        { label: 'Patrol Sessions & Radio', href: `/dashboard/${currentGuildId}/patrol`, icon: Radio },
-        { label: 'Support & Tickets', href: `/dashboard/${currentGuildId}/tickets`, icon: LifeBuoy },
-        { label: 'Staff Applications', href: `/dashboard/${currentGuildId}/staff-apps`, icon: FileText },
-        { label: 'Staff Handbook & LOA', href: `/dashboard/${currentGuildId}/staff-handbook`, icon: Shield },
       ],
     },
   ], [currentGuildId]);
@@ -307,12 +276,7 @@ export function DashboardSidebar({
     { label: 'My Joins', href: `/dashboard/${currentGuildId}/joins`, icon: Users },
     { label: 'System Telemetry', href: `/dashboard/${currentGuildId}/uptime`, icon: Activity },
     { label: 'Roster & Data Import', href: `/dashboard/${currentGuildId}/import`, icon: FileSpreadsheet },
-    { label: 'Credentials & API', href: `/dashboard/${currentGuildId}/credentials`, icon: Key },
     { label: 'Changelog', href: `/dashboard/${currentGuildId}/changelog`, icon: GitBranch },
-    { label: 'Patrol Sessions & Radio', href: `/dashboard/${currentGuildId}/patrol`, icon: Radio },
-    { label: 'Support & Tickets', href: `/dashboard/${currentGuildId}/tickets`, icon: LifeBuoy },
-    { label: 'Staff Applications', href: `/dashboard/${currentGuildId}/staff-apps`, icon: FileText },
-    { label: 'Staff Handbook & LOA', href: `/dashboard/${currentGuildId}/staff-handbook`, icon: Shield },
   ], [currentGuildId]);
 
   // Filtered workspaces for search
@@ -398,30 +362,6 @@ export function DashboardSidebar({
                 )}
               </DropdownMenuGroup>
 
-              <DropdownMenuSeparator className="bg-white/10 my-1.5" />
-
-              {/* Quick Actions at bottom of Select Server */}
-              <div className="space-y-1 pt-0.5">
-                <DropdownMenuItem
-                  onClick={() => {
-                    toast.info('Coming Soon', { description: 'Custom Bot Connection is coming soon in the next release.' });
-                  }}
-                  className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 cursor-pointer transition-all"
-                >
-                  <Plus className="size-3.5 text-indigo-400" />
-                  <span>Connect Bot to Server</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => {
-                    toast.info('Coming Soon', { description: 'Setup Without Bot is coming soon in the next release.' });
-                  }}
-                  className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/[0.06] cursor-pointer transition-colors"
-                >
-                  <SlidersHorizontal className="size-3.5 text-amber-400" />
-                  <span>Setup Without Bot (Soon)</span>
-                </DropdownMenuItem>
-              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         </SidebarHeader>
@@ -496,25 +436,11 @@ export function DashboardSidebar({
 
                 {/* Help & Support */}
                 <DropdownMenuItem
-                  onClick={() => window.open('https://discord.gg/mZcp3VBtBq', '_blank')}
+                  onClick={() => navigate('/docs')}
                   className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] cursor-pointer transition-colors"
                 >
                   <HelpIcon className="size-4 text-zinc-400" />
                   <span>Help & Support</span>
-                </DropdownMenuItem>
-
-                {/* Add Bot to Server */}
-                <DropdownMenuItem
-                  onClick={() =>
-                    window.open(
-                      getBotInviteUrl(currentGuildId),
-                      '_blank',
-                    )
-                  }
-                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] cursor-pointer transition-colors"
-                >
-                  <SettingsIcon className="size-4 text-zinc-400" />
-                  <span>Add Bot to Server</span>
                 </DropdownMenuItem>
 
                 {/* Back to Home */}
@@ -740,9 +666,7 @@ function MobileBottomNavigation({
               );
             })}
             <a
-              href="https://discord.gg/mZcp3VBtBq"
-              target="_blank"
-              rel="noreferrer"
+              href="/docs"
               onClick={() => setMoreOpen(false)}
               className={moreNavItemClassName}
             >
@@ -783,7 +707,7 @@ function SidebarNavigationItem({
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
-  // KEEP OPEN BY DEFAULT: "Community Growth", "System & Status", "Custom Bot" stay open
+  // KEEP OPEN BY DEFAULT: "Community Growth" and "System & Status" stay open
   // unless user clicks the section button to close them, and remembers preference in localStorage.
   const [open, setOpen] = useState<boolean>(() => {
     try {

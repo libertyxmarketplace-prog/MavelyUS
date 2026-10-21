@@ -33,7 +33,7 @@ export function RewardsTab({ addToast }: { addToast: (variant: 'success' | 'info
 
   const loadLogs = () => {
     try {
-      const savedTxs = JSON.parse(localStorage.getItem('civlink_transactions') || '[]');
+      const savedTxs = JSON.parse(localStorage.getItem('erlcus_transactions') || '[]');
       const rewardsOnly = savedTxs.filter((tx: any) => tx.type === 'reward').slice(0, 5);
       setRecentLogs(rewardsOnly);
     } catch {
@@ -42,15 +42,15 @@ export function RewardsTab({ addToast }: { addToast: (variant: 'success' | 'info
   };
 
   useEffect(() => {
-    const savedStreak = localStorage.getItem('civlink_streak_days');
-    const savedTimestamp = localStorage.getItem('civlink_last_checkin');
+    const savedStreak = localStorage.getItem('erlcus_streak_days');
+    const savedTimestamp = localStorage.getItem('erlcus_last_checkin');
 
     const streakNum = savedStreak ? parseInt(savedStreak, 10) : 0;
     const timeNum = savedTimestamp ? parseInt(savedTimestamp, 10) : 0;
 
     if (timeNum > 0 && Date.now() - timeNum > FORTY_EIGHT_HOURS_MS) {
       setStreakDays(0);
-      localStorage.setItem('civlink_streak_days', '0');
+      localStorage.setItem('erlcus_streak_days', '0');
     } else {
       setStreakDays(streakNum);
     }
@@ -80,12 +80,12 @@ export function RewardsTab({ addToast }: { addToast: (variant: 'success' | 'info
     const newStreak = streakDays + 1;
     const rewardAmount = nextTier.reward;
 
-    const currentBalance = parseInt(localStorage.getItem('civlink_credits_balance') || '0', 10);
+    const currentBalance = parseInt(localStorage.getItem('erlcus_credits_balance') || '0', 10);
     const updatedBalance = currentBalance + rewardAmount;
 
-    localStorage.setItem('civlink_credits_balance', updatedBalance.toString());
-    localStorage.setItem('civlink_streak_days', newStreak.toString());
-    localStorage.setItem('civlink_last_checkin', Date.now().toString());
+    localStorage.setItem('erlcus_credits_balance', updatedBalance.toString());
+    localStorage.setItem('erlcus_streak_days', newStreak.toString());
+    localStorage.setItem('erlcus_last_checkin', Date.now().toString());
 
     // Record clean ledger entry
     const newTx = {
@@ -96,13 +96,13 @@ export function RewardsTab({ addToast }: { addToast: (variant: 'success' | 'info
       date: new Date().toISOString().replace('T', ' ').slice(0, 16),
       status: 'completed',
     };
-    const savedTxs = JSON.parse(localStorage.getItem('civlink_transactions') || '[]');
-    localStorage.setItem('civlink_transactions', JSON.stringify([newTx, ...savedTxs]));
+    const savedTxs = JSON.parse(localStorage.getItem('erlcus_transactions') || '[]');
+    localStorage.setItem('erlcus_transactions', JSON.stringify([newTx, ...savedTxs]));
 
     setStreakDays(newStreak);
     setLastCheckin(Date.now());
     loadLogs();
-    window.dispatchEvent(new Event('civlink_credits_updated'));
+    window.dispatchEvent(new Event('erlcus_credits_updated'));
 
     addToast('success', 'Daily Reward Claimed', `+${rewardAmount} credits added to your balance. Current streak: ${newStreak} day${newStreak === 1 ? '' : 's'}!`);
   };

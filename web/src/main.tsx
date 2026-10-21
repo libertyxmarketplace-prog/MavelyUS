@@ -18,7 +18,7 @@ import { Rocket, ShieldCheck, Coins, Activity, Zap, Check, ArrowLeft, ArrowRight
 
 // Apply saved theme accent & performance mode on startup
 try {
-  const savedAccent = localStorage.getItem('mavely_theme_accent');
+  const savedAccent = localStorage.getItem('erlcus_theme_accent');
   if (savedAccent) {
     const accents: Record<string, { oklch: string; color: string }> = {
       mint: { oklch: '0.75 0.14 160', color: '#2ecc71' },
@@ -31,7 +31,7 @@ try {
     document.documentElement.style.setProperty('--theme-accent', theme.color);
     document.documentElement.style.setProperty('--embed-color', theme.color);
   }
-  if (localStorage.getItem('mavely_perf_mode') === 'true') {
+  if (localStorage.getItem('erlcus_perf_mode') === 'true') {
     document.body.classList.add('reduce-motion');
   }
 } catch {
@@ -44,25 +44,8 @@ export function LoginPage() {
   const error = params.get('auth_error');
 
   const handleDiscordLogin = () => {
-    // Prime default session so dashboard is guaranteed to be accessible immediately
-    try {
-      if (!localStorage.getItem('mavely_user')) {
-        localStorage.setItem(
-          'mavely_user',
-          JSON.stringify({
-            id: '523693281541095424',
-            username: 'kims3166',
-            globalName: 'Eazykims',
-            avatar: '7480f524ba8624ecaea64c9f35e9a623'
-          })
-        );
-      }
-    } catch {}
-
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://erlc.us';
-    const redirectUri = encodeURIComponent(`${origin}/auth/discord/callback`);
-    // Standard Discord OAuth2 authorization with code
-    window.location.href = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=${redirectUri}&scope=identify+guilds`;
+    // The backend runs the OAuth code flow, creates the session and checks server membership.
+    window.location.href = '/api/auth/discord/start';
   };
 
   return (
@@ -81,11 +64,11 @@ export function LoginPage() {
       <header className="relative z-20 pt-8 px-6 sm:pt-10 sm:px-12 lg:px-16 flex items-center justify-between">
         <a href="/" className="inline-block transition-transform hover:scale-105 active:scale-95" title="Home">
           <img
-            src="/mavely_logo.png"
-            alt="Mavely"
+            src="/erlcus_logo.png"
+            alt="ERLC.US"
             className="h-10 sm:h-12 w-auto object-contain"
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/mavely-mark.png';
+              (e.currentTarget as HTMLImageElement).src = '/erlcus-mark.png';
             }}
           />
         </a>
@@ -262,7 +245,6 @@ function CallbackPage() {
 
       const searchParams = new URLSearchParams(window.location.search);
       const code = searchParams.get('code');
-      const guildId = searchParams.get('guild_id');
 
       // 1. If Discord redirected with access_token (implicit grant)
       if (token) {
@@ -273,7 +255,7 @@ function CallbackPage() {
           if (res.ok) {
             const user = await res.json();
             localStorage.setItem(
-              'mavely_user',
+              'erlcus_user',
               JSON.stringify({
                 id: user.id,
                 username: user.username,
@@ -289,7 +271,7 @@ function CallbackPage() {
               });
               if (gRes.ok) {
                 const guilds = await gRes.json();
-                localStorage.setItem('mavely_known_guilds', JSON.stringify(guilds));
+                localStorage.setItem('erlcus_known_guilds', JSON.stringify(guilds));
               }
             } catch {}
 
@@ -299,25 +281,6 @@ function CallbackPage() {
         } catch {}
       }
 
-      // 2. If bot installed callback
-      if (guildId) {
-        window.location.assign(`/dashboard/${guildId}?bot_installed=true`);
-        return;
-      }
-
-      // 3. Fallback: Always ensure valid owner session in localStorage so dashboard ALWAYS opens
-      if (!localStorage.getItem('mavely_user')) {
-        localStorage.setItem(
-          'mavely_user',
-          JSON.stringify({
-            id: '523693281541095424',
-            username: 'kims3166',
-            globalName: 'Eazykims',
-            avatar: '7480f524ba8624ecaea64c9f35e9a623'
-          })
-        );
-      }
-
       // If backend code was received and reachable, exchange it
       if (code) {
         try {
@@ -325,7 +288,7 @@ function CallbackPage() {
           if (res.ok) {
             const data = await res.json().catch(() => null);
             if (data?.user) {
-              localStorage.setItem('mavely_user', JSON.stringify(data.user));
+              localStorage.setItem('erlcus_user', JSON.stringify(data.user));
             }
           }
         } catch {}

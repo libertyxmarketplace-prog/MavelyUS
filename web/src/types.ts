@@ -206,24 +206,13 @@ export interface WorkspaceCustomizations {
   [key: string]: any;
 }
 
+/** Stored dashboard settings for one Discord server. */
 export interface WorkspaceBot {
   id: string;
   guildId: string;
-  isMainBot?: boolean;
-  discordBotId: string | null;
-  botUser?: {
-    id: string;
-    username: string;
-    avatarUrl: string;
-  } | null;
-  isInGuild: boolean | null;
-  inviteUrl: string | null;
-  status: 'online' | 'offline' | 'unconfigured' | 'suspended' | string;
   createdAt: string;
   updatedAt: string;
-  hasDiscordToken: boolean;
   hasErlcApiKey: boolean;
-  hasAiApiKey: boolean;
   customizations: WorkspaceCustomizations;
 }
 
@@ -237,25 +226,4 @@ export interface LiveErlcServer {
   staffCount?: number | null;
   error?: string;
   fetchedAt?: string;
-}
-
-export interface DiscordChannelOption {
-  id: string;
-  name: string;
-  type: number;
-  parentId: string | null;
-  position: number;
-}
-
-export interface DiscordRoleOption {
-  id: string;
-  name: string;
-  color: number;
-  position: number;
-}
-
-export interface GuildResources {
-  available: boolean;
-  channels: DiscordChannelOption[];
-  roles: DiscordRoleOption[];
 }

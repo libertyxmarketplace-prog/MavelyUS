@@ -5,7 +5,7 @@ import {
   Flame,
   Users,
   Sparkles,
-  Bot,
+  RotateCw,
   HelpCircle,
   Coins,
   Globe,
@@ -28,49 +28,49 @@ interface TransferTabProps {
 export function TransferTab({ addToast }: TransferTabProps) {
   const [isAnnual, setIsAnnual] = useState(true);
   const [creditsBalance, setCreditsBalance] = useState<number>(() => {
-    const saved = localStorage.getItem('civlink_credits_balance');
+    const saved = localStorage.getItem('erlcus_credits_balance');
     return saved ? parseInt(saved, 10) : 0;
   });
 
   const [autoBumpEnabled, setAutoBumpEnabled] = useState<boolean>(() => {
-    return localStorage.getItem('civlink_autobump_enabled') === 'true';
+    return localStorage.getItem('erlcus_autobump_enabled') === 'true';
   });
 
   const [purchasedPlan, setPurchasedPlan] = useState<string>(() => {
-    return localStorage.getItem('civlink_active_plan') || 'free';
+    return localStorage.getItem('erlcus_active_plan') || 'free';
   });
 
   useEffect(() => {
     const handleUpdate = () => {
-      const saved = localStorage.getItem('civlink_credits_balance');
+      const saved = localStorage.getItem('erlcus_credits_balance');
       if (saved) setCreditsBalance(parseInt(saved, 10));
     };
-    window.addEventListener('civlink_credits_updated', handleUpdate);
-    return () => window.removeEventListener('civlink_credits_updated', handleUpdate);
+    window.addEventListener('erlcus_credits_updated', handleUpdate);
+    return () => window.removeEventListener('erlcus_credits_updated', handleUpdate);
   }, []);
 
   const handleToggleAutoBump = () => {
     const next = !autoBumpEnabled;
     setAutoBumpEnabled(next);
-    localStorage.setItem('civlink_autobump_enabled', next ? 'true' : 'false');
+    localStorage.setItem('erlcus_autobump_enabled', next ? 'true' : 'false');
     addToast(
       'info',
       next ? 'Auto-Bump Engine Active' : 'Auto-Bump Engine Paused',
       next
-        ? 'Mavely bot will automatically bump your community every 2 hours to keep you near the top of the directory.'
-        : 'Automated bumpers paused. You can still manually /bump from the directory or Discord.'
+        ? 'ERLC.US will automatically bump your community every 2 hours to keep you near the top of the directory.'
+        : 'Automated bumpers paused. You can still bump manually from the directory.'
     );
   };
 
   const handleSelectPlan = (planId: string, planName: string, creditBonus: number) => {
     setPurchasedPlan(planId);
-    localStorage.setItem('civlink_active_plan', planId);
+    localStorage.setItem('erlcus_active_plan', planId);
 
     if (creditBonus > 0) {
       const newBal = creditsBalance + creditBonus;
       setCreditsBalance(newBal);
-      localStorage.setItem('civlink_credits_balance', newBal.toString());
-      window.dispatchEvent(new Event('civlink_credits_updated'));
+      localStorage.setItem('erlcus_credits_balance', newBal.toString());
+      window.dispatchEvent(new Event('erlcus_credits_updated'));
     }
 
     addToast(
@@ -211,7 +211,7 @@ export function TransferTab({ addToast }: TransferTabProps) {
           <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-all space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="size-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                <Bot className="size-4" />
+                <RotateCw className="size-4" />
               </div>
               <Badge variant="outline" className="border-indigo-500/30 text-indigo-400 bg-indigo-500/5 text-[10px] font-mono">
                 AUTOMATION
@@ -219,7 +219,7 @@ export function TransferTab({ addToast }: TransferTabProps) {
             </div>
             <h3 className="text-xs font-bold text-white">24/7 Auto-Bump Engine</h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Hands-free background bumper keeping your community continually elevated without manual slash commands.
+              Hands-free background bumper keeping your community continually elevated without manual bumping.
             </p>
             <div className="pt-1 text-[11px] font-mono text-indigo-400">
               Included with Plus & Ultra Tiers
@@ -363,7 +363,7 @@ export function TransferTab({ addToast }: TransferTabProps) {
                 {[
                   'Custom server banner & community icon',
                   'Public community directory profile',
-                  'Manual /bump command (1-hour cooldown)',
+                  'Manual bump (1-hour cooldown)',
                   'Custom community tags & category select',
                   'Anti-alt security verification shield',
                   'Daily streak credit rewards'
@@ -414,8 +414,7 @@ export function TransferTab({ addToast }: TransferTabProps) {
                   '+250 Credits deposited monthly',
                   '2-Hour Auto-Bump Automation',
                   'Priority directory search placement',
-                  'Verified server checkmark badge',
-                  'Discord bot priority gateway routing'
+                  'Verified server checkmark badge'
                 ].map((feat, i) => (
                   <div key={i} className="flex items-center gap-2.5">
                     <Check className="size-3.5 text-emerald-400 shrink-0" />

@@ -21,7 +21,7 @@ export interface SiteSettingsModalProps {
 }
 
 const ACCENT_THEMES = [
-  { id: 'mint', name: 'Mavely Mint', color: '#2ecc71', oklch: '0.75 0.14 160' },
+  { id: 'mint', name: 'ERLC.US Mint', color: '#2ecc71', oklch: '0.75 0.14 160' },
   { id: 'cyan', name: 'Cyber Cyan', color: '#06b6d4', oklch: '0.78 0.14 210' },
   { id: 'purple', name: 'Neon Purple', color: '#8b5cf6', oklch: '0.68 0.18 290' },
   { id: 'amber', name: 'Tactical Amber', color: '#f59e0b', oklch: '0.75 0.16 75' },
@@ -35,14 +35,14 @@ export function SiteSettingsModal({ open, onOpenChange }: SiteSettingsModalProps
 
   // Load saved preferences
   useEffect(() => {
-    const savedAccent = localStorage.getItem('mavely_theme_accent');
+    const savedAccent = localStorage.getItem('erlcus_theme_accent');
     if (savedAccent) {
       setSelectedAccent(savedAccent);
       applyAccent(savedAccent);
     }
-    const savedSound = localStorage.getItem('mavely_sound_fx');
+    const savedSound = localStorage.getItem('erlcus_sound_fx');
     if (savedSound !== null) setSoundEnabled(savedSound === 'true');
-    const savedPerf = localStorage.getItem('mavely_perf_mode');
+    const savedPerf = localStorage.getItem('erlcus_perf_mode');
     if (savedPerf !== null) setPerformanceMode(savedPerf === 'true');
   }, []);
 
@@ -60,7 +60,7 @@ export function SiteSettingsModal({ open, onOpenChange }: SiteSettingsModalProps
     document.documentElement.style.setProperty('--brand', `oklch(${theme.oklch})`);
     document.documentElement.style.setProperty('--theme-accent', theme.color);
     document.documentElement.style.setProperty('--embed-color', theme.color);
-    localStorage.setItem('mavely_theme_accent', accentId);
+    localStorage.setItem('erlcus_theme_accent', accentId);
   };
 
   const handleSelectAccent = (accentId: string) => {
@@ -72,13 +72,13 @@ export function SiteSettingsModal({ open, onOpenChange }: SiteSettingsModalProps
 
   const handleToggleSound = (enabled: boolean) => {
     setSoundEnabled(enabled);
-    localStorage.setItem('mavely_sound_fx', String(enabled));
+    localStorage.setItem('erlcus_sound_fx', String(enabled));
     if (enabled) playChime();
   };
 
   const handleTogglePerformance = (enabled: boolean) => {
     setPerformanceMode(enabled);
-    localStorage.setItem('mavely_perf_mode', String(enabled));
+    localStorage.setItem('erlcus_perf_mode', String(enabled));
     if (enabled) {
       document.body.classList.add('reduce-motion');
       toast.info('Performance mode enabled. Reduced animations active.');
