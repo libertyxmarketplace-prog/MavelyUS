@@ -14,6 +14,13 @@ import {
   DEFAULT_CUSTOMIZATIONS,
   MASTER_BOT_ID
 } from '../botManager.js';
+import {
+  getPromotedServers,
+  upsertPromotedServer,
+  bumpPromotedServer,
+  getUserCredits,
+  claimServerJoinBounty
+} from './directoryManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -724,6 +731,11 @@ export function createDashboardRouter() {
   router.get('/auth/discord/callback', completeDiscordAuth);
   router.get('/auth/discord', completeDiscordAuth);
 
+  // Public permanent directory endpoint: anyone can view listed servers
+  router.get('/directory', (_req, res) => {
+    res.json({ servers: getPromotedServers() });
+  });
+
   router.use((req, res, next) => {
     res.set('Cache-Control', 'no-store');
     const sessionId = cookieValue(req, SESSION_COOKIE);
@@ -766,6 +778,48 @@ export function createDashboardRouter() {
       }
       // Discord is unreachable; keep the user signed in and let the UI retry.
       res.json({ user: req.dashboardSession.user, csrfToken: req.dashboardSession.csrfToken, guilds: [], guildsError: 'Discord did not respond. Retry in a moment.' });
+    }
+  });
+
+  // User credits balance & claims
+  router.get('/directory/balance', (req, res) => {
+    const userId = req.dashboardSession?.user?.id;
+    res.json(getUserCredits(userId));
+  });
+
+  // Promote / list a server into permanent storage
+  router.post('/directory/promote', async (req, res) => {
+    try {
+      const serverData = req.body;
+      const userId = req.dashboardSession?.user?.id;
+      const server = upsertPromotedServer(serverData, userId);
+      res.json({ success: true, server, servers: getPromotedServers() });
+    } catch (err) {
+      res.status(400).json({ error: err.message || 'Could not promote server.' });
+    }
+  });
+
+  // Bump server to top of directory
+  router.post('/directory/bump', async (req, res) => {
+    try {
+      const { guildId } = req.body;
+      const userId = req.dashboardSession?.user?.id;
+      const result = bumpPromotedServer(guildId, userId);
+      res.json({ ...result, servers: getPromotedServers() });
+    } catch (err) {
+      res.status(err.status || 400).json({ error: err.message, cooldownSeconds: err.cooldownSeconds });
+    }
+  });
+
+  // Claim join bounty
+  router.post('/directory/claim', async (req, res) => {
+    try {
+      const { guildId } = req.body;
+      const userId = req.dashboardSession?.user?.id;
+      const result = claimServerJoinBounty(userId, guildId);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
     }
   });
 

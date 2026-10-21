@@ -170,3 +170,40 @@ export async function fetchErlcLive(guildId: string): Promise<LiveErlcServer> {
 export async function logout(): Promise<void> {
   await api('/auth/logout', { method: 'POST' });
 }
+
+export async function fetchDirectoryServers(): Promise<any[]> {
+  try {
+    const res = await api<{ servers: any[] }>('/directory');
+    if (Array.isArray(res?.servers)) return res.servers;
+  } catch {}
+  return [];
+}
+
+export async function promoteServerToDirectory(server: any): Promise<any> {
+  return api('/directory/promote', {
+    method: 'POST',
+    body: JSON.stringify(server)
+  });
+}
+
+export async function bumpDirectoryServer(guildId: string): Promise<any> {
+  return api('/directory/bump', {
+    method: 'POST',
+    body: JSON.stringify({ guildId })
+  });
+}
+
+export async function fetchDirectoryBalance(): Promise<{ balance: number; joined: string[] }> {
+  try {
+    return await api<{ balance: number; joined: string[] }>('/directory/balance');
+  } catch {
+    return { balance: 0, joined: [] };
+  }
+}
+
+export async function claimDirectoryBounty(guildId: string): Promise<any> {
+  return api('/directory/claim', {
+    method: 'POST',
+    body: JSON.stringify({ guildId })
+  });
+}

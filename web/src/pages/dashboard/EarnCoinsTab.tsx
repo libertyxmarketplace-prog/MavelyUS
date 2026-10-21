@@ -24,6 +24,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/lib/auth';
 import {
+  fetchDirectoryServers,
+  bumpDirectoryServer,
+  claimDirectoryBounty,
+  fetchDirectoryBalance
+} from '@/lib/api';
+import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -176,7 +182,7 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
   };
 
   // Handle bump button with strict 1-bump single execution and #1 elevation
-  const handleBumpServer = (server: PromotedServer) => {
+  const handleBumpServer = async (server: PromotedServer) => {
     if (isBumping) return;
     setIsBumping(true);
 
@@ -197,8 +203,18 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
         return;
       }
 
-      // Record bump timestamp
+      // Record bump timestamp locally
       localStorage.setItem(bumpKey, now.toString());
+
+      try {
+        const res = await bumpDirectoryServer(server.id);
+        if (Array.isArray(res?.servers) && res.servers.length > 0) {
+          setPromotedServers(res.servers);
+          localStorage.setItem('erlcus_promoted_servers', JSON.stringify(res.servers));
+        }
+      } catch (err: any) {
+        console.warn('Backend bump fallback:', err);
+      }
 
       const bumpedServer = { ...server, lastBumpedAt: now };
       const remaining = promotedServers.filter((s) => s.id !== server.id);
@@ -246,42 +262,30 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
   });
 
   // Load real servers and auto-update
-  const loadStoredServers = () => {
+  const loadStoredServers = async () => {
     try {
-      let known: any[] = [];
-      try {
-        known = JSON.parse(localStorage.getItem('erlcus_known_guilds') || '[]');
-      } catch {}
-
-      const savedServersRaw = localStorage.getItem('erlcus_promoted_servers');
-      if (savedServersRaw) {
-        const parsed: PromotedServer[] = JSON.parse(savedServersRaw);
-        if (Array.isArray(parsed)) {
-          const cleanServers = parsed
-            .filter(
-              (s) =>
-                !s.id.startsWith('srv_partner_') &&
-                !s.name.toLowerCase().includes('river city')
-            )
-            .map((s) => {
-              const storedCount = localStorage.getItem(`server_members_${s.id}`);
-              const matchedKnown = known.find((k: any) => k.id === s.id);
-              const realCount = storedCount
-                ? parseInt(storedCount, 10)
-                : (typeof matchedKnown?.memberCount === 'number' && matchedKnown.memberCount > 0 ? matchedKnown.memberCount : s.memberCount || 0);
-              return { ...s, memberCount: realCount };
-            });
-          setPromotedServers(cleanServers);
-        } else {
-          setPromotedServers([]);
-        }
+      // 1. Fetch live permanent server-side directory
+      const backendServers = await fetchDirectoryServers();
+      if (Array.isArray(backendServers) && backendServers.length > 0) {
+        setPromotedServers(backendServers);
+        localStorage.setItem('erlcus_promoted_servers', JSON.stringify(backendServers));
       } else {
-        setPromotedServers([]);
+        const savedServersRaw = localStorage.getItem('erlcus_promoted_servers');
+        if (savedServersRaw) {
+          const parsed: PromotedServer[] = JSON.parse(savedServersRaw);
+          if (Array.isArray(parsed)) setPromotedServers(parsed);
+        }
       }
 
-      const savedJoins = localStorage.getItem('erlcus_joined_servers');
-      if (savedJoins) {
-        setJoinedMap(JSON.parse(savedJoins));
+      // 2. Fetch server-side balance & joins
+      const balData = await fetchDirectoryBalance();
+      if (typeof balData?.balance === 'number') {
+        setCreditsBalance(balData.balance);
+      }
+      if (Array.isArray(balData?.joined)) {
+        const jMap: Record<string, boolean> = {};
+        balData.joined.forEach((id: string) => { jMap[id] = true; });
+        setJoinedMap(prev => ({ ...prev, ...jMap }));
       }
     } catch (e) {
       console.warn('Error reading stored servers:', e);
@@ -413,11 +417,21 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
     setJoinedMap(updatedJoined);
     localStorage.setItem('erlcus_joined_servers', JSON.stringify(updatedJoined));
 
-    // Award bounty credits
+    // Award bounty credits locally & sync to backend
     const bounty = activeVerifyServer.rewardCoins || 1;
     const newBalance = creditsBalance + bounty;
     setCreditsBalance(newBalance);
     localStorage.setItem('erlcus_credits_balance', newBalance.toString());
+
+    try {
+      const claimRes = await claimDirectoryBounty(activeVerifyServer.id);
+      if (typeof claimRes?.balance === 'number') {
+        setCreditsBalance(claimRes.balance);
+        localStorage.setItem('erlcus_credits_balance', claimRes.balance.toString());
+      }
+    } catch (e) {
+      console.warn('Backend bounty claim error:', e);
+    }
 
     // Increment verified joins
     const newJoins = dailyJoins + 1;

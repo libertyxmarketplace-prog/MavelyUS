@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { promoteServerToDirectory } from '@/lib/api';
 import type { DiscordGuild, WorkspaceCustomizations } from '@/types';
 
 interface PromoteTabProps {
@@ -113,26 +114,34 @@ export function PromoteTab({
       });
       await onSaveConfig();
 
-      // Sync into local directory so Earn Credits tab auto-updates immediately
+      // Sync into permanent server-side directory & local storage
+      const myPromotedServer = {
+        id: guildId,
+        name: serverName,
+        icon: serverIconUrl,
+        iconUrl: serverIconUrl,
+        category: selectedCategory,
+        categories: [selectedCategory],
+        language: 'English',
+        description: description.trim(),
+        tags: tags,
+        rewardCoins: config.coinsPerJoin || 2,
+        inviteUrl: inviteUrl.trim(),
+        bannerUrl: bannerUrl.trim(),
+        memberCount: Number((guild as any)?.memberCount || (guild as any)?.approximateMemberCount || 0),
+        createdAt: Date.now()
+      };
+
+      try {
+        await promoteServerToDirectory(myPromotedServer);
+      } catch (e) {
+        console.warn('Backend directory save fallback:', e);
+      }
+
       try {
         const existingRaw = localStorage.getItem('erlcus_promoted_servers');
         const existingList = existingRaw ? JSON.parse(existingRaw) : [];
         const index = existingList.findIndex((s: any) => s.id === guildId);
-        const myPromotedServer = {
-          id: guildId,
-          name: serverName,
-          icon: serverIconUrl,
-          category: selectedCategory,
-          categories: [selectedCategory],
-          language: 'English',
-          description: description.trim(),
-          tags: tags,
-          rewardCoins: config.coinsPerJoin || 2,
-          inviteUrl: inviteUrl.trim(),
-          bannerUrl: bannerUrl.trim(),
-          memberCount: Number((guild as any)?.memberCount || (guild as any)?.approximateMemberCount || 0),
-          createdAt: Date.now()
-        };
         if (index >= 0) {
           existingList[index] = { ...existingList[index], ...myPromotedServer };
         } else {
