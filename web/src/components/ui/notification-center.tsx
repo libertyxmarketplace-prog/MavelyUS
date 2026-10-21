@@ -150,11 +150,11 @@ function NotificationCenter({
 
       <PopoverContent
         align={align}
-        className="w-80 sm:w-96 max-w-[calc(100vw-2rem)] overflow-hidden p-0 border border-white/[0.08] bg-[#161a24] shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_0_rgba(255,255,255,0.06)] rounded-2xl"
+        className="w-80 sm:w-96 max-w-[calc(100vw-2rem)] overflow-hidden p-0 border border-white/10 bg-[#0c0e17]/95 backdrop-blur-xl shadow-[0_16px_48px_rgba(0,0,0,0.8)] rounded-2xl"
       >
         <div className="flex flex-col w-full">
           {/* Header Top: Title + Mark All Read */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08]">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.08] bg-white/[0.01]">
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-white tracking-tight">Notifications</span>
               {unread > 0 ? (
@@ -168,7 +168,7 @@ function NotificationCenter({
               <button
                 type="button"
                 onClick={onMarkAllRead}
-                className="text-xs text-zinc-400 hover:text-white inline-flex items-center gap-1 transition-colors font-medium"
+                className="text-xs text-zinc-400 hover:text-white inline-flex items-center gap-1 transition-colors font-medium cursor-pointer"
               >
                 <CheckCheck className="size-3.5" />
                 <span>Mark all as read</span>
@@ -213,13 +213,17 @@ function NotificationCenter({
           </div>
 
           {/* Notifications List */}
-          <ScrollArea className="max-h-80 overflow-y-auto">
+          <ScrollArea className="max-h-84 overflow-y-auto p-1.5">
             {displayed.length === 0 ? (
-              <div className="py-12 px-4 text-center space-y-1 text-xs text-muted-foreground">
-                <p>{emptyMessage}</p>
+              <div className="py-12 px-4 text-center space-y-2 text-xs text-zinc-400">
+                <div className="size-10 rounded-full bg-white/[0.03] border border-white/10 flex items-center justify-center mx-auto text-zinc-500">
+                  <BellIcon className="size-4 text-zinc-400" />
+                </div>
+                <p className="font-medium text-zinc-300">All caught up!</p>
+                <p className="text-[11px] text-zinc-500 leading-relaxed max-w-[200px] mx-auto">{emptyMessage}</p>
               </div>
             ) : (
-              <div className="divide-y divide-white/[0.06]">
+              <div className="space-y-1">
                 {displayed.map((notification) => {
                   const content = (
                     <>
@@ -242,7 +246,7 @@ function NotificationCenter({
                       {!notification.read && (
                         <span
                           aria-hidden="true"
-                          className="mt-2 size-2 shrink-0 rounded-full bg-emerald-400"
+                          className="mt-2 size-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]"
                         />
                       )}
                     </>
@@ -251,8 +255,10 @@ function NotificationCenter({
                   const rowProps = {
                     onClick: () => handleOpen(notification),
                     className: cn(
-                      "flex w-full items-start gap-3 p-3 text-start outline-none transition-colors hover:bg-white/[0.04]",
-                      !notification.read ? "bg-white/[0.02]" : "opacity-75"
+                      "flex w-full items-start gap-3 p-3 text-start outline-none transition-all rounded-xl cursor-pointer",
+                      !notification.read
+                        ? "bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06]"
+                        : "hover:bg-white/[0.03] opacity-75 hover:opacity-100"
                     ),
                   }
 

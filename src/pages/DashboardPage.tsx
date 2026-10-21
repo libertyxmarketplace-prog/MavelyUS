@@ -25,6 +25,7 @@ import type {
   GuildResources
 } from '@/types';
 import { useAuth } from '@/lib/auth';
+import { getBotInviteUrl } from '@/lib/api';
 
 // AppShell & Vibra UI Architecture
 import { AppShell } from '@/components/ui/app-shell';
@@ -48,6 +49,9 @@ import { TransferTab } from './dashboard/TransferTab';
 import { CredentialsTab } from './dashboard/CredentialsTab';
 import { UptimeTab } from './dashboard/UptimeTab';
 import { ChangelogTab } from './dashboard/ChangelogTab';
+import { ServerDetailsTab } from './dashboard/ServerDetailsTab';
+import { ServerConnectionModal } from '@/components/ui/ServerConnectionModal';
+import { SlidersHorizontal } from 'lucide-react';
 
 export function DashboardPage() {
   const { guildId, tab } = useParams();
@@ -56,12 +60,26 @@ export function DashboardPage() {
 
   const [guilds, setGuilds] = useState<DiscordGuild[]>([]);
   const [selectedGuild, setSelectedGuild] = useState<DiscordGuild | null>(null);
+
+  // Active Guild Snowflake ID
+  const currentGuildId = guildId || selectedGuild?.id || '1530147023754367006';
+
   const [workspace, setWorkspace] = useState<WorkspaceBot | null>(null);
   const [_resources, setResources] = useState<GuildResources>({ available: false, channels: [], roles: [] });
 
   const [_loadingGuilds, setLoadingGuilds] = useState(true);
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [demoBypass, setDemoBypass] = useState(false);
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
+
+  // Standalone Mode: enables full server customization without requiring bot addition
+  const [standaloneMode, setStandaloneMode] = useState<boolean>(() => {
+    return localStorage.getItem(`standalone_mode_${currentGuildId}`) === 'true';
+  });
+
+  useEffect(() => {
+    setStandaloneMode(localStorage.getItem(`standalone_mode_${currentGuildId}`) === 'true');
+  }, [currentGuildId]);
 
   // Form Configuration State & Baseline Tracking for Unsaved Changes
   const [config, setConfig] = useState<WorkspaceCustomizations>({});
@@ -95,32 +113,76 @@ export function DashboardPage() {
     });
   };
 
-  // Active Guild Snowflake ID
-  const currentGuildId = guildId || selectedGuild?.id || '1232495211490443284';
-
   // Synchronize document title
   useEffect(() => {
     const serverName = selectedGuild?.name || 'Community Server';
     document.title = `Mavely - ${serverName} Dashboard`;
   }, [selectedGuild]);
 
-  // Load user guilds
+  // Load user guilds with persistent multi-server cache and icon preservation
   useEffect(() => {
     async function initGuilds() {
       try {
         let list = await fetchGuilds();
+        list = list.filter((g) => g && g.name && !g.name.includes('Orlando') && !g.name.includes('Strict'));
+
+        // Restore any previously known Discord servers from localStorage
+        const storedRaw = localStorage.getItem('mavely_known_guilds');
+        let storedList: DiscordGuild[] = [];
+        if (storedRaw) {
+          try {
+            storedList = JSON.parse(storedRaw);
+            storedList = storedList.filter((g) => g && g.name && !g.name.includes('Orlando') && !g.name.includes('Strict'));
+          } catch {}
+        }
+
+        // Cache and preserve all Discord icons and server names
+        list = list.map((g) => {
+          const cachedIcon = localStorage.getItem(`server_icon_${g.id}`);
+          const cachedName = localStorage.getItem(`server_name_${g.id}`);
+          const iconUrl = g.iconUrl || cachedIcon || (g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=128` : null);
+          const name = g.name || cachedName || `Community (${g.id.slice(0, 6)})`;
+          if (iconUrl) localStorage.setItem(`server_icon_${g.id}`, iconUrl);
+          if (g.name) localStorage.setItem(`server_name_${g.id}`, g.name);
+          return {
+            ...g,
+            name,
+            iconUrl
+          };
+        });
+
+        // Merge stored list so switching servers NEVER removes previously viewed servers
+        for (const sg of storedList) {
+          if (!list.some((g) => g.id === sg.id)) {
+            const cachedIcon = localStorage.getItem(`server_icon_${sg.id}`) || sg.iconUrl;
+            const cachedName = localStorage.getItem(`server_name_${sg.id}`) || sg.name;
+            list.push({
+              ...sg,
+              name: cachedName,
+              iconUrl: cachedIcon || null
+            });
+          }
+        }
+
         if (currentGuildId && !list.some((g) => g.id === currentGuildId)) {
+          const cachedIcon = localStorage.getItem(`server_icon_${currentGuildId}`);
+          const cachedName = localStorage.getItem(`server_name_${currentGuildId}`);
           const directGuild: DiscordGuild = {
             id: currentGuildId,
-            name: `Community (${currentGuildId.slice(0, 6)})`,
+            name: cachedName || `Community (${currentGuildId.slice(0, 6)})`,
             icon: null,
-            iconUrl: null,
+            iconUrl: cachedIcon || null,
             owner: true,
             hasWorkspace: true,
             configured: true,
           };
           list = [directGuild, ...list];
         }
+
+        try {
+          localStorage.setItem('mavely_known_guilds', JSON.stringify(list));
+        } catch {}
+
         setGuilds(list);
 
         const matched = list.find((g) => g.id === currentGuildId) || list[0] || null;
@@ -134,7 +196,7 @@ export function DashboardPage() {
     initGuilds();
   }, [currentGuildId]);
 
-  // Load workspace details for selected server
+  // Load workspace details for selected server with instant name/icon sync
   const loadWorkspaceData = useCallback(async (targetId: string) => {
     try {
       const data = await fetchWorkspace(targetId);
@@ -142,6 +204,52 @@ export function DashboardPage() {
       if (data?.workspace?.customizations) {
         setConfig(data.workspace.customizations);
         setBaselineConfig(JSON.stringify(data.workspace.customizations));
+        if (data.workspace.customizations.serverIconUrl) {
+          localStorage.setItem(`server_icon_${targetId}`, data.workspace.customizations.serverIconUrl);
+          setGuilds((prev) => {
+            const updated = prev.map((g) => g.id === targetId ? { ...g, iconUrl: g.iconUrl || data.workspace.customizations.serverIconUrl } : g);
+            try { localStorage.setItem('mavely_known_guilds', JSON.stringify(updated)); } catch {}
+            return updated;
+          });
+        }
+      }
+      if (data?.guild) {
+        if (data.guild.iconUrl) {
+          localStorage.setItem(`server_icon_${targetId}`, data.guild.iconUrl);
+        }
+        if (data.guild.name) {
+          localStorage.setItem(`server_name_${targetId}`, data.guild.name);
+        }
+        if (data.guild.memberCount || (data.guild as any).approximateMemberCount) {
+          const mCount = data.guild.memberCount || (data.guild as any).approximateMemberCount;
+          localStorage.setItem(`server_members_${targetId}`, mCount.toString());
+        }
+        setGuilds((prev) => {
+          const updated = prev.map((g) => g.id === targetId ? {
+            ...g,
+            name: data.guild.name || g.name,
+            iconUrl: data.guild.iconUrl || g.iconUrl,
+            memberCount: data.guild.memberCount || g.memberCount
+          } : g);
+          try { localStorage.setItem('mavely_known_guilds', JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+
+        try {
+          const promoRaw = localStorage.getItem('civlink_promoted_servers');
+          if (promoRaw) {
+            const list = JSON.parse(promoRaw);
+            const idx = list.findIndex((s: any) => s.id === targetId);
+            if (idx >= 0) {
+              list[idx].name = data.guild.name || list[idx].name;
+              list[idx].icon = data.guild.iconUrl || list[idx].icon;
+              const count = data.guild.memberCount || (data.guild as any).approximateMemberCount;
+              if (typeof count === 'number' && count > 0) list[idx].memberCount = count;
+              localStorage.setItem('civlink_promoted_servers', JSON.stringify(list));
+              window.dispatchEvent(new Event('civlink_promotions_updated'));
+            }
+          }
+        } catch {}
       }
       const resData = await fetchGuildResources(targetId).catch(() => null);
       if (resData) setResources(resData);
@@ -227,16 +335,17 @@ export function DashboardPage() {
     return currentUser(auth?.user);
   }, [auth?.user]);
 
-  // Determine whether the bot is in the selected server
+  // Determine whether the bot is in the selected server (or in standalone mode)
   const isPrimaryServer = currentGuildId === '1232495211490443284' || currentGuildId === '1530147023754367006';
-  const isBotInGuild = demoBypass || (workspace ? (workspace.isInGuild !== false && workspace.status !== 'unconfigured') : isPrimaryServer);
+  const isBotInGuild = standaloneMode || demoBypass || (workspace ? (workspace.isInGuild !== false && workspace.status !== 'unconfigured') : isPrimaryServer);
 
   // Construct workspaces dropdown list for the Server Switcher button (real Discord server icons)
   const workspacesConfig = useMemo(() => {
     return {
       current: currentGuildId,
       items: guilds.map((g) => {
-        const iconUrl = g.iconUrl || (g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png` : null);
+        const cachedIcon = localStorage.getItem(`server_icon_${g.id}`);
+        const iconUrl = g.iconUrl || cachedIcon || (g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png` : null);
         return {
           id: g.id,
           name: g.name,
@@ -260,6 +369,7 @@ export function DashboardPage() {
         label: 'Community Growth',
         items: [
           { title: 'Overview', href: `/dashboard/${currentGuildId}`, icon: 'layout-dashboard' },
+          { title: 'Server Details', href: `/dashboard/${currentGuildId}/details`, icon: 'eye' },
           { title: 'Promote Server', href: `/dashboard/${currentGuildId}/promote`, icon: 'megaphone' },
           { title: 'Earn Credits', href: `/dashboard/${currentGuildId}/earn`, icon: 'coins' },
           { title: 'Streak Rewards', href: `/dashboard/${currentGuildId}/rewards`, icon: 'sparkles' },
@@ -289,7 +399,7 @@ export function DashboardPage() {
     footer: [
       {
         title: 'Add Bot to Server',
-        href: `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&integration_type=0&scope=bot%20applications.commands&guild_id=${currentGuildId}`,
+        href: getBotInviteUrl(currentGuildId),
         icon: 'bot',
         external: true,
       },
@@ -309,7 +419,7 @@ export function DashboardPage() {
 
   const serverName = selectedGuild?.name || 'Community Discord Server';
   const serverIconUrl = selectedGuild?.iconUrl || (selectedGuild?.icon ? `https://cdn.discordapp.com/icons/${selectedGuild.id}/${selectedGuild.icon}.png` : null);
-  const botInviteUrl = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&integration_type=0&scope=bot%20applications.commands&guild_id=${currentGuildId}`;
+  const botInviteUrl = getBotInviteUrl(currentGuildId);
 
   const handleCheckConnection = async () => {
     setCheckingConnection(true);
@@ -447,6 +557,14 @@ export function DashboardPage() {
         />
       )}
 
+      {activeTabKey === 'details' && (
+        <PageHeader
+          title="Server Details & Public Directory"
+          description="Live community showcase, 5-star verified reviews, bump accelerator, and member activity telemetry."
+          meta="Live Community Hub"
+        />
+      )}
+
       {activeTabKey === 'leaderboard' && (
         <PageHeader
           title="Community Growth Leaderboard"
@@ -548,7 +666,7 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* ── BOT CONNECTION BANNER (IF NOT CONNECTED TO GUILD) ── */}
+        {/* ── BOT CONNECTION BANNER (IF NOT CONNECTED TO GUILD AND NOT STANDALONE) ── */}
         {!isBotInGuild && (
           <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/[0.06] p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
@@ -561,26 +679,38 @@ export function DashboardPage() {
               )}
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-white">Connect Bot to {serverName}</h3>
+                  <h3 className="text-sm font-semibold text-white">Connect Bot or Setup Without Bot (Soon)</h3>
                   <Badge variant="outline" className="border-amber-500/30 text-amber-300 text-[10px] bg-amber-500/10">
-                    NOT CONNECTED
+                    SETUP REQUIRED
                   </Badge>
                 </div>
                 <p className="text-xs text-slate-400">
-                  Connect the bot to your server to enable automated member verification, patrol channels, and support desks.
+                  Connect the bot for automated member verification and dispatch, or configure without bot permissions (Soon).
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 shrink-0 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0 w-full sm:w-auto">
               <Button
                 size="sm"
-                onClick={() => window.open(botInviteUrl, '_blank', 'noopener,noreferrer')}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-sm"
+                onClick={() => setConnectModalOpen(true)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold h-9 px-4 rounded-xl flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <Bot className="size-3.5" />
                 <span>Connect Bot</span>
-                <ExternalLink className="size-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  localStorage.setItem(`standalone_mode_${currentGuildId}`, 'true');
+                  setStandaloneMode(true);
+                  addToast('info', 'Setup Without Bot (Soon)', 'You can now configure server details and promote listings.');
+                }}
+                className="border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 text-xs h-9 px-3.5 rounded-xl font-medium cursor-pointer"
+              >
+                <SlidersHorizontal className="size-3.5 mr-1 text-zinc-400" />
+                <span>Setup Without Bot (Soon)</span>
               </Button>
               <AsyncButton
                 size="sm"
@@ -591,7 +721,7 @@ export function DashboardPage() {
                 className="border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-slate-200 text-xs h-9 px-3.5 rounded-xl font-medium"
               >
                 <RotateCw className={`size-3 mr-1.5 ${checkingConnection ? 'animate-spin' : ''}`} />
-                <span>Verify Connection</span>
+                <span>Verify</span>
               </AsyncButton>
             </div>
           </div>
@@ -604,8 +734,20 @@ export function DashboardPage() {
               guild={selectedGuild}
               workspace={workspace}
               config={config}
+              standaloneMode={standaloneMode}
+              onOpenConnectModal={() => setConnectModalOpen(true)}
               onNavigateTab={(t) => navigate(`/dashboard/${currentGuildId}/${t}`)}
               onBotAction={handleBotAction}
+              addToast={addToast}
+            />
+          )}
+
+          {activeTabKey === 'details' && (
+            <ServerDetailsTab
+              guild={selectedGuild}
+              workspace={workspace}
+              config={config}
+              onNavigateTab={(t) => navigate(`/dashboard/${currentGuildId}/${t}`)}
               addToast={addToast}
             />
           )}
@@ -732,6 +874,21 @@ export function DashboardPage() {
           )}
         </main>
       </div>
+
+      <ServerConnectionModal
+        isOpen={connectModalOpen}
+        onClose={() => setConnectModalOpen(false)}
+        guildId={currentGuildId}
+        serverName={serverName}
+        onStandaloneSelect={() => {
+          localStorage.setItem(`standalone_mode_${currentGuildId}`, 'true');
+          setStandaloneMode(true);
+          addToast('info', 'Setup Without Bot (Soon)', 'Server configuration mode active.');
+        }}
+        onBotConnected={() => {
+          handleCheckConnection();
+        }}
+      />
     </AppShell>
   );
 }

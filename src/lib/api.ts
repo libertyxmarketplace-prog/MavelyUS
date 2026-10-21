@@ -2,11 +2,28 @@ import type { DiscordGuild, DiscordUser, WorkspaceBot, LiveErlcServer, GuildReso
 
 let csrfToken = '';
 
+export function getBotInviteUrl(guildId?: string): string {
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const redirectUri = isLocal
+    ? `${window.location.origin}/auth/discord/callback`
+    : 'https://erlc.us/auth/discord/callback';
+  const base = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&redirect_uri=${encodeURIComponent(redirectUri)}&integration_type=0&scope=bot`;
+  return guildId ? `${base}&guild_id=${guildId}` : base;
+}
+
+export function getDiscordLoginUrl(): string {
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const redirectUri = isLocal
+    ? `${window.location.origin}/auth/discord/callback`
+    : 'https://erlc.us/auth/discord/callback';
+  return `https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=identify+guilds+guilds.join`;
+}
+
 export function setCsrfToken(token: string) {
   csrfToken = token;
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function api<T>(path: string, init: RequestInit = {}, isRetry = false): Promise<T> {
   const method = (init.method || 'GET').toUpperCase();
   const headers = new Headers(init.headers);
   headers.set('Accept', 'application/json');
@@ -19,11 +36,21 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
     method,
     headers,
-    credentials: 'same-origin'
+    credentials: 'include'
   });
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
+    // If CSRF expired or token missing, refresh once and retry automatically
+    if (response.status === 403 && !isRetry && path !== '/auth/me') {
+      try {
+        const authData = await fetch('/api/auth/me', { credentials: 'include' }).then(r => r.json());
+        if (authData?.csrfToken) {
+          setCsrfToken(authData.csrfToken);
+          return api<T>(path, init, true);
+        }
+      } catch {}
+    }
     const error: any = new Error(payload.error || `Request failed (${response.status})`);
     error.status = response.status;
     error.payload = payload;
@@ -66,7 +93,7 @@ export async function fetchWorkspace(guildId: string): Promise<{ workspace: Work
           avatarUrl: ''
         },
         isInGuild: true,
-        inviteUrl: `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&integration_type=0&scope=bot%20applications.commands`,
+        inviteUrl: getBotInviteUrl(guildId),
         status: 'online',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -108,7 +135,7 @@ export async function createWorkspace(guildId: string): Promise<{ workspace: Wor
         discordBotId: '1552165138017165372',
         botUser: { id: '1552165138017165372', username: 'CivLink Bot', avatarUrl: '' },
         isInGuild: true,
-        inviteUrl: `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&integration_type=0&scope=bot%20applications.commands`,
+        inviteUrl: getBotInviteUrl(guildId),
         status: 'online',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

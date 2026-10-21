@@ -1,31 +1,25 @@
 import { useState, useEffect } from 'react';
 import {
-  Flame,
   Check,
-  Coins,
   Clock,
-  ShieldCheck,
+  Flame,
+  Coins,
   Sparkles,
-  Trophy,
-  RotateCcw,
-  Gift,
-  Zap,
-  ArrowRight
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { AsyncButton } from '@/components/ui/async-button';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-// User requirement: 2 credits every day (Days 1-6), Day 7 is 5 credits, then auto-restarts
 const STREAK_TIERS = [
-  { day: 1, reward: 2, label: 'Day 1 Check-In', perk: '+2 Bounty Credits' },
-  { day: 2, reward: 2, label: 'Day 2 Streak', perk: '+2 Bounty Credits' },
-  { day: 3, reward: 2, label: 'Day 3 Momentum', perk: '+2 Bounty Credits' },
-  { day: 4, reward: 2, label: 'Day 4 Consistent', perk: '+2 Bounty Credits' },
-  { day: 5, reward: 2, label: 'Day 5 Power', perk: '+2 Bounty Credits' },
-  { day: 6, reward: 2, label: 'Day 6 Champion', perk: '+2 Bounty Credits' },
-  { day: 7, reward: 5, label: 'Grand Milestone', perk: '+5 Credits Bonus' },
+  { day: 1, reward: 2, label: 'Day 1' },
+  { day: 2, reward: 2, label: 'Day 2' },
+  { day: 3, reward: 2, label: 'Day 3' },
+  { day: 4, reward: 2, label: 'Day 4' },
+  { day: 5, reward: 3, label: 'Day 5' },
+  { day: 6, reward: 3, label: 'Day 6' },
+  { day: 7, reward: 5, label: 'Day 7' },
 ];
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -35,8 +29,18 @@ export function RewardsTab({ addToast }: { addToast: (variant: 'success' | 'info
   const [streakDays, setStreakDays] = useState<number>(0);
   const [lastCheckin, setLastCheckin] = useState<number>(0);
   const [now, setNow] = useState<number>(Date.now());
+  const [recentLogs, setRecentLogs] = useState<any[]>([]);
 
-  // Load actual stored streak tracking
+  const loadLogs = () => {
+    try {
+      const savedTxs = JSON.parse(localStorage.getItem('civlink_transactions') || '[]');
+      const rewardsOnly = savedTxs.filter((tx: any) => tx.type === 'reward').slice(0, 5);
+      setRecentLogs(rewardsOnly);
+    } catch {
+      setRecentLogs([]);
+    }
+  };
+
   useEffect(() => {
     const savedStreak = localStorage.getItem('civlink_streak_days');
     const savedTimestamp = localStorage.getItem('civlink_last_checkin');
@@ -44,7 +48,6 @@ export function RewardsTab({ addToast }: { addToast: (variant: 'success' | 'info
     const streakNum = savedStreak ? parseInt(savedStreak, 10) : 0;
     const timeNum = savedTimestamp ? parseInt(savedTimestamp, 10) : 0;
 
-    // Check if streak broke (>48 hours)
     if (timeNum > 0 && Date.now() - timeNum > FORTY_EIGHT_HOURS_MS) {
       setStreakDays(0);
       localStorage.setItem('civlink_streak_days', '0');
@@ -52,9 +55,9 @@ export function RewardsTab({ addToast }: { addToast: (variant: 'success' | 'info
       setStreakDays(streakNum);
     }
     setLastCheckin(timeNum);
+    loadLogs();
   }, []);
 
-  // Live timer tick for countdown
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -64,16 +67,15 @@ export function RewardsTab({ addToast }: { addToast: (variant: 'success' | 'info
   const canClaim = lastCheckin === 0 || timeSinceLast >= TWENTY_FOUR_HOURS_MS;
 
   const msRemaining = canClaim ? 0 : TWENTY_FOUR_HOURS_MS - timeSinceLast;
-  const hoursRemaining = Math.floor(msRemaining / (1000 * 60 * 60));
-  const minutesRemaining = Math.floor((msRemaining % (1000 * 60 * 60)) / (1000 * 60));
-  const secondsRemaining = Math.floor((msRemaining % (1000 * 60)) / 1000);
+  const hoursRemaining = Math.floor(msRemaining / (1000 * 60 * 60)).toString().padStart(2, '0');
+  const minutesRemaining = Math.floor((msRemaining % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+  const secondsRemaining = Math.floor((msRemaining % (1000 * 60)) / 1000).toString().padStart(2, '0');
 
-  // Active day index (0 to 6). After Day 7 (index 6), it automatically loops back to 0 (Day 1)
   const currentDayIndex = streakDays % 7;
   const nextTier = STREAK_TIERS[currentDayIndex];
 
   const handleClaim = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     const newStreak = streakDays + 1;
     const rewardAmount = nextTier.reward;
@@ -85,11 +87,11 @@ export function RewardsTab({ addToast }: { addToast: (variant: 'success' | 'info
     localStorage.setItem('civlink_streak_days', newStreak.toString());
     localStorage.setItem('civlink_last_checkin', Date.now().toString());
 
-    // Record ledger entry
+    // Record clean ledger entry
     const newTx = {
       id: `tx_${Date.now()}`,
       type: 'reward',
-      title: `Day ${nextTier.day} Daily Check-In (+${rewardAmount} Credits)`,
+      title: `Day ${nextTier.day} Daily Check-In`,
       amount: `+${rewardAmount} Credits`,
       date: new Date().toISOString().replace('T', ' ').slice(0, 16),
       status: 'completed',
@@ -99,283 +101,229 @@ export function RewardsTab({ addToast }: { addToast: (variant: 'success' | 'info
 
     setStreakDays(newStreak);
     setLastCheckin(Date.now());
-
+    loadLogs();
     window.dispatchEvent(new Event('civlink_credits_updated'));
 
-    const isResetCycle = nextTier.day === 7;
-    addToast(
-      'success',
-      `+${rewardAmount} Credits Claimed!`,
-      isResetCycle
-        ? `Day 7 Milestone unlocked! 5 credits deposited into your treasury. The cycle now restarts for Day 1.`
-        : `Day ${nextTier.day} check-in recorded (+${rewardAmount} credits). Streak is now at ${newStreak} consecutive days!`
-    );
+    addToast('success', 'Daily Reward Claimed', `+${rewardAmount} credits added to your balance. Current streak: ${newStreak} day${newStreak === 1 ? '' : 's'}!`);
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-200">
-      {/* Hero Streak Progression Showcase */}
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.09] bg-gradient-to-br from-[#161a24] via-[#12151d] to-[#0c0e14] p-6 sm:p-8 shadow-[0_8px_32px_-4px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.08)]">
-        {/* Background glow highlights */}
-        <div className="pointer-events-none absolute -top-24 -left-24 size-80 rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -right-24 size-80 rounded-full bg-amber-500/10 blur-3xl" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="bg-amber-500/15 border-amber-500/30 text-amber-300 font-mono text-xs px-3 py-1 flex items-center gap-1.5">
-                <Flame className="size-3.5 text-amber-400" />
-                <span>ACTIVE STREAK: {streakDays} DAYS</span>
-              </Badge>
-              <Badge variant="outline" className="border-white/10 bg-white/[0.04] text-slate-300 font-mono text-xs px-2.5 py-1 flex items-center gap-1">
-                <RotateCcw className="size-3 text-slate-400" />
-                <span>Auto-Loops Weekly</span>
-              </Badge>
-            </div>
-
-            <div className="space-y-1.5">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                Daily Check-In & Streak Rewards
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Check in every 24 hours to fuel your community treasury. Earn 2 credits daily from Days 1 through 6, then score a jackpot of 5 credits on Day 7!
-              </p>
-            </div>
-
-            <div className="flex items-center gap-4 text-xs font-mono text-slate-400 pt-1">
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck className="size-4 text-emerald-400" />
-                <span>Discord ID Verified</span>
-              </span>
-              <span className="text-slate-700">·</span>
-              <span className="flex items-center gap-1.5">
-                <Clock className="size-4 text-cyan-400" />
-                <span>24h Cooldown Protection</span>
-              </span>
-            </div>
+    <div className="space-y-8 max-w-5xl mx-auto animate-in fade-in-50 duration-200 pb-12">
+      {/* ── TOP HEADER (Flush & Clean) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/10">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-bold px-2 py-0.5 rounded bg-white/[0.04] border border-white/10">
+              COMMUNITY REWARD SYSTEM
+            </span>
+            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
           </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+            Daily Check-In & Streak Rewards
+          </h2>
+          <p className="text-xs text-zinc-400">
+            Check in every 24 hours to earn free community credits. Keep your daily streak alive to earn escalating streak bonuses.
+          </p>
+        </div>
 
-          {/* Quick Bounty Claim Terminal */}
-          <div className="rounded-2xl border border-white/[0.12] bg-[#1a1f2c]/80 backdrop-blur-xl p-5 shrink-0 flex flex-col justify-between gap-4 min-w-[280px] sm:min-w-[320px] shadow-xl">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Next Available Bounty</span>
-              <span className="text-xs font-mono font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
-                Day {currentDayIndex + 1} of 7
-              </span>
-            </div>
-
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl sm:text-4xl font-extrabold text-white font-mono tracking-tight">
-                +{nextTier.reward}
-              </span>
-              <span className="text-sm font-semibold text-amber-400 font-mono">CREDITS</span>
-            </div>
-
-            {canClaim ? (
-              <AsyncButton
-                loadingText="Claiming Bounty…"
-                onClick={handleClaim}
-                className="w-full bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 text-xs font-bold h-10 px-5 rounded-xl shadow-lg transition-all hover:shadow-amber-500/20 hover:-translate-y-0.5 flex items-center justify-center gap-2"
-              >
-                <Sparkles className="size-4" />
-                <span>Claim Day {nextTier.day} Reward</span>
-              </AsyncButton>
-            ) : (
-              <div className="space-y-2">
-                <Button
-                  disabled
-                  className="w-full bg-white/[0.06] text-slate-400 text-xs font-medium h-10 px-4 rounded-xl cursor-not-allowed border border-white/[0.08] flex items-center justify-center gap-2"
-                >
-                  <Check className="size-4 text-emerald-400" />
-                  <span>Already Claimed Today</span>
-                </Button>
-                <div className="text-center">
-                  <span className="text-[11px] font-mono text-slate-400">
-                    Next unlock in: <strong className="text-white">{hoursRemaining}h {minutesRemaining}m {secondsRemaining}s</strong>
-                  </span>
-                </div>
-              </div>
-            )}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/10 text-xs font-mono">
+            <Flame className="size-4 text-rose-400" />
+            <span className="text-zinc-400">Current Streak:</span>
+            <span className="text-white font-bold">{streakDays} {streakDays === 1 ? 'Day' : 'Days'}</span>
           </div>
         </div>
       </div>
 
-      {/* 7-Day Progressive Capsule Track */}
-      <Card className="border-white/[0.09] bg-[#161a24] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)]">
-        <CardHeader className="pb-4 border-b border-white/[0.06]">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <CardTitle className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                <Zap className="size-4 text-amber-400" />
-                <span>Weekly Reward Progression Matrix</span>
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-400 mt-0.5">
-                Maintain an unbroken daily streak. Days 1 through 6 award 2 credits each. Day 7 unlocks the 5-credit milestone.
-              </CardDescription>
+      {/* ── MAIN CHECK-IN CARD (Blends with page) ── */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden shadow-xl">
+        <div className="px-6 py-3 border-b border-white/10 bg-white/[0.02] flex items-center justify-between text-xs font-mono">
+          <div className="flex items-center gap-2 text-zinc-400">
+            <Coins className="size-3.5 text-amber-400" />
+            <span className="uppercase tracking-wider">Day {nextTier.day} Check-In Reward</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {canClaim ? (
+              <span className="inline-flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
+                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Available Now
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-zinc-400 bg-white/[0.03] px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-white/5">
+                <Clock className="size-3" />
+                Next Check-In Cooldown
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-baseline gap-3">
+              <span className="text-4xl sm:text-5xl font-extrabold font-mono text-white tracking-tight">
+                +{nextTier.reward}
+              </span>
+              <span className="text-lg font-semibold text-amber-400 font-mono uppercase tracking-wider">
+                Credits
+              </span>
             </div>
-            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-              <span className="inline-block size-2 rounded-full bg-emerald-400" />
-              <span>{streakDays} Days Logged</span>
+
+            <p className="text-xs text-zinc-400 max-w-md leading-relaxed">
+              {canClaim
+                ? 'Your daily check-in reward is ready! Claim now to deposit credits into your community balance and extend your streak.'
+                : `You already checked in today! Check back in ${hoursRemaining}h ${minutesRemaining}m to claim your next bonus.`}
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto shrink-0">
+            {canClaim ? (
+              <AsyncButton
+                onClick={handleClaim}
+                loadingText="Claiming Reward..."
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs h-11 px-7 rounded-xl shadow-lg shadow-emerald-600/20 cursor-pointer flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                <Sparkles className="size-4 text-emerald-200" />
+                <span>Claim Daily Bonus (+{nextTier.reward} Credits)</span>
+              </AsyncButton>
+            ) : (
+              <div className="flex items-center gap-2 py-2 px-1 text-zinc-300 font-mono text-xs">
+                <Check className="size-4 text-emerald-400 shrink-0" />
+                <span>Claimed for Today · Next bonus in {hoursRemaining}h {minutesRemaining}m</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Cooldown Status Progress Footer */}
+        <div className="px-6 py-3 border-t border-white/10 bg-white/[0.01] flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-400">
+          <div className="flex items-center gap-2">
+            <Calendar className="size-3.5 text-zinc-500" />
+            <span className="font-mono text-[11px]">
+              {lastCheckin > 0
+                ? `Last claimed: ${new Date(lastCheckin).toLocaleString()}`
+                : 'No check-in recorded yet'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
+            <span>Streak Reset Window:</span>
+            <span className="text-amber-400">48h after last claim</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 7-DAY STREAK CADENCE (Clean, Minimal, No Line Cutting Across) ── */}
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Flame className="size-4 text-amber-400" />
+            <div>
+              <h3 className="text-sm font-semibold text-white">7-Day Consecutive Streak Bonuses</h3>
+              <p className="text-xs text-zinc-400">Daily check-in progression with escalating credit rewards</p>
             </div>
           </div>
-        </CardHeader>
+          <span className="text-xs text-zinc-400 font-mono bg-white/[0.03] border border-white/5 px-2.5 py-1 rounded-lg">
+            {streakDays % 7} / 7 Days Active
+          </span>
+        </div>
 
-        <CardContent className="p-5 sm:p-6 space-y-6">
-          {/* Days 1-6 Strip + Day 7 Milestone Vault */}
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-3.5">
-            {STREAK_TIERS.map((tier, idx) => {
-              const isPastClaimed = streakDays > 0 && idx < currentDayIndex;
-              const isCurrentDay = idx === currentDayIndex;
-              const isReady = isCurrentDay && canClaim;
-              const isCompletedToday = isCurrentDay && !canClaim;
-              const isDay7 = tier.day === 7;
+        {/* 7 Clean Streak Day Cards (No Line Across) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          {STREAK_TIERS.map((tier) => {
+            const isCompleted = streakDays > 0 && currentDayIndex >= tier.day;
+            const isCurrent = currentDayIndex + 1 === tier.day;
+            const isGrand = tier.day === 7;
 
-              if (isDay7) {
-                return (
-                  <div
-                    key={tier.day}
-                    className={`col-span-1 md:col-span-2 relative overflow-hidden rounded-2xl p-4 sm:p-5 flex flex-col justify-between border transition-all ${
-                      isPastClaimed || isCompletedToday
-                        ? 'border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-[#151c24] to-[#11141c]'
-                        : isReady
-                        ? 'border-amber-400/60 bg-gradient-to-br from-amber-950/40 via-[#1e1b18] to-[#161a24] shadow-[0_0_30px_-5px_rgba(245,158,11,0.25)]'
-                        : 'border-white/[0.12] bg-gradient-to-br from-[#1a1f2c] via-[#141822] to-[#10131a]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono font-bold tracking-wider uppercase text-amber-400 flex items-center gap-1.5">
-                        <Trophy className="size-3.5 text-amber-400" />
-                        <span>DAY 7 MILESTONE</span>
-                      </span>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold">
-                        GRAND REWARD
-                      </span>
-                    </div>
-
-                    <div className="my-3 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Coins className="size-6 text-amber-400" />
-                        <span className="text-2xl sm:text-3xl font-extrabold text-white font-mono">
-                          +{tier.reward}
-                        </span>
-                        <span className="text-xs font-bold text-amber-400 font-mono">CREDITS</span>
-                      </div>
-                      <p className="text-[11px] text-slate-300 font-medium">
-                        Complete your 7-day streak to claim the grand weekly treasury chest.
-                      </p>
-                    </div>
-
-                    <div className="pt-3 border-t border-white/[0.08] flex items-center justify-between">
-                      {isPastClaimed || isCompletedToday ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400 font-semibold">
-                          <Check className="size-3.5" />
-                          <span>Milestone Claimed</span>
-                        </span>
-                      ) : isReady ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-mono text-amber-300 font-bold animate-pulse">
-                          <Sparkles className="size-3.5" />
-                          <span>Ready to Unlock</span>
-                        </span>
-                      ) : (
-                        <span className="text-xs font-mono text-slate-500 flex items-center gap-1.5">
-                          <Clock className="size-3.5" />
-                          <span>Unlocks on Day 7</span>
-                        </span>
-                      )}
-
-                      <span className="text-[10px] font-mono text-slate-400">
-                        Auto-Restarts
-                      </span>
-                    </div>
-                  </div>
-                );
-              }
-
-              // Days 1 through 6
-              return (
-                <div
-                  key={tier.day}
-                  className={`rounded-2xl p-4 flex flex-col justify-between border transition-all ${
-                    isPastClaimed || isCompletedToday
-                      ? 'border-emerald-500/30 bg-emerald-500/[0.06]'
-                      : isReady
-                      ? 'border-amber-500/50 bg-amber-500/[0.1] shadow-md shadow-amber-500/5'
-                      : 'border-white/[0.08] bg-[#11141c]/80 hover:border-white/[0.14]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
-                      DAY {tier.day}
+            return (
+              <div
+                key={tier.day}
+                className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 text-left ${
+                  isCurrent
+                    ? 'border-emerald-500/50 bg-emerald-500/[0.06] shadow-sm'
+                    : isCompleted
+                    ? 'border-white/10 bg-white/[0.02]'
+                    : 'border-white/5 bg-transparent opacity-60'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    Day {tier.day}
+                  </span>
+                  {isCompleted ? (
+                    <Check className="size-3 text-emerald-400 shrink-0" />
+                  ) : isCurrent ? (
+                    <span className="text-[9px] font-mono font-bold text-emerald-400">
+                      TODAY
                     </span>
-                    {isPastClaimed || isCompletedToday ? (
-                      <Check className="size-3.5 text-emerald-400" />
-                    ) : isReady ? (
-                      <span className="size-2 rounded-full bg-amber-400 animate-ping" />
-                    ) : (
-                      <span className="size-1.5 rounded-full bg-slate-600" />
-                    )}
-                  </div>
+                  ) : isGrand ? (
+                    <Sparkles className="size-3 text-amber-400" />
+                  ) : null}
+                </div>
 
-                  <div className="my-3 space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <Coins className={`size-4 ${isReady ? 'text-amber-400' : 'text-slate-400'}`} />
-                      <span className="font-mono font-extrabold text-lg text-white">
-                        +{tier.reward}
-                      </span>
-                    </div>
-                    <span className="text-[11px] font-mono text-slate-400 block truncate">
-                      {tier.label}
+                <div className="space-y-0.5">
+                  <div className="text-base font-bold font-mono text-white flex items-baseline gap-1">
+                    <span>+{tier.reward}</span>
+                    <span className="text-[10px] text-amber-400 font-sans font-medium uppercase">
+                      Credits
                     </span>
                   </div>
 
-                  <div className="pt-2.5 border-t border-white/[0.06]">
-                    {isPastClaimed || isCompletedToday ? (
-                      <span className="text-[11px] font-mono text-emerald-400 font-semibold block text-center">
-                        Claimed
-                      </span>
-                    ) : isReady ? (
-                      <span className="text-[11px] font-mono text-amber-400 font-bold block text-center">
-                        Ready
-                      </span>
-                    ) : (
-                      <span className="text-[11px] font-mono text-slate-500 block text-center">
-                        Locked
-                      </span>
-                    )}
+                  {isGrand ? (
+                    <span className="text-[9px] font-mono text-amber-400 font-bold uppercase tracking-wider block">
+                      Grand Bonus
+                    </span>
+                  ) : (
+                    <span className="text-[9px] font-mono text-zinc-500 block">
+                      {isCompleted ? 'Completed' : isCurrent ? 'Available' : 'Upcoming'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── RECENT REWARDS ACTIVITY LOG ── */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Coins className="size-4 text-emerald-400" />
+            <h3 className="text-sm font-semibold text-white">Recent Rewards History</h3>
+          </div>
+          <span className="text-xs text-zinc-400 font-mono">
+            {recentLogs.length} Logged Entries
+          </span>
+        </div>
+
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
+          {recentLogs.length === 0 ? (
+            <div className="p-8 text-center space-y-2">
+              <Coins className="size-8 text-zinc-600 mx-auto" />
+              <p className="text-xs text-zinc-400 font-mono">No check-in history logged yet.</p>
+              <p className="text-[11px] text-zinc-500">Claim your daily check-in above to begin building your streak log.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/5 text-xs font-mono">
+              {recentLogs.map((log: any) => (
+                <div key={log.id} className="p-3.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Check className="size-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <span className="font-semibold text-white block">{log.title}</span>
+                      <span className="text-[11px] text-zinc-400 block">{log.date}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-emerald-400 font-bold block">{log.amount}</span>
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-widest block">Completed</span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Quick Info & Treasury Benefits */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-4 border-t border-white/[0.06]">
-            <div className="p-3.5 rounded-xl border border-white/[0.06] bg-[#11141c]/50 flex items-start gap-3">
-              <Gift className="size-4 text-emerald-400 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <h4 className="text-xs font-semibold text-white">17 Weekly Total Credits</h4>
-                <p className="text-[11px] text-slate-400">Complete an entire week to accumulate 17 verified treasury credits.</p>
-              </div>
+              ))}
             </div>
-
-            <div className="p-3.5 rounded-xl border border-white/[0.06] bg-[#11141c]/50 flex items-start gap-3">
-              <Clock className="size-4 text-amber-400 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <h4 className="text-xs font-semibold text-white">48h Break Protection</h4>
-                <p className="text-[11px] text-slate-400">If you miss a single day, you have up to 48 hours to claim before your streak resets.</p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl border border-white/[0.06] bg-[#11141c]/50 flex items-start gap-3">
-              <ArrowRight className="size-4 text-cyan-400 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <h4 className="text-xs font-semibold text-white">Instant Directory Fuel</h4>
-                <p className="text-[11px] text-slate-400">Use your credits directly in Promote Server to attract verified Discord members.</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

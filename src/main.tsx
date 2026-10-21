@@ -157,8 +157,15 @@ export function LoginPage() {
               </div>
 
               {error && (
-                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex flex-col gap-2">
                   <span>Authentication notice: {error.replace(/_/g, ' ')}</span>
+                  <button
+                    type="button"
+                    onClick={() => { window.location.assign('/dashboard'); }}
+                    className="text-emerald-400 underline hover:text-emerald-300 text-left text-xs font-medium cursor-pointer"
+                  >
+                    Open Dashboard Directly &rarr;
+                  </button>
                 </div>
               )}
 
@@ -239,15 +246,31 @@ function CallbackPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
+    const guildId = params.get('guild_id');
+
+    if (guildId) {
+      window.location.assign(`/dashboard/${guildId}?bot_installed=true`);
+      return;
+    }
+
     if (code) {
       window.location.assign(`/api/auth/discord/callback${window.location.search}`);
+      return;
     }
+
+    const err = params.get('error') || params.get('error_description');
+    if (err) {
+      window.location.assign(`/login?auth_error=${encodeURIComponent(err)}`);
+      return;
+    }
+
+    window.location.assign('/dashboard');
   }, []);
 
   return (
     <div className="min-h-screen bg-[#070709] flex flex-col items-center justify-center gap-3 text-xs text-zinc-400 font-mono">
       <div className="size-5 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
-      <span>Exchanging Discord OAuth2 code...</span>
+      <span>Connecting with Discord...</span>
     </div>
   );
 }
@@ -290,11 +313,11 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
               <Button
                 variant="outline"
                 onClick={() => {
-                  window.location.href = '/dashboard';
+                  window.location.href = '/';
                 }}
                 className="border-white/10 hover:bg-white/5 text-zinc-300 text-xs font-semibold px-4 py-2.5 rounded-xl cursor-pointer"
               >
-                Return to Overview
+                Return to Home
               </Button>
             </div>
           </div>
@@ -335,7 +358,10 @@ function App() {
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/docs" element={<DocsPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/auth/discord" element={<CallbackPage />} />
               <Route path="/auth/discord/callback" element={<CallbackPage />} />
+              <Route path="/auth/callback" element={<CallbackPage />} />
+              <Route path="/api/auth/discord/callback" element={<CallbackPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/tos" element={<TermsPage />} />

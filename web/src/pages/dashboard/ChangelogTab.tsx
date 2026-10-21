@@ -4,6 +4,22 @@ import { Sparkles } from "lucide-react"
 
 const ENTRIES: ChangelogEntry[] = [
   {
+    version: "3.2.0",
+    date: "2026-10-21T02:00:00.000Z",
+    title: "V2 Bump Engine & Dynamic Telemetry Trajectory",
+    description: "Upgraded slash command /bump with server bump counters and direct links, alongside dynamic Recharts member growth charts and directory pagination.",
+    tags: ["new", "improved"],
+    items: [
+      "Enhanced /bump slash command returning rich embed with custom emojis, total bump counter, and erlc.us directory link",
+      "Dynamic verified member growth trajectory line chart powered by Recharts",
+      "Custom banner image upload in Promote Server Studio with real-time preview",
+      "Complete Anti-Raid & Churn Security suite with live defense shield rating and 72h retention enforcement",
+      "Paginated community directory discovery and joined communities management",
+      "Redesigned community growth tiers with transparent Vibra UI pricing cards and custom banners included on Free",
+    ],
+    href: "#v3-2-0",
+  },
+  {
     version: "3.0.0",
     date: "2026-10-17T08:00:00.000Z",
     title: "Mavely Community Growth & Discord Gateway Integration",

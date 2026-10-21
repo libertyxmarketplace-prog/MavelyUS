@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Check, X } from 'lucide-react';
+import { getBotInviteUrl } from '@/lib/api';
 
 // Types
 export interface Feature {
@@ -107,7 +108,7 @@ export const PricingComponent: React.FC<PricingComponentProps> = ({
     if (onPlanSelect) {
       onPlanSelect(planId, billingCycle);
     } else {
-      window.location.href = 'https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&scope=bot%20applications.commands';
+      window.location.href = getBotInviteUrl();
     }
   };
 

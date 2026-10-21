@@ -235,6 +235,51 @@ function createCustomerClient(bot, intents) {
           return;
         }
 
+        if (interaction.isChatInputCommand() && interaction.commandName === 'bump') {
+          const guildId = interaction.guildId;
+          const now = Date.now();
+          const COOLDOWN_MS = 60 * 60 * 1000;
+          if (!global.__bumpCooldowns) global.__bumpCooldowns = new Map();
+          const lastBump = global.__bumpCooldowns.get(guildId) || 0;
+          const elapsed = now - lastBump;
+
+          if (elapsed < COOLDOWN_MS) {
+            const remainingMinutes = Math.ceil((COOLDOWN_MS - elapsed) / 60000);
+            return interaction.reply({
+              content: `<:warning:1562330999998652446> **Cooldown Active:** This server was bumped recently. You can run \`/bump\` again in **${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}**.\n*(Limit: 1 bump per hour)*`,
+              flags: 64
+            }).catch(() => null);
+          }
+
+          global.__bumpCooldowns.set(guildId, now);
+          if (!global.__bumpCounts) global.__bumpCounts = new Map();
+          const totalBumps = (global.__bumpCounts.get(guildId) || 0) + 1;
+          global.__bumpCounts.set(guildId, totalBumps);
+
+          try {
+            if (currentBot?.botId) {
+              updateBotCustomization(currentBot.botId, 'lastBumpedAt', now);
+              updateBotCustomization(currentBot.botId, 'totalBumps', totalBumps);
+            }
+          } catch {}
+
+          const serverName = interaction.guild?.name || currentBot?.customizations?.serverName || 'Community Server';
+          const bumpLink = `https://erlc.us/server/${guildId}?b=${totalBumps}`;
+
+          return interaction.reply({
+            content: `<@${interaction.user.id}> just bumped **${serverName}** on Mavely! That's **${totalBumps}** bump${totalBumps === 1 ? '' : 's'} total. You can bump again in **1h 0m**.\n${bumpLink}`,
+            embeds: [{
+              title: '<:checkmark:1552901024400932894> Server Elevated to #1',
+              description: `**${serverName}** has been elevated to **#1** at the top of the directory!\n\n<:Warning:1562331659943284756> **Next bump available:** \`1 hour\`\n🔗 **Directory Listing:** [View Live on Mavely](${bumpLink})`,
+              color: 0x10b981,
+              footer: {
+                text: `Mavely Directory Bump Engine · Total Bumps: ${totalBumps}`
+              },
+              timestamp: new Date().toISOString()
+            }]
+          }).catch(() => null);
+        }
+
         if (interactionHandler) {
           await interactionHandler(interaction);
         }

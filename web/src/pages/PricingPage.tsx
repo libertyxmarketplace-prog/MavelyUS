@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import PricingComponent from '@/components/ui/interactive-pricing-component';
+import { getBotInviteUrl } from '@/lib/api';
 
 export function PricingPage() {
   return (
@@ -24,7 +25,7 @@ export function PricingPage() {
 
           <div className="flex items-center gap-3">
             <a
-              href="https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&scope=bot%20applications.commands"
+              href={getBotInviteUrl()}
               target="_blank"
               rel="noreferrer"
               className="hidden sm:inline-flex items-center gap-1.5 text-xs text-white/60 hover:text-[#2ecc71] transition-colors font-medium px-2 py-1"

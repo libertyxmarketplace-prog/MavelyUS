@@ -17,6 +17,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getBotInviteUrl } from "@/lib/api";
 
 /**
  * Search Modal
@@ -156,7 +157,7 @@ const DEFAULT_RESULTS: SearchResult[] = [
 const DEFAULT_QUICK_ACTIONS: QuickAction[] = [
   { label: "Open Dashboard", shortcut: "D", onClick: () => { window.location.href = "/dashboard"; } },
   { label: "View Documentation", shortcut: "G", onClick: () => { window.location.href = "/docs"; } },
-  { label: "Add Your Server", shortcut: "A", onClick: () => { window.location.href = "https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&scope=bot%20applications.commands"; } },
+  { label: "Add Your Server", shortcut: "A", onClick: () => { window.location.href = getBotInviteUrl(); } },
   { label: "Join Discord Support", shortcut: "S", onClick: () => { window.open("https://discord.gg/UCqXrvHFqh", "_blank"); } },
 ];
 

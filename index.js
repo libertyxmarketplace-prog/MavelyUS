@@ -2023,6 +2023,7 @@ export async function handleInteraction(interaction) {
       const botInst = getBotInstanceForGuild(interaction.guild?.id, interaction.user.id);
 
       // Check if bot is banned (exempt master administration commands so admins can unban/reconfigure)
+      const MASTER_ONLY_COMMANDS = ['config', 'setup', 'admin', 'manage', 'eval', 'ban-instance', 'unban-instance'];
       const isMasterAdminCmd = MASTER_ONLY_COMMANDS.includes(interaction.commandName);
       if (!isMasterAdminCmd && botInst && botInst.banned) {
         return interaction.reply({
@@ -3022,29 +3023,36 @@ export async function handleInteraction(interaction) {
         if (elapsed < COOLDOWN_MS) {
           const remainingMinutes = Math.ceil((COOLDOWN_MS - elapsed) / 60000);
           return interaction.reply({
-            content: `⏳ **Cooldown Active:** This server was bumped recently. You can run \`/bump\` again in **${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}**.\n*(Limit: 1 bump per hour)*`,
+            content: `<:warning:1562330999998652446> **Cooldown Active:** This server was bumped recently. You can run \`/bump\` again in **${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}**.\n*(Limit: 1 bump per hour)*`,
             flags: 64
           }).catch(() => null);
         }
 
-        // Record new bump timestamp
+        // Record new bump timestamp and increment counter
         global.__bumpCooldowns.set(guildId, now);
+        if (!global.__bumpCounts) global.__bumpCounts = new Map();
+        const totalBumps = (global.__bumpCounts.get(guildId) || 0) + 1;
+        global.__bumpCounts.set(guildId, totalBumps);
 
         try {
           const botInst = getBotInstanceForGuild(guildId);
           if (botInst) {
             updateBotCustomization(botInst.botId, 'lastBumpedAt', now);
+            updateBotCustomization(botInst.botId, 'totalBumps', totalBumps);
           }
         } catch {}
 
         const serverName = interaction.guild?.name || 'Community Server';
+        const bumpLink = `https://erlc.us/server/${guildId}?b=${totalBumps}`;
+
         return interaction.reply({
+          content: `<@${interaction.user.id}> just bumped **${serverName}** on Mavely! That's **${totalBumps}** bump${totalBumps === 1 ? '' : 's'} total. You can bump again in **1h 0m**.\n${bumpLink}`,
           embeds: [{
-            title: '🔥 Server Bumped Successfully!',
-            description: `**${serverName}** has been elevated to **#1** at the top of the directory!\n\n✨ **Next bump available in:** \`60 minutes\`\n🔗 **Directory:** [View Live Directory](https://mavely.app/dashboard)`,
-            color: 0xf59e0b,
+            title: '<:checkmark:1552901024400932894> Server Elevated to #1',
+            description: `**${serverName}** has been elevated to **#1** at the top of the directory!\n\n<:Warning:1562331659943284756> **Next bump available:** \`1 hour\`\n🔗 **Directory Listing:** [View Live on Mavely](${bumpLink})`,
+            color: 0x10b981,
             footer: {
-              text: 'Mavely Directory Bump Engine · 1h Cooldown Enforced'
+              text: `Mavely Directory Bump Engine · Total Bumps: ${totalBumps}`
             },
             timestamp: new Date().toISOString()
           }]

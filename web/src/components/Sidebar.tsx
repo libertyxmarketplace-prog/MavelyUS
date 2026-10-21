@@ -14,6 +14,7 @@ import {
   Activity
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { getDiscordLoginUrl } from '@/lib/api';
 import { SiteSettingsModal } from '@/components/ui/site-settings-modal';
 
 export function Sidebar() {
@@ -193,7 +194,7 @@ export function Sidebar() {
           </div>
         ) : (
           <a
-            href="https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fdiscord%2Fcallback&scope=identify+guilds+guilds.join"
+            href={getDiscordLoginUrl()}
             title="Sign in with Discord"
             className="mt-1 flex size-8 items-center justify-center rounded-md bg-white/[0.04] border border-white/10 text-white/60 hover:text-white hover:border-white/20 hover:bg-white/[0.08] transition-all outline-none"
           >

@@ -48,7 +48,7 @@ export function J4JEngineTab({
   const clientId = '1552165138017165372';
   const redirectUri = typeof window !== 'undefined'
     ? `${window.location.origin}/auth/discord/callback`
-    : 'https://civlink.xyz/auth/discord/callback';
+    : 'https://erlc.us/auth/discord/callback';
   const oauthJoinUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=identify+guilds+guilds.join`;
 
   const auditLog: J4JAuditEntry[] = config.j4jAuditLog && config.j4jAuditLog.length > 0

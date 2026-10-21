@@ -23,15 +23,23 @@ import {
   LogOut,
   ChevronDown,
   ChevronUp,
+  Eye,
+  Search,
+  Plus,
+  SlidersHorizontal,
+  X,
+  Sparkles,
+  ExternalLink
 } from 'lucide-react';
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 
 import { Logo } from '@/components/library/logo';
+import { getBotInviteUrl } from '@/lib/api';
 
 import {
   ArrowDown01Icon,
-  BuildingIcon,
   HelpIcon,
   SettingsIcon,
 } from '@/components/library/icons';
@@ -70,7 +78,7 @@ import type { NavConfig } from '@/lib/nav-config';
 import type { AppShellUser, AppShellWorkspace } from './index';
 
 const menuButtonBaseClassName =
-  'h-11 gap-3 rounded-2xl border border-transparent px-3.5 font-semibold text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-white active:bg-white/[0.06] data-active:border-white/[0.08] data-active:bg-[#12151f] data-active:text-white [&_svg]:size-5 [&_svg]:text-slate-400 data-active:[&_svg]:text-white';
+  'h-11 gap-3 rounded-2xl border border-transparent px-3.5 font-semibold text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-white active:bg-transparent data-active:border-transparent data-active:bg-transparent data-active:text-white [&_svg]:size-5 [&_svg]:text-slate-400 data-active:[&_svg]:text-emerald-400';
 
 const sidebarMenuButtonClassName = cn(
   menuButtonBaseClassName,
@@ -78,8 +86,7 @@ const sidebarMenuButtonClassName = cn(
 );
 
 const sidebarMenuSubButtonClassName = cn(
-  menuButtonBaseClassName,
-  '[&_svg]:text-foreground [&_svg]:!text-foreground data-active:[&_svg]:text-primary data-active:[&_svg]:!text-primary',
+  'h-10 gap-3 rounded-xl border border-transparent px-3 text-xs font-medium text-zinc-400 transition-colors hover:bg-white/[0.04] hover:text-white active:bg-transparent data-active:border-transparent data-active:bg-transparent data-active:text-emerald-400 data-active:font-semibold [&_svg]:size-4 [&_svg]:text-zinc-400 data-active:[&_svg]:text-emerald-400',
 );
 
 const subItemsMenuContentClassName = 'z-100 w-52 p-1.5 shadow-lg';
@@ -113,10 +120,91 @@ export type AppShellSidebarProps = {
   workspaces?: AppShellWorkspace[];
   workspaceId?: string;
   onWorkspaceChange?: (id: string) => void;
+  onOpenConnectModal?: () => void;
   side?: 'left' | 'right';
   user?: AppShellUser;
   onSignOut?: () => void;
 };
+
+// Deterministic vibrant gradient generator for servers with no custom icon
+function getGradientForName(str: string = 'Server') {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  const gradients = [
+    'from-blue-600 via-indigo-600 to-purple-700',
+    'from-emerald-500 via-teal-600 to-cyan-700',
+    'from-violet-600 via-purple-700 to-pink-600',
+    'from-amber-500 via-orange-600 to-rose-600',
+    'from-cyan-500 via-blue-600 to-indigo-700'
+  ];
+  return gradients[Math.abs(hash) % gradients.length];
+}
+
+export function ServerAvatar({
+  name,
+  iconUrl,
+  size = 'md',
+  className
+}: {
+  name?: string;
+  iconUrl?: string | null;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}) {
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [iconUrl]);
+
+  const serverName = name || 'Server';
+  const words = serverName.trim().split(/\s+/);
+  const initial = words.length > 1
+    ? words.slice(0, 3).map((w) => w[0]).join('').toUpperCase()
+    : serverName.slice(0, 2).toUpperCase();
+
+  const sizeClass =
+    size === 'sm'
+      ? 'size-6 text-[10px] rounded-md'
+      : size === 'lg'
+      ? 'size-10 text-sm rounded-xl'
+      : 'size-8 text-xs rounded-xl';
+
+  const validIcon = Boolean(
+    iconUrl &&
+    typeof iconUrl === 'string' &&
+    iconUrl.startsWith('http') &&
+    iconUrl !== 'null' &&
+    iconUrl !== 'undefined'
+  );
+
+  if (validIcon && !imgError) {
+    return (
+      <img
+        src={iconUrl}
+        alt={serverName}
+        className={cn(sizeClass, 'object-cover shrink-0 select-none', className)}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  // Authentic Discord default server icon: Discord glyph on #313338
+  return (
+    <div
+      className={cn(
+        sizeClass,
+        'bg-[#313338] text-[#dbdee1] flex items-center justify-center shrink-0 select-none',
+        className
+      )}
+      title={serverName}
+    >
+      <svg className="size-3.5 fill-current" viewBox="0 0 127.14 96.36">
+        <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.86,53,48.81,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z" />
+      </svg>
+    </div>
+  );
+}
 
 export function DashboardSidebar({
   nav,
@@ -124,6 +212,7 @@ export function DashboardSidebar({
   workspaces,
   workspaceId,
   onWorkspaceChange,
+  onOpenConnectModal,
   side = 'left',
   user,
   onSignOut,
@@ -133,12 +222,15 @@ export function DashboardSidebar({
   const navigate = useNavigate();
   const location = useLocation();
 
-  const currentGuildId = workspaceId || (workspaces && workspaces[0]?.id) || '1232495211490443284';
+  const [searchServerQuery, setSearchServerQuery] = useState('');
+
+  const currentGuildId = workspaceId || (workspaces && workspaces[0]?.id) || '1530147023754367006';
   const currentWorkspace = workspaces?.find((w) => w.id === currentGuildId) || workspaces?.[0];
 
   // Derive active section & subsection from activeHref or location.pathname
   const path = activeHref || location.pathname;
   const { activeSection, activeSubsection } = useMemo(() => {
+    if (path.includes('/details')) return { activeSection: 'growth', activeSubsection: 'details' };
     if (path.includes('/promote')) return { activeSection: 'growth', activeSubsection: 'promote' };
     if (path.includes('/earn')) return { activeSection: 'growth', activeSubsection: 'earn' };
     if (path.includes('/rewards')) return { activeSection: 'growth', activeSubsection: 'rewards' };
@@ -155,7 +247,7 @@ export function DashboardSidebar({
     return { activeSection: 'overview', activeSubsection: undefined };
   }, [path]);
 
-  // Primary navigation items containing user's full routes
+  // Primary navigation items containing full routes
   const primaryNavigation: NavigationItem[] = useMemo(() => [
     {
       section: 'overview',
@@ -166,9 +258,10 @@ export function DashboardSidebar({
     {
       section: 'growth',
       label: 'Community Growth',
-      href: `/dashboard/${currentGuildId}/promote`,
+      href: `/dashboard/${currentGuildId}/details`,
       icon: TrendingUp,
       subItems: [
+        { label: 'Server Details', href: `/dashboard/${currentGuildId}/details`, icon: Eye },
         { label: 'Promote Server', href: `/dashboard/${currentGuildId}/promote`, icon: Megaphone },
         { label: 'Earn Credits', href: `/dashboard/${currentGuildId}/earn`, icon: Coins },
         { label: 'Streak Rewards', href: `/dashboard/${currentGuildId}/rewards`, icon: Flame },
@@ -206,6 +299,7 @@ export function DashboardSidebar({
   const mobilePrimaryNavigation = primaryNavigation.slice(0, 2);
   const mobileMoreNavigation = useMemo(() => [
     { label: 'Overview', href: `/dashboard/${currentGuildId}`, icon: LayoutDashboard },
+    { label: 'Server Details', href: `/dashboard/${currentGuildId}/details`, icon: Eye },
     { label: 'Promote Server', href: `/dashboard/${currentGuildId}/promote`, icon: Megaphone },
     { label: 'Earn Credits', href: `/dashboard/${currentGuildId}/earn`, icon: Coins },
     { label: 'Streak Rewards', href: `/dashboard/${currentGuildId}/rewards`, icon: Flame },
@@ -221,74 +315,113 @@ export function DashboardSidebar({
     { label: 'Staff Handbook & LOA', href: `/dashboard/${currentGuildId}/staff-handbook`, icon: Shield },
   ], [currentGuildId]);
 
+  // Filtered workspaces for search
+  const filteredWorkspaces = useMemo(() => {
+    if (!workspaces) return [];
+    if (!searchServerQuery.trim()) return workspaces;
+    const q = searchServerQuery.toLowerCase().trim();
+    return workspaces.filter((ws) => ws.name.toLowerCase().includes(q) || ws.id.includes(q));
+  }, [workspaces, searchServerQuery]);
+
   return (
     <>
       <Sidebar collapsible="offcanvas" className="w-64 shrink-0 bg-sidebar border-r border-border/40" side={side}>
-        {/* Top Header: Discord Server Switcher (Matching Image 1) */}
+        {/* Top Header: Claude-Level Discord Server Switcher */}
         <SidebarHeader className="p-3 border-b border-border/40 bg-sidebar">
           <DropdownMenu>
             <DropdownMenuTrigger
-              className={cn(
-                buttonVariants({ variant: 'ghost' }),
-                'h-auto w-full justify-between p-2.5 rounded-2xl border border-white/[0.08] bg-[#12151f] hover:bg-white/[0.06] transition-all cursor-pointer min-w-0 text-left',
-              )}
+              className="h-auto w-full justify-start p-2 rounded-xl bg-transparent hover:bg-white/[0.04] border border-transparent transition-all cursor-pointer min-w-0 text-left group overflow-hidden max-w-full select-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 ring-0 focus-visible:outline-none"
             >
-              <span className="flex min-w-0 items-center gap-2.5">
-                <span className="bg-[#1a1e2b] flex size-8 shrink-0 items-center justify-center rounded-lg overflow-hidden border border-white/10 ring-1 ring-white/5">
-                  {currentWorkspace?.iconUrl ? (
-                    <img src={currentWorkspace.iconUrl} alt={currentWorkspace.name} className="size-8 rounded-lg object-cover" />
-                  ) : (
-                    <BuildingIcon className="size-4 text-emerald-400" />
-                  )}
-                </span>
-                <span className="min-w-0 text-left">
-                  <span className="text-slate-400 block text-[10px] font-mono uppercase tracking-wider font-semibold">
-                    ACTIVE SERVER
+              <div className="flex min-w-0 items-center gap-2.5 w-full overflow-hidden">
+                <ServerAvatar
+                  name={currentWorkspace?.name}
+                  iconUrl={currentWorkspace?.iconUrl || (currentWorkspace?.id ? localStorage.getItem(`server_icon_${currentWorkspace.id}`) : null)}
+                  size="md"
+                />
+                <div className="min-w-0 text-left flex-1 overflow-hidden">
+                  <span className="text-zinc-400 block text-[10px] font-mono uppercase tracking-wider font-semibold truncate">
+                    ACTIVE COMMUNITY
                   </span>
-                  <span className="block truncate text-xs font-semibold text-white">
+                  <span className="block truncate text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">
                     {currentWorkspace?.name || 'Select Server'}
                   </span>
-                </span>
-              </span>
-              <ChevronDown className="text-slate-400 size-4 ml-1 shrink-0" />
+                </div>
+              </div>
             </DropdownMenuTrigger>
+
             <DropdownMenuContent
               align="start"
               sideOffset={6}
               className="z-50 w-64 rounded-2xl p-1.5 shadow-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
             >
-              <DropdownMenuGroup>
-                <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-mono font-semibold text-zinc-400 tracking-wider uppercase">
-                  Select Server
+              <DropdownMenuGroup className="max-h-64 overflow-y-auto overflow-x-hidden scrollbar-none space-y-0.5">
+                <DropdownMenuLabel className="px-2.5 py-1 text-[10px] font-mono font-semibold text-zinc-400 tracking-wider uppercase">
+                  Select Server ({workspaces?.length || 0})
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-white/10" />
-                {workspaces?.map((ws) => (
-                  <DropdownMenuItem
-                    key={ws.id}
-                    onClick={() => onWorkspaceChange?.(ws.id)}
-                    className={cn(
-                      'justify-between rounded-xl px-2.5 py-2 cursor-pointer transition-colors text-xs',
-                      ws.id === currentWorkspace?.id
-                        ? 'text-emerald-400 font-semibold bg-emerald-500/10'
-                        : 'text-zinc-300 hover:text-white hover:bg-white/[0.06]',
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {ws.iconUrl ? (
-                        <img src={ws.iconUrl} alt={ws.name} className="size-6 rounded-md object-cover" />
-                      ) : (
-                        <div className="size-6 rounded-md bg-white/10 text-white text-[10px] flex items-center justify-center font-bold">
-                          {ws.initial}
+                <DropdownMenuSeparator className="bg-white/10 my-1" />
+
+                {!workspaces || workspaces.length === 0 ? (
+                  <div className="p-3 text-center text-xs text-zinc-500 font-mono">
+                    No servers available
+                  </div>
+                ) : (
+                  workspaces.map((ws) => {
+                    const isSelected = ws.id === currentWorkspace?.id;
+                    const wsIconUrl = ws.iconUrl || (ws.id ? localStorage.getItem(`server_icon_${ws.id}`) : null);
+                    return (
+                      <DropdownMenuItem
+                        key={ws.id}
+                        onClick={() => {
+                          onWorkspaceChange?.(ws.id);
+                        }}
+                        className={cn(
+                          'justify-between rounded-xl px-2.5 py-2 cursor-pointer transition-all text-xs',
+                          isSelected
+                            ? 'text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20'
+                            : 'text-zinc-300 hover:text-white hover:bg-white/[0.06]',
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
+                          <ServerAvatar name={ws.name} iconUrl={wsIconUrl} size="sm" />
+                          <div className="min-w-0 overflow-hidden">
+                            <span className="truncate block font-medium">{ws.name}</span>
+                          </div>
                         </div>
-                      )}
-                      <span className="truncate">{ws.name}</span>
-                    </div>
-                    {ws.id === currentWorkspace?.id && (
-                      <Check className="text-emerald-400 size-4" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
+                        {isSelected && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Check className="text-emerald-400 size-4" />
+                          </div>
+                        )}
+                      </DropdownMenuItem>
+                    );
+                  })
+                )}
               </DropdownMenuGroup>
+
+              <DropdownMenuSeparator className="bg-white/10 my-1.5" />
+
+              {/* Quick Actions at bottom of Select Server */}
+              <div className="space-y-1 pt-0.5">
+                <DropdownMenuItem
+                  onClick={() => {
+                    toast.info('Coming Soon', { description: 'Custom Bot Connection is coming soon in the next release.' });
+                  }}
+                  className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold text-white bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 cursor-pointer transition-all"
+                >
+                  <Plus className="size-3.5 text-indigo-400" />
+                  <span>Connect Bot to Server</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => {
+                    toast.info('Coming Soon', { description: 'Setup Without Bot is coming soon in the next release.' });
+                  }}
+                  className="flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/[0.06] cursor-pointer transition-colors"
+                >
+                  <SlidersHorizontal className="size-3.5 text-amber-400" />
+                  <span>Setup Without Bot (Soon)</span>
+                </DropdownMenuItem>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         </SidebarHeader>
@@ -364,9 +497,9 @@ export function DashboardSidebar({
                 {/* Help & Support */}
                 <DropdownMenuItem
                   onClick={() => window.open('https://discord.gg/mZcp3VBtBq', '_blank')}
-                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] cursor-pointer transition-colors"
                 >
-                  <HelpIcon className="size-4 text-emerald-400" />
+                  <HelpIcon className="size-4 text-zinc-400" />
                   <span>Help & Support</span>
                 </DropdownMenuItem>
 
@@ -374,20 +507,20 @@ export function DashboardSidebar({
                 <DropdownMenuItem
                   onClick={() =>
                     window.open(
-                      `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&integration_type=0&scope=bot%20applications.commands&guild_id=${currentGuildId}`,
+                      getBotInviteUrl(currentGuildId),
                       '_blank',
                     )
                   }
-                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] cursor-pointer transition-colors"
                 >
-                  <SettingsIcon className="size-4 text-emerald-400" />
+                  <SettingsIcon className="size-4 text-zinc-400" />
                   <span>Add Bot to Server</span>
                 </DropdownMenuItem>
 
                 {/* Back to Home */}
                 <DropdownMenuItem
                   onClick={() => navigate('/')}
-                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-200 hover:text-white hover:bg-white/[0.08] cursor-pointer transition-colors"
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] cursor-pointer transition-colors"
                 >
                   <Home className="size-4 text-zinc-400" />
                   <span>Back to Home</span>
@@ -537,13 +670,7 @@ function MobileBottomNavigation({
                 )}
               >
                 <span className="flex min-w-0 items-center gap-3">
-                  <span className="bg-foreground text-background dark:bg-muted flex size-10 shrink-0 items-center justify-center rounded-lg">
-                    {currentWorkspace?.iconUrl ? (
-                      <img src={currentWorkspace.iconUrl} alt={currentWorkspace.name} className="size-8 rounded-md object-cover" />
-                    ) : (
-                      <BuildingIcon className="size-5 text-emerald-400" />
-                    )}
-                  </span>
+                  <ServerAvatar name={currentWorkspace?.name} iconUrl={currentWorkspace?.iconUrl} size="md" />
                   <span className="min-w-0 text-left">
                     <span className="text-muted-foreground block text-xs font-normal">
                       Discord Server
@@ -578,13 +705,7 @@ function MobileBottomNavigation({
                       )}
                     >
                       <div className="flex items-center gap-2">
-                        {organization.iconUrl ? (
-                          <img src={organization.iconUrl} alt={organization.name} className="size-6 rounded-md object-cover" />
-                        ) : (
-                          <div className="size-6 rounded-md bg-white/10 text-white text-[10px] flex items-center justify-center font-bold">
-                            {organization.initial}
-                          </div>
-                        )}
+                        <ServerAvatar name={organization.name} iconUrl={organization.iconUrl} size="sm" />
                         <span>{organization.name}</span>
                       </div>
                       {organization.id === currentWorkspace?.id && (
@@ -628,17 +749,6 @@ function MobileBottomNavigation({
               <HelpIcon />
               <span>Help & Support</span>
             </a>
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setMoreOpen(false);
-              }}
-              className={moreNavItemClassName}
-            >
-              <SettingsIcon />
-              <span>Settings</span>
-            </a>
             {onSignOut && (
               <button
                 type="button"
@@ -672,7 +782,17 @@ function SidebarNavigationItem({
 }: SidebarNavigationItemProps & { onNavigate: (href: string) => void }) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const [open, setOpen] = useState(active);
+
+  // KEEP OPEN BY DEFAULT: "Community Growth", "System & Status", "Custom Bot" stay open
+  // unless user clicks the section button to close them, and remembers preference in localStorage.
+  const [open, setOpen] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(`nav_section_${item.section}_open`);
+      if (stored !== null) return stored === 'true';
+    } catch {}
+    return true; // Default open as requested!
+  });
+
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const flyoutCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const subItems = item.subItems;
@@ -688,7 +808,13 @@ function SidebarNavigationItem({
   const isActiveSubItem = (href: string) => active && href === activeChildHref;
 
   function toggleOpen() {
-    setOpen((currentOpen) => !currentOpen);
+    setOpen((currentOpen) => {
+      const next = !currentOpen;
+      try {
+        localStorage.setItem(`nav_section_${item.section}_open`, String(next));
+      } catch {}
+      return next;
+    });
   }
 
   function openFlyout() {
@@ -740,7 +866,7 @@ function SidebarNavigationItem({
         <SidebarMenuButton
           isActive={active}
           onClick={toggleOpen}
-          className={cn(sidebarMenuButtonClassName, 'cursor-pointer')}
+          className={cn(sidebarMenuButtonClassName, 'cursor-pointer select-none')}
         >
           <DisplayedIcon />
           {!collapsed && (
@@ -748,7 +874,7 @@ function SidebarNavigationItem({
               <span>{displayedLabel}</span>
               <ChevronDown
                 className={cn(
-                  'pointer-events-none ml-auto size-4 transition-transform text-slate-400',
+                  'pointer-events-none ml-auto size-4 transition-transform text-slate-400 duration-200',
                   open && 'rotate-180',
                 )}
               />
@@ -778,12 +904,11 @@ function SidebarNavigationItem({
               <SidebarMenuSubItem key={subItem.href}>
                 <SidebarMenuSubButton
                   isActive={isActiveSubItem(subItem.href)}
-                  className={cn(sidebarMenuSubButtonClassName, 'cursor-pointer')}
-                  href={subItem.href}
                   onClick={(event) => {
                     event.preventDefault();
                     onNavigate(subItem.href);
                   }}
+                  className={cn(sidebarMenuSubButtonClassName, 'cursor-pointer')}
                 >
                   <SubIcon />
                   <span>{subItem.label}</span>
