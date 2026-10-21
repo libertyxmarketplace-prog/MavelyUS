@@ -1554,6 +1554,16 @@ async function completeDiscordAuth(req, res) {
 
   try {
     const user = await discordJson('https://discord.com/api/v10/users/@me', tokenData.access_token);
+    // For now only members of the allowed server(s) can log in (LOGIN_GUILD_IDS, comma separated).
+    const allowedGuilds = (process.env.LOGIN_GUILD_IDS || '1562353446294781972').split(',').map(id => id.trim()).filter(Boolean);
+    if (allowedGuilds.length) {
+      const userGuilds = await discordJson('https://discord.com/api/v10/users/@me/guilds', tokenData.access_token).catch(() => []);
+      const isMember = Array.isArray(userGuilds) && userGuilds.some(g => allowedGuilds.includes(String(g.id)));
+      if (!isMember) {
+        console.warn(`[WEB OAuth] Login refused for ${user.username} (${user.id}): not in an allowed server.`);
+        return res.redirect(`${fallback}/login?auth_error=${encodeURIComponent('Login is limited to members of the ERLC.US testing server for now.')}`);
+      }
+    }
     const sessionId = randomBytes(32).toString('hex');
     sessions.set(sessionId, {
       user: {
