@@ -12,12 +12,12 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-import dotenv from 'dotenv';
-dotenv.config();
 
+// Workspace settings storage for the website. The records and data files keep their old
+// "bot instance" names so settings saved before the Discord bot was removed still load.
+// Id of the old shared record; kept so lookups can prefer a server's own record over it.
 export const PRIMARY_BOT_ID = "LC-74921";
 export const MASTER_BOT_ID = PRIMARY_BOT_ID;
-export const MASTER_TOKEN = process.env.DISCORD_TOKEN || "";
 
 export const DEFAULT_CUSTOMIZATIONS = {
   // ─── Ticket ────────────────────────────────────────────────────────────────
@@ -177,7 +177,7 @@ export function generateBotId() {
 }
 
 /**
- * Create a new customer bot instance
+ * Create a new workspace settings record
  */
 export function createBotInstance(ownerUserId, options = {}) {
   const instances = loadBotInstances();
@@ -186,12 +186,7 @@ export function createBotInstance(ownerUserId, options = {}) {
   instances[botId] = {
     botId,
     ownerUserId: ownerUserId || 'UNASSIGNED',
-    token: options.token || '',
     erlcApiKey: options.erlcApiKey || '',
-    aiApiKey: options.aiApiKey || '',
-    aiProvider: options.aiProvider || 'openai',
-    status: (options.token && options.token.trim().length > 0) ? 'active' : 'unconfigured',
-    setupCompleted: Boolean(options.token && options.token.trim().length > 0),
     banned: false,
     bannedReason: null,
     createdAt: new Date().toISOString(),
@@ -207,18 +202,8 @@ export function createBotInstance(ownerUserId, options = {}) {
   return instances[botId];
 }
 
-let onBotBannedCallback = null;
-export function setOnBotBanned(cb) {
-  onBotBannedCallback = cb;
-}
-
-let onBotUnbannedCallback = null;
-export function setOnBotUnbanned(cb) {
-  onBotUnbannedCallback = cb;
-}
-
 /**
- * Fetch a bot instance by its Bot ID or linked Discord ID / Owner ID
+ * Fetch a record by its id (case-insensitive) or owner user id
  */
 export function getBotInstance(botId) {
   if (!botId) return null;
@@ -226,123 +211,12 @@ export function getBotInstance(botId) {
   const instances = loadBotInstances();
   if (instances[cleanId]) return instances[cleanId];
 
-  // Also check case-insensitively or via discordBotId / ownerUserId / token client ID
+  // Also check case-insensitively or by owner user id
   for (const [id, b] of Object.entries(instances)) {
     if (id.toLowerCase() === cleanId.toLowerCase()) return b;
-    if (b.discordBotId === cleanId || b.ownerUserId === cleanId || b.clientId === cleanId) return b;
-    if (b.token) {
-      try {
-        const rawId = Buffer.from(b.token.split('.')[0], 'base64').toString('utf-8');
-        if (rawId === cleanId) return b;
-      } catch {}
-    }
+    if (b.ownerUserId === cleanId) return b;
   }
   return null;
-}
-
-/**
- * Find bot instance associated with a Guild ID or user ID
- */
-export function getBotInstanceForGuild(guildId, ownerUserId = null) {
-  const instances = loadBotInstances();
-  // 1. Exact match by owner AND guild first
-  if (guildId && ownerUserId) {
-    for (const bot of Object.values(instances)) {
-      if (bot.ownerUserId === ownerUserId && bot.guildId === guildId && !bot.banned) return bot;
-    }
-  }
-  // 2. Exact match by guild
-  if (guildId) {
-    for (const bot of Object.values(instances)) {
-      if (bot.guildId === guildId && bot.botId !== MASTER_BOT_ID && !bot.banned) return bot;
-    }
-  }
-  // 3. Match by owner
-  if (ownerUserId) {
-    for (const bot of Object.values(instances)) {
-      if (bot.ownerUserId === ownerUserId && bot.botId !== MASTER_BOT_ID && !bot.banned) return bot;
-    }
-  }
-  // 4. Fallback to Master
-  return instances[MASTER_BOT_ID] || null;
-}
-
-/**
- * Get or create a dedicated bot instance for a user
- */
-export function getOrCreateBotInstanceForUser(ownerUserId, guildId = null) {
-  const instances = loadBotInstances();
-  
-  // 1. If guildId is provided, first look for an existing bot already assigned to this guild with completed setup
-  if (guildId) {
-    for (const bot of Object.values(instances)) {
-      if (bot.guildId === guildId && bot.botId !== MASTER_BOT_ID && !bot.banned && bot.token && bot.erlcApiKey && bot.erlcApiKey.length > 5) {
-        if (ownerUserId && (!bot.ownerUserId || bot.ownerUserId === 'UNASSIGNED')) {
-          bot.ownerUserId = ownerUserId;
-          saveBotInstances(instances);
-        }
-        return bot;
-      }
-    }
-    for (const bot of Object.values(instances)) {
-      if (bot.guildId === guildId && bot.botId !== MASTER_BOT_ID && !bot.banned) {
-        if (ownerUserId && (!bot.ownerUserId || bot.ownerUserId === 'UNASSIGNED')) {
-          bot.ownerUserId = ownerUserId;
-          saveBotInstances(instances);
-        }
-        return bot;
-      }
-    }
-  }
-
-  if (ownerUserId) {
-    if (guildId) {
-      for (const bot of Object.values(instances)) {
-        if (bot.ownerUserId === ownerUserId && bot.guildId === guildId && !bot.banned && bot.token && bot.erlcApiKey) {
-          return bot;
-        }
-      }
-      for (const bot of Object.values(instances)) {
-        if (bot.ownerUserId === ownerUserId && bot.guildId === guildId && !bot.banned) {
-          return bot;
-        }
-      }
-    }
-    for (const bot of Object.values(instances)) {
-      if (bot.ownerUserId === ownerUserId && !bot.banned && bot.token && bot.erlcApiKey) {
-        if (guildId && !bot.guildId) {
-          bot.guildId = guildId;
-          saveBotInstances(instances);
-        }
-        return bot;
-      }
-    }
-    for (const bot of Object.values(instances)) {
-      if (bot.ownerUserId === ownerUserId && !bot.banned) {
-        if (guildId && !bot.guildId) {
-          bot.guildId = guildId;
-          saveBotInstances(instances);
-        }
-        return bot;
-      }
-    }
-    for (const bot of Object.values(instances)) {
-      if (bot.ownerUserId === ownerUserId) {
-        if (guildId && !bot.guildId) {
-          bot.guildId = guildId;
-          saveBotInstances(instances);
-        }
-        return bot;
-      }
-    }
-  }
-
-  // 2. If no owner specified and guild has a master instance, use it as fallback
-  if (!ownerUserId && guildId && instances[PRIMARY_BOT_ID] && !instances[PRIMARY_BOT_ID].banned) {
-    return instances[PRIMARY_BOT_ID];
-  }
-
-  return createBotInstance(ownerUserId, { guildId });
 }
 
 /**
@@ -356,12 +230,7 @@ export function updateBotInstance(botId, updates) {
     instances[actualId] = {
       botId: actualId,
       ownerUserId: 'UNASSIGNED',
-      token: '',
       erlcApiKey: '',
-      aiApiKey: '',
-      aiProvider: 'openai',
-      status: 'unconfigured',
-      setupCompleted: false,
       banned: false,
       bannedReason: null,
       createdAt: new Date().toISOString(),
@@ -375,19 +244,6 @@ export function updateBotInstance(botId, updates) {
     ...updates,
     updatedAt: new Date().toISOString()
   };
-
-  // Re-check setup completion
-  if (instances[actualId].token && instances[actualId].token.trim().length > 0) {
-    instances[actualId].setupCompleted = true;
-    if (instances[actualId].status === 'unconfigured') {
-      instances[actualId].status = 'active';
-    }
-  }
-
-  // Preserve banned status if instance is banned
-  if (instances[actualId].banned) {
-    instances[actualId].status = 'banned';
-  }
 
   saveBotInstances(instances);
   return instances[actualId];
@@ -404,12 +260,7 @@ export function updateBotCustomization(botId, key, value) {
     instances[actualId] = {
       botId: actualId,
       ownerUserId: 'UNASSIGNED',
-      token: '',
       erlcApiKey: '',
-      aiApiKey: '',
-      aiProvider: 'openai',
-      status: 'unconfigured',
-      setupCompleted: false,
       banned: false,
       bannedReason: null,
       createdAt: new Date().toISOString(),
@@ -429,126 +280,9 @@ export function updateBotCustomization(botId, key, value) {
 }
 
 /**
- * Retrigger / restart a customer's bot instance
- */
-export function retriggerBot(botId) {
-  const instances = loadBotInstances();
-  const bot = getBotInstance(botId);
-  if (!bot) {
-    return { success: false, message: `Bot ID '${botId}' not found.` };
-  }
-  const actualId = bot.botId;
-  if (bot.banned) {
-    return { success: false, message: `Cannot retrigger bot '${actualId}' because it is banned.` };
-  }
-
-  instances[actualId].status = 'active';
-  instances[actualId].lastRetriggeredAt = new Date().toISOString();
-  saveBotInstances(instances);
-
-  return {
-    success: true,
-    message: `Bot '${actualId}' has been retriggered and refreshed successfully.`,
-    bot: instances[actualId]
-  };
-}
-
-/**
- * Ban a bot instance and shut down running processes
- */
-export function banBot(botId, reason = 'Administrative action by owner') {
-  const instances = loadBotInstances();
-  const bot = getBotInstance(botId);
-  if (!bot) {
-    return { success: false, message: `Bot ID '${botId}' not found.` };
-  }
-  const actualId = bot.botId;
-  if (actualId === MASTER_BOT_ID) {
-    return { success: false, message: `The Master Bot cannot be banned.` };
-  }
-
-  instances[actualId].banned = true;
-  instances[actualId].bannedReason = reason;
-  instances[actualId].status = 'banned';
-  instances[actualId].bannedAt = new Date().toISOString();
-  saveBotInstances(instances);
-
-  if (onBotBannedCallback) {
-    try {
-      onBotBannedCallback(actualId, reason);
-    } catch (err) {
-      console.error(`[banBot] Error executing onBotBannedCallback for ${actualId}:`, err);
-    }
-  }
-
-  return { success: true, message: `Bot '${actualId}' has been banned and shut off. Reason: ${reason}`, bot: instances[actualId] };
-}
-
-/**
- * Unban a bot instance
- */
-export function unbanBot(botId) {
-  const instances = loadBotInstances();
-  const bot = getBotInstance(botId);
-  if (!bot) {
-    return { success: false, message: `Bot ID '${botId}' not found.` };
-  }
-  const actualId = bot.botId;
-
-  instances[actualId].banned = false;
-  instances[actualId].bannedReason = null;
-  instances[actualId].status = instances[actualId].setupCompleted ? 'active' : 'unconfigured';
-  instances[actualId].unbannedAt = new Date().toISOString();
-  saveBotInstances(instances);
-
-  if (onBotUnbannedCallback) {
-    try {
-      onBotUnbannedCallback(actualId);
-    } catch (err) {
-      console.error(`[unbanBot] Error executing onBotUnbannedCallback for ${actualId}:`, err);
-    }
-  }
-
-  return { success: true, message: `Bot '${actualId}' has been unbanned.`, bot: instances[actualId] };
-}
-
-/**
  * Get all bot instances as a list
  */
 export function listBots() {
   const instances = loadBotInstances();
   return Object.values(instances);
 }
-
-/**
- * Resolves the bot instance associated with a Discord interaction
- * Works seamlessly across both Master Bot and Customer Bots.
- */
-export function getBotForInteraction(interaction) {
-  if (!interaction) return null;
-  const instances = loadBotInstances();
-
-  // 1. Direct botId attached to client
-  if (interaction.client?.botId && instances[interaction.client.botId]) {
-    return instances[interaction.client.botId];
-  }
-
-  // 2. Match by client application/user ID
-  const clientId = interaction.client?.user?.id;
-  if (clientId) {
-    for (const b of Object.values(instances)) {
-      if (b.botId === clientId || b.clientId === clientId) {
-        return b;
-      }
-    }
-  }
-
-  // 3. Match by guild ID if bot was registered for guild
-  if (interaction.guildId && instances[interaction.guildId]) {
-    return instances[interaction.guildId];
-  }
-
-  // 4. Fallback to Master Bot instance
-  return instances[MASTER_BOT_ID] || null;
-}
-
