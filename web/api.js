@@ -754,6 +754,15 @@ export function createDashboardRouter() {
     if (!targetGuildId || !/^\d{17,20}$/.test(targetGuildId)) {
       return res.status(400).json({ error: 'Invalid Discord server ID.' });
     }
+    // Only someone who manages this server may bump it.
+    let managed = null;
+    try {
+      managed = await findAuthorizedGuild(req.dashboardSession, targetGuildId);
+    } catch (err) {
+      return res.status(err instanceof DiscordError && err.status === 401 ? 401 : 502)
+        .json({ error: 'Could not verify your Discord server access. Sign in again or retry in a moment.' });
+    }
+    if (!managed) return res.status(403).json({ error: 'You need Manage Server in that server to bump it.' });
     const COOLDOWN_MS = 60 * 60 * 1000;
     const now = Date.now();
     if (!global.__bumpCooldowns) global.__bumpCooldowns = new Map();
