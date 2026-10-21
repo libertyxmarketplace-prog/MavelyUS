@@ -81,6 +81,8 @@ export async function fetchWorkspace(guildId: string): Promise<{ workspace: Work
   try {
     return await api<{ workspace: WorkspaceBot; guild: DiscordGuild }>(`/workspace/${guildId}`);
   } catch {
+    const cachedName = localStorage.getItem(`server_name_${guildId}`) || 'Discord Server';
+    const cachedIcon = localStorage.getItem(`server_icon_${guildId}`);
     return {
       workspace: {
         id: `ws-${guildId}`,
@@ -89,7 +91,7 @@ export async function fetchWorkspace(guildId: string): Promise<{ workspace: Work
         discordBotId: '1552165138017165372',
         botUser: {
           id: '1552165138017165372',
-          username: 'CivLink Bot',
+          username: 'Mavely Bot',
           avatarUrl: ''
         },
         isInGuild: true,
@@ -101,8 +103,8 @@ export async function fetchWorkspace(guildId: string): Promise<{ workspace: Work
         hasErlcApiKey: true,
         hasAiApiKey: false,
         customizations: {
-          serverName: `ER:LC Community (${guildId.slice(0, 8)})`,
-          joinCode: 'LCSP-PATROL',
+          serverName: cachedName,
+          joinCode: '',
           j4jEnabled: true,
           j4jDailyTarget: 50,
           joinCredits: 28,
@@ -111,9 +113,9 @@ export async function fetchWorkspace(guildId: string): Promise<{ workspace: Work
       },
       guild: {
         id: guildId,
-        name: `ER:LC Community (${guildId.slice(0, 8)})`,
+        name: cachedName,
         icon: null,
-        iconUrl: null,
+        iconUrl: cachedIcon,
         owner: true
       }
     };
@@ -127,13 +129,15 @@ export async function createWorkspace(guildId: string): Promise<{ workspace: Wor
       body: JSON.stringify({ guildId })
     });
   } catch {
+    const cachedName = localStorage.getItem(`server_name_${guildId}`) || 'Discord Server';
+    const cachedIcon = localStorage.getItem(`server_icon_${guildId}`);
     return {
       workspace: {
         id: `ws-${guildId}`,
         guildId,
         isMainBot: false,
         discordBotId: '1552165138017165372',
-        botUser: { id: '1552165138017165372', username: 'CivLink Bot', avatarUrl: '' },
+        botUser: { id: '1552165138017165372', username: 'Mavely Bot', avatarUrl: '' },
         isInGuild: true,
         inviteUrl: getBotInviteUrl(guildId),
         status: 'online',
@@ -143,15 +147,21 @@ export async function createWorkspace(guildId: string): Promise<{ workspace: Wor
         hasErlcApiKey: true,
         hasAiApiKey: false,
         customizations: {
-          serverName: `ER:LC Community (${guildId.slice(0, 8)})`,
-          joinCode: 'LCSP-PATROL',
+          serverName: cachedName,
+          joinCode: '',
           j4jEnabled: true,
           j4jDailyTarget: 50,
           joinCredits: 28,
           sessionState: 'PATROL_LIVE'
         }
       },
-      created: true
+      guild: {
+        id: guildId,
+        name: cachedName,
+        icon: null,
+        iconUrl: cachedIcon,
+        owner: true
+      }
     };
   }
 }

@@ -40,7 +40,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/api', createDashboardRouter());
 app.use('/auth/discord', createDiscordCallbackRouter());
 

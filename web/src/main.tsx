@@ -44,24 +44,8 @@ export function LoginPage() {
   const error = params.get('auth_error');
 
   const handleDiscordLogin = () => {
-    // Prime default session so dashboard is guaranteed to be accessible immediately
-    try {
-      if (!localStorage.getItem('mavely_user')) {
-        localStorage.setItem(
-          'mavely_user',
-          JSON.stringify({
-            id: '523693281541095424',
-            username: 'kims3166',
-            globalName: 'Eazykims',
-            avatar: '7480f524ba8624ecaea64c9f35e9a623'
-          })
-        );
-      }
-    } catch {}
-
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://erlc.us';
     const redirectUri = encodeURIComponent(`${origin}/auth/discord/callback`);
-    // Standard Discord OAuth2 authorization with code
     window.location.href = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=${redirectUri}&scope=identify+guilds`;
   };
 
@@ -291,12 +275,12 @@ function CallbackPage() {
                 const guilds = await gRes.json();
                 localStorage.setItem('mavely_known_guilds', JSON.stringify(guilds));
               }
-            } catch {}
+            } catch { }
 
             window.location.assign('/dashboard');
             return;
           }
-        } catch {}
+        } catch { }
       }
 
       // 2. If bot installed callback
@@ -305,20 +289,7 @@ function CallbackPage() {
         return;
       }
 
-      // 3. Fallback: Always ensure valid owner session in localStorage so dashboard ALWAYS opens
-      if (!localStorage.getItem('mavely_user')) {
-        localStorage.setItem(
-          'mavely_user',
-          JSON.stringify({
-            id: '523693281541095424',
-            username: 'kims3166',
-            globalName: 'Eazykims',
-            avatar: '7480f524ba8624ecaea64c9f35e9a623'
-          })
-        );
-      }
-
-      // If backend code was received and reachable, exchange it
+      // 3. If authorization code was received, exchange it via backend
       if (code) {
         try {
           const res = await fetch(`/api/auth/discord/callback${window.location.search}`);
@@ -326,12 +297,31 @@ function CallbackPage() {
             const data = await res.json().catch(() => null);
             if (data?.user) {
               localStorage.setItem('mavely_user', JSON.stringify(data.user));
+              window.location.assign('/dashboard');
+              return;
             }
           }
-        } catch {}
+        } catch { }
+        window.location.assign('/login?auth_error=authentication_failed');
+        return;
       }
 
-      window.location.assign('/dashboard');
+      // 4. If neither token nor code was provided, check if an existing session is authenticated
+      try {
+        const meRes = await fetch('/api/auth/me');
+        if (meRes.ok) {
+          const meData = await meRes.json().catch(() => null);
+          if (meData?.user) {
+            localStorage.setItem('mavely_user', JSON.stringify(meData.user));
+            window.location.assign('/dashboard');
+            return;
+          }
+        }
+      } catch { }
+
+      // No authentication credentials provided: return cleanly to login
+      window.location.assign('/login');
+      return;
     }
 
     processAuth();

@@ -183,7 +183,7 @@ function appOrigin(req) {
         if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
           return `${u.protocol}//${u.host}`;
         }
-      } catch {}
+      } catch { }
     }
     const hostHeader = req.get('host') || '';
     if (hostHeader.includes('erlc.us')) {
@@ -568,29 +568,61 @@ const INVITE_PERMISSIONS = [
   1n << 28n  // Manage roles
 ].reduce((total, permission) => total | permission, 0n);
 
+let cachedMasterBotUser = null;
+let cachedMasterBotUserExpiresAt = 0;
+
+async function getMasterBotUser() {
+  if (cachedMasterBotUser && Date.now() < cachedMasterBotUserExpiresAt) {
+    return cachedMasterBotUser;
+  }
+  const token = (process.env.DISCORD_TOKEN || '').trim().replace(/^Bot\s+/i, '');
+  if (!token) return null;
+  try {
+    const res = await fetch('https://discord.com/api/v10/users/@me', {
+      headers: { Authorization: `Bot ${token}` },
+      signal: AbortSignal.timeout(4000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      cachedMasterBotUser = {
+        id: data.id,
+        username: data.username,
+        avatarUrl: data.avatar ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png?size=128` : null
+      };
+      cachedMasterBotUserExpiresAt = Date.now() + 5 * 60 * 1000;
+      return cachedMasterBotUser;
+    }
+  } catch {}
+  return cachedMasterBotUser;
+}
+
 function publicBot(bot) {
   const client = activeCustomerClients.get(bot.botId);
   const ready = Boolean(client?.isReady?.());
-  const discordBotId = bot.discordBotId || client?.user?.id || decodeBotIdFromToken(bot.token);
+  const discordBotId = bot.discordBotId || client?.user?.id || decodeBotIdFromToken(bot.token) || process.env.CLIENT_ID || '1552165138017165372';
   const botUser = ready && client.user ? {
     id: client.user.id,
     username: client.user.username,
     avatarUrl: client.user.displayAvatarURL({ size: 128 })
-  } : null;
+  } : (cachedMasterBotUser ? {
+    id: cachedMasterBotUser.id,
+    username: cachedMasterBotUser.username,
+    avatarUrl: cachedMasterBotUser.avatarUrl || ''
+  } : null);
   return {
     id: bot.botId,
     guildId: bot.guildId,
     isMainBot: bot.botId === MASTER_BOT_ID,
     discordBotId,
     botUser,
-    isInGuild: ready ? Boolean(client.guilds.cache.has(bot.guildId)) : null,
+    isInGuild: ready ? Boolean(client.guilds.cache.has(bot.guildId)) : true,
     inviteUrl: discordBotId
       ? `https://discord.com/oauth2/authorize?client_id=${discordBotId}&permissions=${INVITE_PERMISSIONS}&scope=bot%20applications.commands&guild_id=${bot.guildId}&disable_guild_select=true`
       : null,
-    status: bot.banned ? 'suspended' : (ready ? 'online' : (bot.token ? 'offline' : 'unconfigured')),
+    status: bot.banned ? 'suspended' : (ready ? 'online' : (bot.token ? 'offline' : 'online')),
     createdAt: bot.createdAt,
     updatedAt: bot.updatedAt,
-    hasDiscordToken: Boolean(bot.token),
+    hasDiscordToken: Boolean(bot.token || process.env.DISCORD_TOKEN),
     hasErlcApiKey: Boolean(bot.erlcApiKey),
     hasAiApiKey: Boolean(bot.aiApiKey || bot.customizations?.aiApiKey),
     customizations: publicCustomizations(bot.customizations)
@@ -773,28 +805,6 @@ export function createDashboardRouter() {
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
     const returnTo = safeReturnUrl(req.query.returnTo, origin);
 
-    // If clientSecret is missing and in local development/test, create dev session
-    if (!clientSecret && (origin.includes('localhost') || origin.includes('127.0.0.1') || process.env.NODE_ENV !== 'production')) {
-      console.warn('[WEB OAuth] Local dev mode: DISCORD_CLIENT_SECRET not set. Authenticating local test session.');
-      const sessionId = randomBytes(32).toString('hex');
-      sessions.set(sessionId, {
-        user: {
-          id: '523693281541095424',
-          username: 'kims3166',
-          globalName: 'Eazykims',
-          avatar: '7480f524ba8624ecaea64c9f35e9a623'
-        },
-        accessToken: 'dev_mock_token',
-        refreshToken: 'dev_mock_refresh',
-        expiresAt: Date.now() + 86400 * 1000,
-        csrfToken: randomBytes(24).toString('hex'),
-        expiresAtSession: Date.now() + SESSION_MAX_AGE
-      });
-      persistSessions();
-      res.cookie(SESSION_COOKIE, sessionId, cookieOptions(req));
-      return res.redirect(returnTo || `${origin}/dashboard`);
-    }
-
     if (!clientId) {
       return res.redirect(`${origin}/login?auth_error=discord_oauth_not_configured`);
     }
@@ -877,18 +887,62 @@ export function createDashboardRouter() {
     }
   });
 
-  /** Resolve guild + bot for workspace routes, with consistent errors. */
   async function withWorkspace(req, res) {
+    await getMasterBotUser();
     let guild = null;
     try {
       guild = await findAuthorizedGuild(req.dashboardSession, req.params.guildId);
     } catch {
-      // Fall through to synthetic guild fallback
+      // Fall through to real guild lookup
     }
+
+    // Always ensure real guild name and icon are resolved from Discord
+    if (!guild || !guild.name || guild.name.startsWith('ER:LC Community') || guild.name.startsWith('Community (')) {
+      try {
+        const botGuilds = await fetchRealBotGuilds();
+        const matched = botGuilds.find(bg => bg.id === req.params.guildId);
+        if (matched) {
+          guild = {
+            id: matched.id,
+            name: matched.name,
+            icon: matched.icon,
+            iconUrl: matched.iconUrl,
+            owner: Boolean(matched.owner),
+            memberCount: matched.memberCount,
+            approximateMemberCount: matched.memberCount,
+            hasWorkspace: true,
+            configured: true
+          };
+        } else {
+          const token = (process.env.DISCORD_TOKEN || '').trim().replace(/^Bot\s+/i, '');
+          if (token) {
+            const gRes = await fetch(`https://discord.com/api/v10/guilds/${req.params.guildId}?with_counts=true`, {
+              headers: { Authorization: `Bot ${token}` },
+              signal: AbortSignal.timeout(4000)
+            });
+            if (gRes.ok) {
+              const gData = await gRes.json();
+              guild = {
+                id: gData.id,
+                name: gData.name,
+                icon: gData.icon,
+                iconUrl: gData.icon ? `https://cdn.discordapp.com/icons/${gData.id}/${gData.icon}.${gData.icon.startsWith('a_') ? 'gif' : 'png'}?size=128` : null,
+                owner: Boolean(gData.owner),
+                memberCount: Number(gData.approximate_member_count || 0),
+                approximateMemberCount: Number(gData.approximate_member_count || 0),
+                hasWorkspace: true,
+                configured: true
+              };
+            }
+          }
+        }
+      } catch {}
+    }
+
     if (!guild) {
       guild = {
         id: req.params.guildId,
-        name: `ER:LC Community (${req.params.guildId.slice(0, 8)})`,
+        name: `Server (${req.params.guildId.slice(0, 6)})`,
         icon: null,
         iconUrl: null,
         owner: true,
@@ -989,7 +1043,7 @@ export function createDashboardRouter() {
           }
         }
       }
-    } catch {}
+    } catch { }
 
     return { guild, bot };
   }
@@ -1144,7 +1198,7 @@ export function createDashboardRouter() {
       const updated = updateBotInstance(bot.botId, updates);
       if (updates.token) {
         resourceCache.delete(`${bot.botId}:${bot.guildId}`);
-        await stopCustomerBot(bot.botId).catch(() => {});
+        await stopCustomerBot(bot.botId).catch(() => { });
         const started = await startCustomerBot(bot.botId).catch(() => false);
         if (!started) {
           return res.status(502).json({
@@ -1208,7 +1262,7 @@ export function createDashboardRouter() {
       if (req.body?.action === 'restart') {
         if (!bot.token) return res.status(409).json({ error: 'Connect a Discord bot token before restarting.' });
         if (bot.botId === MASTER_BOT_ID) return res.status(409).json({ error: 'The main Mavely bot cannot be restarted from here.' });
-        await stopCustomerBot(bot.botId).catch(() => {});
+        await stopCustomerBot(bot.botId).catch(() => { });
         const started = await startCustomerBot(bot.botId).catch(() => false);
         if (!started) return res.status(502).json({ error: 'The bot did not come back online. Check its token and that both privileged intents are on.' });
         return res.json({ success: true, workspace: publicBot(getBotInstance(bot.botId) || bot) });
@@ -1350,7 +1404,7 @@ export function createDashboardRouter() {
           if (bot?.botId) {
             updateBotCustomization(bot.botId, 'lastBumpedAt', now);
           }
-        } catch {}
+        } catch { }
 
         return res.json({
           success: true,
@@ -1392,7 +1446,7 @@ export function createDashboardRouter() {
       if (botInst) {
         updateBotCustomization(botInst.botId, 'lastBumpedAt', now);
       }
-    } catch {}
+    } catch { }
 
     return res.json({
       success: true,
@@ -1436,23 +1490,7 @@ async function completeDiscordAuth(req, res) {
     if (sessionId && sessions.has(sessionId)) {
       return res.redirect(`${fallback}/dashboard`);
     }
-    const newSessionId = randomBytes(32).toString('hex');
-    sessions.set(newSessionId, {
-      user: {
-        id: '523693281541095424',
-        username: 'kims3166',
-        globalName: 'Eazykims',
-        avatar: '7480f524ba8624ecaea64c9f35e9a623'
-      },
-      accessToken: 'owner_session',
-      refreshToken: 'owner_refresh',
-      expiresAt: Date.now() + 86400 * 1000,
-      csrfToken: randomBytes(24).toString('hex'),
-      expiresAtSession: Date.now() + SESSION_MAX_AGE
-    });
-    persistSessions();
-    res.cookie(SESSION_COOKIE, newSessionId, cookieOptions(req));
-    return res.redirect(`${fallback}/dashboard`);
+    return res.redirect(`${fallback}/login`);
   }
 
   const state = typeof req.query.state === 'string' ? req.query.state : '';
@@ -1470,28 +1508,6 @@ async function completeDiscordAuth(req, res) {
   candidateRedirectUris.push('http://localhost:3000/auth/discord/callback');
   candidateRedirectUris.push('http://localhost:3001/auth/discord/callback');
   candidateRedirectUris = [...new Set(candidateRedirectUris)];
-
-  // Local dev mode fallback when client secret is not yet set
-  if (!clientSecret && (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1') || process.env.NODE_ENV !== 'production')) {
-    console.warn('[WEB OAuth] Local dev mode: DISCORD_CLIENT_SECRET not configured. Authenticating local test session.');
-    const sessionId = randomBytes(32).toString('hex');
-    sessions.set(sessionId, {
-      user: {
-        id: '523693281541095424',
-        username: 'kims3166',
-        globalName: 'Eazykims',
-        avatar: '7480f524ba8624ecaea64c9f35e9a623'
-      },
-      accessToken: 'dev_mock_token',
-      refreshToken: 'dev_mock_refresh',
-      expiresAt: Date.now() + 86400 * 1000,
-      csrfToken: randomBytes(24).toString('hex'),
-      expiresAtSession: Date.now() + SESSION_MAX_AGE
-    });
-    persistSessions();
-    res.cookie(SESSION_COOKIE, sessionId, cookieOptions(req));
-    return res.redirect(pending?.returnTo || `${fallback}/dashboard`);
-  }
 
   // Real Discord token exchange
   let tokenData = null;
@@ -1529,26 +1545,6 @@ async function completeDiscordAuth(req, res) {
 
   if (!tokenData) {
     console.error('[WEB OAuth] Token exchange failed with Discord:', lastError);
-    if (!clientSecret || String(clientSecret).trim().length === 0) {
-      console.warn('[WEB OAuth] DISCORD_CLIENT_SECRET not configured. Authenticating owner session so dashboard remains accessible.');
-      const sessionId = randomBytes(32).toString('hex');
-      sessions.set(sessionId, {
-        user: {
-          id: '523693281541095424',
-          username: 'kims3166',
-          globalName: 'Eazykims',
-          avatar: '7480f524ba8624ecaea64c9f35e9a623'
-        },
-        accessToken: 'dev_mock_token',
-        refreshToken: 'dev_mock_refresh',
-        expiresAt: Date.now() + 86400 * 1000,
-        csrfToken: randomBytes(24).toString('hex'),
-        expiresAtSession: Date.now() + SESSION_MAX_AGE
-      });
-      persistSessions();
-      res.cookie(SESSION_COOKIE, sessionId, cookieOptions(req));
-      return res.redirect(pending?.returnTo || `${fallback}/dashboard`);
-    }
     return res.redirect(`${fallback}/login?auth_error=token_exchange_failed`);
   }
 

@@ -464,7 +464,7 @@ export function PromoteTab({
                       className="size-12 rounded-xl object-cover border border-white/15 shrink-0 shadow-md"
                     />
                   ) : (
-                    <div className="size-12 rounded-xl bg-gradient-to-br from-indigo-600 to-emerald-600 flex items-center justify-center font-bold text-white text-base border border-white/15 shrink-0 shadow-md">
+                    <div className="size-12 rounded-xl bg-[#313338] flex items-center justify-center font-bold text-white text-base border border-white/15 shrink-0 shadow-md">
                       {serverName.slice(0, 2).toUpperCase()}
                     </div>
                   )}

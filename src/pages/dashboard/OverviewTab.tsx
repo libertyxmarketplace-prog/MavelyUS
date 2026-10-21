@@ -215,19 +215,10 @@ export function OverviewTab({
     ? rawChannels.map((c: any) => `#${c.name.replace(/^#/, '')}`)
     : ['#bot-commands', '#bumps', '#general', '#announcements', '#chat', '#media', '#bot-spam'];
 
-  // Gradient generator for rich monogram fallbacks
-  const getGradientForName = (str: string) => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    const gradients = [
-      'from-blue-600 via-indigo-600 to-purple-700',
-      'from-emerald-500 via-teal-600 to-cyan-700',
-      'from-violet-600 via-purple-700 to-pink-600',
-      'from-amber-500 via-orange-600 to-rose-600',
-      'from-cyan-500 via-blue-600 to-indigo-700'
-    ];
-    return gradients[Math.abs(hash) % gradients.length];
-  };
+  const serverWords = serverName.trim().split(/\s+/);
+  const serverInitial = serverWords.length > 1
+    ? serverWords.slice(0, 3).map((w) => w[0]).join('').toUpperCase()
+    : serverName.slice(0, 2).toUpperCase();
 
   const handleCopyGuildId = () => {
     navigator.clipboard.writeText(guildId);
@@ -235,7 +226,6 @@ export function OverviewTab({
     setTimeout(() => setCopiedId(false), 2000);
     addToast('success', 'Snowflake Copied', `Server ID ${guildId} copied.`);
   };
-
 
   const handleQuickSync = () => {
     addToast('info', 'Coming Soon', 'Gateway synchronization is coming soon in the next release.');
@@ -254,11 +244,11 @@ export function OverviewTab({
               <img
                 src={serverIconUrl}
                 alt={serverName}
-                className="size-16 sm:size-20 rounded-2xl object-cover border-2 border-white/10 shadow-xl shrink-0 ring-2 ring-white/5"
+                className="size-16 sm:size-20 rounded-2xl object-cover border border-white/10 shadow-xl shrink-0"
               />
             ) : (
-              <div className={`size-16 sm:size-20 rounded-2xl bg-gradient-to-br ${getGradientForName(serverName)} border-2 border-white/10 flex items-center justify-center font-extrabold text-white text-xl sm:text-2xl shadow-xl shrink-0 ring-2 ring-white/5`}>
-                {serverName.slice(0, 2).toUpperCase()}
+              <div className="size-16 sm:size-20 rounded-2xl bg-[#313338] border border-white/10 flex items-center justify-center font-bold text-white text-xl sm:text-2xl shadow-xl shrink-0 tracking-tight">
+                {serverInitial}
               </div>
             )}
 

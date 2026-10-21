@@ -139,11 +139,13 @@ export function DashboardPage() {
         // Cache and preserve all Discord icons and server names
         list = list.map((g) => {
           const cachedIcon = localStorage.getItem(`server_icon_${g.id}`);
-          const cachedName = localStorage.getItem(`server_name_${g.id}`);
+          const rawCachedName = localStorage.getItem(`server_name_${g.id}`);
+          const validCachedName = rawCachedName && !rawCachedName.startsWith('Community (') && !rawCachedName.startsWith('ER:LC Community') ? rawCachedName : null;
+          const validApiName = g.name && !g.name.startsWith('Community (') && !g.name.startsWith('ER:LC Community') ? g.name : null;
           const iconUrl = g.iconUrl || cachedIcon || (g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=128` : null);
-          const name = g.name || cachedName || `Community (${g.id.slice(0, 6)})`;
+          const name = validApiName || validCachedName || g.name || 'Discord Server';
           if (iconUrl) localStorage.setItem(`server_icon_${g.id}`, iconUrl);
-          if (g.name) localStorage.setItem(`server_name_${g.id}`, g.name);
+          if (validApiName) localStorage.setItem(`server_name_${g.id}`, validApiName);
           return {
             ...g,
             name,
@@ -155,10 +157,12 @@ export function DashboardPage() {
         for (const sg of storedList) {
           if (!list.some((g) => g.id === sg.id)) {
             const cachedIcon = localStorage.getItem(`server_icon_${sg.id}`) || sg.iconUrl;
-            const cachedName = localStorage.getItem(`server_name_${sg.id}`) || sg.name;
+            const rawCachedName = localStorage.getItem(`server_name_${sg.id}`);
+            const validCachedName = rawCachedName && !rawCachedName.startsWith('Community (') && !rawCachedName.startsWith('ER:LC Community') ? rawCachedName : null;
+            const validSgName = sg.name && !sg.name.startsWith('Community (') && !sg.name.startsWith('ER:LC Community') ? sg.name : null;
             list.push({
               ...sg,
-              name: cachedName,
+              name: validSgName || validCachedName || sg.name || 'Discord Server',
               iconUrl: cachedIcon || null
             });
           }
@@ -166,10 +170,11 @@ export function DashboardPage() {
 
         if (currentGuildId && !list.some((g) => g.id === currentGuildId)) {
           const cachedIcon = localStorage.getItem(`server_icon_${currentGuildId}`);
-          const cachedName = localStorage.getItem(`server_name_${currentGuildId}`);
+          const rawCachedName = localStorage.getItem(`server_name_${currentGuildId}`);
+          const validCachedName = rawCachedName && !rawCachedName.startsWith('Community (') && !rawCachedName.startsWith('ER:LC Community') ? rawCachedName : null;
           const directGuild: DiscordGuild = {
             id: currentGuildId,
-            name: cachedName || `Community (${currentGuildId.slice(0, 6)})`,
+            name: validCachedName || 'Discord Server',
             icon: null,
             iconUrl: cachedIcon || null,
             owner: true,
