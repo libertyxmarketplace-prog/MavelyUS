@@ -198,7 +198,7 @@ export function initialMapping(columns: string[]): Record<number, FieldKey | nul
 
 // Sample CSV for rapid 1-click testing
 export const SAMPLE_ERLC_ROSTER_CSV = `Roblox Username,Roblox ID,Discord ID,Department,Rank,Callsign,Weekly Quota,Status
-CaptainSterling,48291041,1552165138017165372,Police,Captain,1-LINCOLN-01,12,Active
+CaptainSterling,48291041,123456789012345678,Police,Captain,1-LINCOLN-01,12,Active
 DeputyVance,91048201,390291048291029482,Sheriff,Senior Deputy,2-ADAM-24,8,Active
 MedicRiley,104820194,204918204918204918,Fire & Rescue,Lieutenant,MEDIC-4,10,Active
 ChiefMiller,39104820,491029482019482019,Police,Chief of Police,1-COMMAND-01,15,Active
