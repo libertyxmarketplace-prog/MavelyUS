@@ -14,7 +14,7 @@ import './index.css';
 
 import { useEffect } from 'react';
 import { Button } from './components/ui/button';
-import { Rocket, ShieldCheck, Coins, Activity, Zap, Check, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { Rocket, ShieldCheck, Coins, Activity, Zap, Check, ArrowLeft, ArrowRight, AlertTriangle } from 'lucide-react';
 
 // Apply saved theme accent & performance mode on startup
 try {
