@@ -61,8 +61,8 @@ export function LoginPage() {
 
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://erlc.us';
     const redirectUri = encodeURIComponent(`${origin}/auth/discord/callback`);
-    // Direct Discord OAuth token flow with automatic callback handling
-    window.location.href = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=token&redirect_uri=${redirectUri}&scope=identify+guilds`;
+    // Standard Discord OAuth2 authorization with code
+    window.location.href = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=${redirectUri}&scope=identify+guilds`;
   };
 
   return (
