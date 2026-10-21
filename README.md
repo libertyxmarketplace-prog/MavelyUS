@@ -1,113 +1,63 @@
-# Mavely Bot
+# ERLC.US
 
-Mavely is an all-in-one Discord bot and web management platform designed for Emergency Response: Liberty County (ER:LC) Roblox communities. It combines a multi-tenant Discord bot with a real-time web dashboard.
+ERLC.US is a website and web dashboard for Emergency Response: Liberty County (ER:LC) Roblox communities. You sign in with Discord, pick a server you manage, and set up its listing, growth campaigns and live ER:LC stats from the browser.
 
----
-
-## The Mavely Website
-
-The Mavely website gives server owners and staff a full web-based control room for their Discord community and in-game ER:LC server. Instead of configuring everything through Discord chat commands, you can manage your entire setup from your web browser.
-
-### Key Website Features
-
-1. **Web Dashboard (`/dashboard`)**
-   - Manage your bot customizations: change the bot nickname, activity status, and embed colors.
-   - Configure server join codes, banner URLs, and channel links visually.
-   - View real-time statistics including active tickets, total members, and server uptime.
-
-2. **Live ER:LC Telemetry**
-   - Connect your private server API key to view live in-game data.
-   - Track current player counts, server queue numbers, and on-duty police rosters.
-   - Schedule and broadcast Server Start Up (SSU) patrol notifications with one click.
-
-3. **Support Ticket Center**
-   - Monitor open and closed tickets across your server.
-   - View styled HTML transcripts of closed tickets.
-   - Edit ticket close reasons and track staff response times.
-
-4. **Staff Management and Applications**
-   - Review submitted staff quiz applications with accept and deny actions.
-   - Track staff Leave of Absence (LOA) records.
-   - View staff action logs, warnings, and activity records.
-
-5. **Discord Login**
-   - Secure login through Discord OAuth2.
-   - Automatically detects the servers where you have management permissions.
+There is no Discord bot any more. Discord is only used for login and for listing the servers you have Manage Server or Administrator permission in.
 
 ---
 
-## How to Run the Website and Bot
+## What the website does
 
-### 1. Install Dependencies
-Open PowerShell or your terminal in this directory and run:
+1. **Discord login**
+   - Sign in through Discord OAuth2. The backend runs the login, so your Discord access token never reaches the browser.
+   - For now only members of the ERLC.US testing server can log in (`LOGIN_GUILD_IDS`).
+
+2. **Dashboard (`/dashboard`)**
+   - Shows the Discord servers you can manage.
+   - Saves each server's settings (listing text, invite link, banners, growth settings).
+
+3. **Live ER:LC stats**
+   - Add your private server API key to see player counts, queue size and staff online.
+
+4. **Server directory and bumps**
+   - Publish your server in the directory and bump it once per cooldown window.
+
+---
+
+## How to run it
+
+### 1. Install dependencies
 ```bash
 npm install
 ```
 
-### 2. Configure Environment Variables
-Create or open the `.env` file in the project root and add your Discord credentials:
+### 2. Configure environment variables
+Copy `.env.example` to `.env` and fill in the Discord OAuth2 values of the "ERLC US" Discord application:
 ```env
-DISCORD_TOKEN=your_bot_token_here
-CLIENT_ID=your_bot_client_id_here
-GUILD_ID=your_discord_server_id_here
+DISCORD_CLIENT_ID=your_oauth_application_id
+DISCORD_CLIENT_SECRET=your_oauth_client_secret
+APP_ORIGIN=http://localhost:3000
+LOGIN_GUILD_IDS=1562353446294781972
 ```
+Register `<APP_ORIGIN>/auth/discord/callback` as a redirect URL in the Discord Developer Portal. Without `DISCORD_CLIENT_SECRET` nobody can log in.
 
-- `DISCORD_TOKEN`: Your Discord bot token from the Discord Developer Portal.
-- `CLIENT_ID`: Your bot application ID.
-- `GUILD_ID`: Your Discord server ID (recommended for instant slash command registration).
-
-### 3. Start the Website Frontend
-Run the Vite development server:
+### 3. Start the frontend
 ```bash
 npm run dev
 ```
-Open your browser and navigate to: `http://localhost:3000`
+Open `http://localhost:3000`.
 
-### 4. Start the Web Backend API
-In a second terminal window, start the Express backend server:
+### 4. Start the backend
+In a second terminal:
 ```bash
-node server.js
+npm start
 ```
-The backend listens on port 3001 and handles all dashboard data and Discord authentication.
-
-### 5. Deploy Slash Commands
-Register all bot slash commands with Discord:
-```bash
-npm run deploy
-```
-
-### 6. Start the Discord Bot
-Run the master bot process:
-```bash
-node index.js
-```
+The backend listens on port 3001 and handles login, the server list and saved settings. In production it also serves the built site from `dist/` (build it with `npm run build`).
 
 ---
 
-## Discord Slash Commands Reference
+## File storage
 
-| Command | Permission | Description |
-| :--- | :---: | :--- |
-| `/ticket panel [channel]` | Staff / Admin | Sends the ticket creation panel to a channel and enables live updates. |
-| `/ticket status <online\|busy\|closed>` | Staff / Admin | Sets the desk status (online, busy, or closed) and refreshes active panels. |
-| `/ticket category <category> <enable\|disable>` | Staff / Admin | Turns a support category on or off in the ticket panels. |
-| `/ticket close [reason]` | Staff / Author | Closes the ticket, creates an HTML transcript, and logs it to the transcripts channel. |
-| `/ticket claim` | Staff | Claims the ticket and assigns it to you. |
-| `/ticket unclaim` | Staff | Releases the ticket back to the public staff queue. |
-| `/ticket add <user>` | Staff | Adds a member to the ticket channel. |
-| `/ticket remove <user>` | Staff | Removes a member from the ticket channel. |
-| `/ticket rename <name>` | Staff | Renames the current ticket channel. |
-| `/config` | Admin | Opens the interactive bot setup panel inside Discord. |
-| `/panel` | Admin | Opens the unified panel menu to post tickets, applications, or session embeds. |
-
----
-
-## File Storage and Persistence
-
-All data is saved locally in the `data/` folder as JSON files:
-- `data/tickets.json`: Active tickets, claim data, and closed ticket records.
-- `data/ticket_desk.json`: Current operational desk status and disabled categories.
-- `data/ticket_panels.json`: List of all posted panel messages for live auto-updating.
-- `data/bot_instances.db.json`: Customer bot configurations and saved settings.
-- `data/applications.json`: Submitted staff application responses and scores.
-- `data/web_sessions.json`: Active web dashboard sessions.
+Data is saved in the `data/` folder as JSON files:
+- `data/bot_instances.db.json` (and `bot_instances.json`): saved settings for each server. The file name is left over from the old bot so existing settings keep loading.
+- `data/web_sessions.json`: active dashboard sessions.

@@ -1,40 +1,24 @@
-# ERLCXBOT (Mavely) - AI Development Guide
+# ERLC.US - AI Development Guide
 
-This repository contains **Mavely** (the master bot) and the **Customer Bot Multi-Tenant Engine** for Discord servers.
+This repository contains the **ERLC.US** website (Vite + React) and its Node/Express backend. The old Discord bot has been removed; Discord is only used for login.
 
 ## Tech Stack & Architecture
-- **Environment:** Node.js (CommonJS: `require` / `module.exports`)
-- **Discord Library:** `discord.js` v14
+- **Environment:** Node.js (ES modules: `import` / `export`)
 - **Main Files:**
-  - `index.js`: Core master bot ("Mavely") implementation & slash command handlers.
-  - `server.js`: Web API / dashboard backend & bot instance supervisor.
-  - `customerBotRunner.js`: Runtime engine for customer bot instances.
-  - `botManager.js` & `botDatabase.js`: Customer bot database, lifecycle, and encryption.
-  - `config.js` & `configPanel.js`: Bot configuration, embed templates, and interactive setup panel.
-  - `panelBuilder.js`: Interactive panel builders for Discord components.
-  - `applicationManager.js`: Staff application creation, review, and submission.
-  - `departmentManager.js`: Server department roles & permissions.
-  - `musicManager.js`: Music playback system.
-  - `giveawayManager.js`: Giveaway creation and rolling.
-  - `sessionManager.js`: In-game session logging, hosting, and tracking.
-  - `loaManager.js`: Leave of Absence management.
+  - `server.js`: Express server. Mounts the API and serves the built site from `dist/`.
+  - `web/api.js`: Dashboard API: Discord OAuth login, sessions, server list, workspace settings, ER:LC stats, bumps.
+  - `botManager.js` & `botDatabase.js`: JSON storage for each server's saved settings. The names and the `data/bot_instances*.json` files are kept from the old bot so existing data still loads.
+  - `src/` and `web/src/`: the two copies of the frontend. Keep them in sync.
 
 ## Critical Rules for AI Agents (DO NOT VIOLATE)
 1. **NO Nuclear File Rewrites:**
    - Do NOT rewrite entire files from scratch.
    - Always preserve existing functions, commands, listeners, and custom ID patterns.
    - When modifying a feature, edit ONLY the targeted logic.
-2. **Preserve Discord Custom IDs:**
-   - Buttons, select menus, and modals rely on consistent `customId` formats (e.g., `cfg_`, `ticket_`, `panel_`, `modal_`).
-   - Never change a `customId` without updating its exact handler in `customerBotRunner.js` or `index.js`.
-3. **Discord Interaction Handling:**
-   - Discord interactions expire in 3 seconds.
-   - For any asynchronous operation or database access, always check:
-     ```js
-     if (!interaction.deferred && !interaction.replied) {
-       await interaction.deferReply({ ephemeral: true });
-     }
-     ```
+2. **Keep both frontends in sync:**
+   - Every change in `src/` must also be made in `web/src/` (and the other way round).
+3. **No bot code:**
+   - Do not add a Discord bot, bot tokens or slash commands back without the owner asking.
 4. **Environment & Secrets:**
    - Never hardcode tokens, client IDs, or webhook URLs in code.
    - Always retrieve them from `process.env`.
@@ -43,8 +27,9 @@ This repository contains **Mavely** (the master bot) and the **Customer Bot Mult
    - Code must gracefully handle empty or missing files on startup by creating default `{}` objects if `!fs.existsSync(...)`.
 
 ## Development & Testing Workflow
-- To test customer bot runner locally: `node customerBotRunner.js`
-- To test the master bot & web server: `node server.js`
+- To run the backend: `npm start` (or `node server.js`)
+- To run the frontend: `npm run dev`
+- To build: `npm run build`
 - Run Git branches for every new feature: `git checkout -b feature/your-feature-name`
 
 ## Commit & Git Push Rules (MANDATORY)
@@ -54,5 +39,5 @@ This repository contains **Mavely** (the master bot) and the **Customer Bot Mult
    - Explain what feature was added or what bug was fixed in plain everyday language.
    - Example: "Fixed ticket close button error" or "Added music pause and resume command".
 2. **Major / Breaking Changes Alerting:**
-   - If a change is dangerous, breaks an existing feature, modifies database schemas, or touches core bot configs, ALWAYS start the commit message with `[ALERT]` (e.g. `[ALERT] Changed database schema for tickets`).
+   - If a change is dangerous, breaks an existing feature, modifies database schemas, or touches login or stored settings, ALWAYS start the commit message with `[ALERT]` (e.g. `[ALERT] Changed database schema for tickets`).
    - The Discord notification system will automatically flag this and ping `@here` to alert the team.

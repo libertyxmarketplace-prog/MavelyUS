@@ -19,8 +19,8 @@ async function run() {
   const eventData = JSON.parse(fs.readFileSync(eventPath, 'utf8'));
 
   const repository = eventData.repository || {};
-  const repoName = repository.name || 'Mavelybot';
-  const repoUrl = repository.html_url || 'https://github.com/libertyxmarketplace-prog/Mavelybot';
+  const repoName = repository.name || 'erlc.us';
+  const repoUrl = repository.html_url || 'https://github.com/cipherhex09/erlc.us';
 
   const ref = eventData.ref || 'refs/heads/main';
   const branch = ref.replace('refs/heads/', '');
@@ -77,16 +77,16 @@ async function run() {
     hour12: true
   });
 
-  const mavelyLogoUrl = 'https://raw.githubusercontent.com/libertyxmarketplace-prog/Mavelybot/main/assets/mavely_logo.png';
+  const erlcusLogoUrl = 'https://erlc.us/erlcus_logo.png';
 
   const embed = {
-    color: isMajorAlert ? 0xed4245 : 0x1fd186, // Red for major alert, Mavely Mint Green for normal
+    color: isMajorAlert ? 0xed4245 : 0x1fd186, // Red for major alert, ERLC.US Mint Green for normal
     author: {
-      name: isMajorAlert ? 'Mavely | Critical Alert' : 'Mavely | Development Update',
-      icon_url: mavelyLogoUrl
+      name: isMajorAlert ? 'ERLC.US | Critical Alert' : 'ERLC.US | Development Update',
+      icon_url: erlcusLogoUrl
     },
     thumbnail: {
-      url: mavelyLogoUrl
+      url: erlcusLogoUrl
     },
     description: [
       `**Developer:** ${devDisplayName}`,
@@ -98,8 +98,8 @@ async function run() {
       commitLines
     ].join('\n'),
     footer: {
-      text: `Mavely Development • ${dateFormatted}`,
-      icon_url: mavelyLogoUrl
+      text: `ERLC.US Development • ${dateFormatted}`,
+      icon_url: erlcusLogoUrl
     }
   };
 

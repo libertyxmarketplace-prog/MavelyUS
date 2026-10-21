@@ -1,17 +1,17 @@
-# Mavely Platform Development Rules & Standards
+# ERLC.US Platform Development Rules & Standards
 
 ## Critical Core Principles
 
 1. **No Fake Data / No AI Slop**:
    - Never use fake placeholder counts (e.g. 1,217 members, 1074 bumps, 211 views, 5.0 rating).
-   - Never use fake review authors copied from other bots (e.g. `craftente`, `Deputy_Vance`, `OfficerK9`, etc.).
+   - Never use fake review authors copied from other sites (e.g. `craftente`, `Deputy_Vance`, `OfficerK9`, etc.).
    - Only display real user/guild telemetry. If data is not yet available, show clean, elegant empty states or real zero counts.
    - Never use tacky glowing AI gradients, purple/neon halos, or buzzwords. Keep designs clean, minimal, flush, and elegant (like Claude, Linear, or Vercel).
    - In System Uptime & Status, never invent fake 90-day history or fake outages ("Scheduled gateway shard roll", etc.). Display live, honest process metrics from `/api/status`.
 
 2. **Reference Images & Competitor Differentiations**:
-   - When the user shares reference images, screenshots, or competitor mockups (e.g., CADLY, other Discord bots): **NEVER** copy the text, names, labels, or layout verbatim.
-   - Always differentiate and transform the design and copy into original, premium Mavely platform concepts unless the user specifically asks to preserve a phrase.
+   - When the user shares reference images, screenshots, or competitor mockups (e.g., CADLY or other dashboards): **NEVER** copy the text, names, labels, or layout verbatim.
+   - Always differentiate and transform the design and copy into original, premium ERLC.US platform concepts unless the user specifically asks to preserve a phrase.
 
 3. **Lenient URL Handling (`inviteUrl`)**:
    - `inviteUrl` must NEVER fail with strict "must be a valid HTTPS URL". It is completely optional.
@@ -25,7 +25,7 @@
    - Display the user's real Discord servers with their real Discord icons (`https://cdn.discordapp.com/icons/...`).
    - Do NOT include a search bar in the Select Server dropdown. Keep it clean, direct, and fast.
    - Blend the Active Community button at the top of the sidebar directly into the sidebar background (seamless, flush, no harsh rectangular contrast).
-   - In the sidebar footer: Help & Support, Add Bot to Server, and Back to Home must be neutral muted gray (`text-zinc-400 hover:text-zinc-200`). Only Sign Out retains its red accent.
+   - In the sidebar footer: Help & Support and Back to Home must be neutral muted gray (`text-zinc-400 hover:text-zinc-200`). Only Sign Out retains its red accent.
 
 6. **Promote Server Studio & Directory**:
    - Remove heavy rectangular card backgrounds behind inputs, Community Links, Banner URL, Server Description, and directory previews. Keep sections flush and clean.
