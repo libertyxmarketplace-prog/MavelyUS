@@ -11,13 +11,10 @@ import {
   Sliders as SlidersHorizontal,
   Users,
   X,
-  Ticket,
-  Radio,
   Activity,
   BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getBotInviteUrl } from "@/lib/api";
 
 /**
  * Search Modal
@@ -114,42 +111,28 @@ export interface SearchModalProps {
 const ICON = "h-[18px] w-[18px] text-neutral-400 dark:text-neutral-500";
 
 const DEFAULT_TAGS: SearchTag[] = [
-  { label: "Tickets", icon: <Ticket className="h-4 w-4" /> },
-  { label: "Patrols", icon: <Radio className="h-4 w-4" /> },
   { label: "PRC Radar", icon: <Activity className="h-4 w-4" /> },
-  { label: "Staff Shifts", icon: <Users className="h-4 w-4" /> },
+  { label: "Servers", icon: <Users className="h-4 w-4" /> },
   { label: "Docs", icon: <BookOpen className="h-4 w-4" /> },
 ];
 
 const DEFAULT_RESULTS: SearchResult[] = [
   {
-    name: "Open Bot Dashboard",
-    meta: "Manage guild tickets, shifts, and ER:LC radar",
-    avatar: "/mavely-mark.png",
-    onClick: () => { window.location.href = "/dashboard"; }
-  },
-  {
-    name: "Support Ticket Panel",
-    meta: "5 customizable category slots and HTML transcripts",
-    avatar: "/mavely-mark.png",
+    name: "Open Dashboard",
+    meta: "Manage your servers and ER:LC radar",
+    avatar: "/erlcus-mark.png",
     onClick: () => { window.location.href = "/dashboard"; }
   },
   {
     name: "Live PRC Server Radar",
     meta: "Real-time player count, join codes, server queue",
-    avatar: "/mavely-mark.png",
-    onClick: () => { window.location.href = "/dashboard"; }
-  },
-  {
-    name: "Staff Application Quizzes",
-    meta: "Multi-stage moderation exams and review channels",
-    avatar: "/mavely-mark.png",
+    avatar: "/erlcus-mark.png",
     onClick: () => { window.location.href = "/dashboard"; }
   },
   {
     name: "Documentation & Setup Guide",
     meta: "Full API reference and ER:LC integration tutorial",
-    avatar: "/mavely-mark.png",
+    avatar: "/erlcus-mark.png",
     onClick: () => { window.location.href = "/docs"; }
   },
 ];
@@ -157,14 +140,14 @@ const DEFAULT_RESULTS: SearchResult[] = [
 const DEFAULT_QUICK_ACTIONS: QuickAction[] = [
   { label: "Open Dashboard", shortcut: "D", onClick: () => { window.location.href = "/dashboard"; } },
   { label: "View Documentation", shortcut: "G", onClick: () => { window.location.href = "/docs"; } },
-  { label: "Add Your Server", shortcut: "A", onClick: () => { window.location.href = getBotInviteUrl(); } },
-  { label: "Join Discord Support", shortcut: "S", onClick: () => { window.open("https://discord.gg/UCqXrvHFqh", "_blank"); } },
+  { label: "Add Your Server", shortcut: "A", onClick: () => { window.location.href = "/login"; } },
+  { label: "Help & Support", shortcut: "S", onClick: () => { window.location.href = "/docs"; } },
 ];
 
 const DEFAULT_FILES: SearchFile[] = [];
 
 export function SearchModal({
-  placeholder = "Search commands, tickets, shifts, documentation...",
+  placeholder = "Search servers, documentation...",
   tags = DEFAULT_TAGS,
   results = DEFAULT_RESULTS,
   quickActions = DEFAULT_QUICK_ACTIONS,

@@ -115,7 +115,7 @@ export function PromoteTab({
 
       // Sync into local directory so Earn Credits tab auto-updates immediately
       try {
-        const existingRaw = localStorage.getItem('civlink_promoted_servers');
+        const existingRaw = localStorage.getItem('erlcus_promoted_servers');
         const existingList = existingRaw ? JSON.parse(existingRaw) : [];
         const index = existingList.findIndex((s: any) => s.id === guildId);
         const myPromotedServer = {
@@ -138,8 +138,8 @@ export function PromoteTab({
         } else {
           existingList.unshift(myPromotedServer);
         }
-        localStorage.setItem('civlink_promoted_servers', JSON.stringify(existingList));
-        window.dispatchEvent(new Event('civlink_promotions_updated'));
+        localStorage.setItem('erlcus_promoted_servers', JSON.stringify(existingList));
+        window.dispatchEvent(new Event('erlcus_promotions_updated'));
       } catch (e) {
         console.warn('Could not sync local directory:', e);
       }
@@ -490,7 +490,7 @@ export function PromoteTab({
                 )}
 
                 <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-                  <span className="text-[11px] text-zinc-500 font-mono">Mavely Server Directory</span>
+                  <span className="text-[11px] text-zinc-500 font-mono">ERLC.US Server Directory</span>
                   <Button
                     size="sm"
                     onClick={() => {
@@ -564,9 +564,9 @@ export function PromoteTab({
                           j4jBlockChurn: true
                         });
                         try {
-                          localStorage.setItem(`civlink_antiraid_minage_${guildId}`, 'true');
-                          localStorage.setItem(`civlink_antiraid_avatar_${guildId}`, 'true');
-                          localStorage.setItem(`civlink_antiraid_churn_${guildId}`, 'true');
+                          localStorage.setItem(`erlcus_antiraid_minage_${guildId}`, 'true');
+                          localStorage.setItem(`erlcus_antiraid_avatar_${guildId}`, 'true');
+                          localStorage.setItem(`erlcus_antiraid_churn_${guildId}`, 'true');
                         } catch {}
                       }}
                       className="text-[11px] font-medium text-emerald-400 hover:text-emerald-300 underline cursor-pointer ml-1"
@@ -627,7 +627,7 @@ export function PromoteTab({
                     setMinAge(c);
                     onChangeConfig({ j4jMinAccountAgeDays: c ? 7 : 0 });
                     try {
-                      localStorage.setItem(`civlink_antiraid_minage_${guildId}`, c ? 'true' : 'false');
+                      localStorage.setItem(`erlcus_antiraid_minage_${guildId}`, c ? 'true' : 'false');
                     } catch {}
                   }}
                 />
@@ -663,7 +663,7 @@ export function PromoteTab({
                     setRequireAvatar(c);
                     onChangeConfig({ j4jRequireAvatar: c });
                     try {
-                      localStorage.setItem(`civlink_antiraid_avatar_${guildId}`, c ? 'true' : 'false');
+                      localStorage.setItem(`erlcus_antiraid_avatar_${guildId}`, c ? 'true' : 'false');
                     } catch {}
                   }}
                 />
@@ -699,7 +699,7 @@ export function PromoteTab({
                     setBlockChurn(c);
                     onChangeConfig({ j4jBlockChurn: c });
                     try {
-                      localStorage.setItem(`civlink_antiraid_churn_${guildId}`, c ? 'true' : 'false');
+                      localStorage.setItem(`erlcus_antiraid_churn_${guildId}`, c ? 'true' : 'false');
                     } catch {}
                   }}
                 />
@@ -710,7 +710,7 @@ export function PromoteTab({
             <div className="flex items-center justify-between pt-3 border-t border-white/10">
               <span className="text-[11px] text-zinc-400 flex items-center gap-1.5">
                 <ShieldCheck className="size-3.5 text-emerald-400" />
-                Rules sync to real-time bot gateway
+                Rules apply to every directory join
               </span>
               <Button
                 type="button"

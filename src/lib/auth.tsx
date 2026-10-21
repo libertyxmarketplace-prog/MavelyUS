@@ -21,7 +21,7 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<DiscordUser | null>(() => {
     try {
-      const stored = localStorage.getItem('mavely_user');
+      const stored = localStorage.getItem('erlcus_user');
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const [guilds, setGuilds] = useState<DiscordGuild[]>(() => {
     try {
-      const stored = localStorage.getItem('mavely_known_guilds');
+      const stored = localStorage.getItem('erlcus_known_guilds');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const [loading, setLoading] = useState<boolean>(() => {
     try {
-      return !localStorage.getItem('mavely_user');
+      return !localStorage.getItem('erlcus_user');
     } catch {
       return true;
     }
@@ -50,17 +50,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(data.user);
         if (data.guilds && Array.isArray(data.guilds)) {
           setGuilds(data.guilds);
-          try { localStorage.setItem('mavely_known_guilds', JSON.stringify(data.guilds)); } catch {}
+          try { localStorage.setItem('erlcus_known_guilds', JSON.stringify(data.guilds)); } catch {}
         }
-        try { localStorage.setItem('mavely_user', JSON.stringify(data.user)); } catch {}
+        try { localStorage.setItem('erlcus_user', JSON.stringify(data.user)); } catch {}
       } else {
-        const cached = localStorage.getItem('mavely_user');
+        const cached = localStorage.getItem('erlcus_user');
         if (cached) {
           try { setUser(JSON.parse(cached)); } catch {}
         }
       }
     } catch {
-      const cached = localStorage.getItem('mavely_user');
+      const cached = localStorage.getItem('erlcus_user');
       if (cached) {
         try { setUser(JSON.parse(cached)); } catch {}
       }
@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiLogout();
     } catch {}
-    try { localStorage.removeItem('mavely_user'); } catch {}
+    try { localStorage.removeItem('erlcus_user'); } catch {}
     setUser(null);
     setGuilds([]);
     window.location.assign('/');

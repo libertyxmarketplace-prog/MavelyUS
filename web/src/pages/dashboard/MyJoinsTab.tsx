@@ -25,8 +25,8 @@ export function MyJoinsTab({ onNavigateTab, addToast }: MyJoinsTabProps) {
 
   useEffect(() => {
     try {
-      const savedServers: PromotedServer[] = JSON.parse(localStorage.getItem('civlink_promoted_servers') || '[]');
-      const savedJoins: Record<string, boolean> = JSON.parse(localStorage.getItem('civlink_joined_servers') || '{}');
+      const savedServers: PromotedServer[] = JSON.parse(localStorage.getItem('erlcus_promoted_servers') || '[]');
+      const savedJoins: Record<string, boolean> = JSON.parse(localStorage.getItem('erlcus_joined_servers') || '{}');
 
       const userJoined = savedServers.filter((s) => savedJoins[s.id]);
       setJoinedServers(userJoined);
@@ -36,20 +36,20 @@ export function MyJoinsTab({ onNavigateTab, addToast }: MyJoinsTabProps) {
   }, []);
 
   const handleLeaveServer = (server: PromotedServer) => {
-    const savedJoins: Record<string, boolean> = JSON.parse(localStorage.getItem('civlink_joined_servers') || '{}');
+    const savedJoins: Record<string, boolean> = JSON.parse(localStorage.getItem('erlcus_joined_servers') || '{}');
     delete savedJoins[server.id];
-    localStorage.setItem('civlink_joined_servers', JSON.stringify(savedJoins));
+    localStorage.setItem('erlcus_joined_servers', JSON.stringify(savedJoins));
 
     // Deduct credits
     const penalty = server.rewardCoins || 1;
-    const currentBalance = parseInt(localStorage.getItem('civlink_credits_balance') || '0', 10);
+    const currentBalance = parseInt(localStorage.getItem('erlcus_credits_balance') || '0', 10);
     const newBalance = Math.max(0, currentBalance - penalty);
-    localStorage.setItem('civlink_credits_balance', newBalance.toString());
+    localStorage.setItem('erlcus_credits_balance', newBalance.toString());
 
     // Decrement verified joins count immediately
-    const currentJoins = parseInt(localStorage.getItem('civlink_daily_joins') || '0', 10);
+    const currentJoins = parseInt(localStorage.getItem('erlcus_daily_joins') || '0', 10);
     const newJoins = Math.max(0, currentJoins - 1);
-    localStorage.setItem('civlink_daily_joins', newJoins.toString());
+    localStorage.setItem('erlcus_daily_joins', newJoins.toString());
 
     // Record clawback transaction in ledger
     const clawbackTx = {
@@ -60,11 +60,11 @@ export function MyJoinsTab({ onNavigateTab, addToast }: MyJoinsTabProps) {
       date: new Date().toISOString().replace('T', ' ').slice(0, 16),
       status: 'revoked',
     };
-    const savedTxs = JSON.parse(localStorage.getItem('civlink_transactions') || '[]');
-    localStorage.setItem('civlink_transactions', JSON.stringify([clawbackTx, ...savedTxs]));
+    const savedTxs = JSON.parse(localStorage.getItem('erlcus_transactions') || '[]');
+    localStorage.setItem('erlcus_transactions', JSON.stringify([clawbackTx, ...savedTxs]));
 
     setJoinedServers((prev) => prev.filter((s) => s.id !== server.id));
-    window.dispatchEvent(new Event('civlink_credits_updated'));
+    window.dispatchEvent(new Event('erlcus_credits_updated'));
 
     addToast?.(
       'info',
@@ -82,7 +82,7 @@ export function MyJoinsTab({ onNavigateTab, addToast }: MyJoinsTabProps) {
             My Joined Communities
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Servers you joined through Mavely directory campaigns. Leaving a server removes bounty credits and updates your verified joins count.
+            Servers you joined through ERLC.US directory campaigns. Leaving a server removes bounty credits and updates your verified joins count.
           </p>
         </div>
 

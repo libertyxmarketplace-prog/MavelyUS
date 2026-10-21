@@ -6,12 +6,9 @@ import {
   Check,
   ShieldCheck,
   ArrowRight,
-  RotateCw,
   Rocket,
   Flame,
-  Bot,
   Compass,
-  Activity,
   Layers,
   Sparkles,
   ExternalLink,
@@ -22,7 +19,6 @@ import {
   ChevronLeft,
   ChevronDown,
   Eye,
-  SlidersHorizontal,
   Bell,
   Hash
 } from 'lucide-react';
@@ -38,7 +34,6 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import type { DiscordGuild, WorkspaceBot, WorkspaceCustomizations } from '@/types';
-import { getBotInviteUrl } from '@/lib/api';
 
 const chartConfig = {
   joins: {
@@ -96,10 +91,7 @@ interface OverviewTabProps {
   guild: DiscordGuild | null;
   workspace: WorkspaceBot | null;
   config: WorkspaceCustomizations;
-  standaloneMode?: boolean;
-  onOpenConnectModal?: () => void;
   onNavigateTab: (tab: string) => void;
-  onBotAction?: (action: string) => void;
   addToast: (variant: 'success' | 'info' | 'warning' | 'error', title: string, body: string) => void;
 }
 
@@ -107,41 +99,37 @@ export function OverviewTab({
   guild,
   workspace,
   config,
-  standaloneMode = false,
-  onOpenConnectModal,
   onNavigateTab,
-  onBotAction,
   addToast
 }: OverviewTabProps) {
   const [copiedId, setCopiedId] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [syncing, setSyncing] = useState(false);
 
   const { user } = useAuth();
   const guildId = guild?.id || '1530147023754367006';
 
   // Server-scoped Community Growth Data (defaults to 0 for any newly selected server)
   const [creditsBalance, setCreditsBalance] = useState<number>(() => {
-    const saved = localStorage.getItem(`civlink_credits_balance_${guildId}`);
+    const saved = localStorage.getItem(`erlcus_credits_balance_${guildId}`);
     return saved ? parseInt(saved, 10) : 0;
   });
 
   const [dailyJoins, setDailyJoins] = useState<number>(() => {
-    const saved = localStorage.getItem(`civlink_daily_joins_${guildId}`);
+    const saved = localStorage.getItem(`erlcus_daily_joins_${guildId}`);
     return saved ? parseInt(saved, 10) : 0;
   });
 
   const [streakDays, setStreakDays] = useState<number>(() => {
-    const saved = localStorage.getItem(`civlink_streak_days_${guildId}`);
+    const saved = localStorage.getItem(`erlcus_streak_days_${guildId}`);
     return saved ? parseInt(saved, 10) : 0;
   });
 
   // Bump Announcement Configuration states
   const [bumpChannel, setBumpChannel] = useState<string>(() => {
-    return localStorage.getItem(`civlink_bump_channel_${guildId}`) || '#bot-commands';
+    return localStorage.getItem(`erlcus_bump_channel_${guildId}`) || '#bumps';
   });
   const [bumpAnnounceEnabled, setBumpAnnounceEnabled] = useState<boolean>(() => {
-    return localStorage.getItem(`civlink_bump_enabled_${guildId}`) !== 'false';
+    return localStorage.getItem(`erlcus_bump_enabled_${guildId}`) !== 'false';
   });
   const [isChannelDropdownOpen, setIsChannelDropdownOpen] = useState<boolean>(false);
   const [channelSearch, setChannelSearch] = useState<string>('');
@@ -150,8 +138,8 @@ export function OverviewTab({
   // Bump cooldown state (1-hour cycle matching Discord /bump)
   const lastBump = (() => {
     const s1 = localStorage.getItem(`server_bump_${guildId}`);
-    const s2 = localStorage.getItem(`mavely_bump_${guildId}`);
-    const s3 = localStorage.getItem('civlink_last_bump');
+    const s2 = localStorage.getItem(`erlcus_bump_${guildId}`);
+    const s3 = localStorage.getItem('erlcus_last_bump');
     const t1 = s1 ? parseInt(s1, 10) : 0;
     const t2 = s2 ? parseInt(s2, 10) : 0;
     const t3 = s3 ? parseInt(s3, 10) : 0;
@@ -174,15 +162,15 @@ export function OverviewTab({
 
   // Sync when switching servers or when credits update
   useEffect(() => {
-    const savedBalance = localStorage.getItem(`civlink_credits_balance_${guildId}`);
+    const savedBalance = localStorage.getItem(`erlcus_credits_balance_${guildId}`);
     setCreditsBalance(savedBalance ? parseInt(savedBalance, 10) : 0);
-    const savedJoins = localStorage.getItem(`civlink_daily_joins_${guildId}`);
+    const savedJoins = localStorage.getItem(`erlcus_daily_joins_${guildId}`);
     setDailyJoins(savedJoins ? parseInt(savedJoins, 10) : 0);
-    const savedStreak = localStorage.getItem(`civlink_streak_days_${guildId}`);
+    const savedStreak = localStorage.getItem(`erlcus_streak_days_${guildId}`);
     setStreakDays(savedStreak ? parseInt(savedStreak, 10) : 0);
-    const savedCh = localStorage.getItem(`civlink_bump_channel_${guildId}`);
-    setBumpChannel(savedCh || '#bot-commands');
-    const savedEn = localStorage.getItem(`civlink_bump_enabled_${guildId}`);
+    const savedCh = localStorage.getItem(`erlcus_bump_channel_${guildId}`);
+    setBumpChannel(savedCh || '#bumps');
+    const savedEn = localStorage.getItem(`erlcus_bump_enabled_${guildId}`);
     setBumpAnnounceEnabled(savedEn !== 'false');
     setIsChannelDropdownOpen(false);
     setChannelSearch('');
@@ -191,29 +179,26 @@ export function OverviewTab({
 
   useEffect(() => {
     const handleUpdate = () => {
-      const savedBalance = localStorage.getItem(`civlink_credits_balance_${guildId}`);
+      const savedBalance = localStorage.getItem(`erlcus_credits_balance_${guildId}`);
       if (savedBalance) setCreditsBalance(parseInt(savedBalance, 10));
-      const savedJoins = localStorage.getItem(`civlink_daily_joins_${guildId}`);
+      const savedJoins = localStorage.getItem(`erlcus_daily_joins_${guildId}`);
       if (savedJoins) setDailyJoins(parseInt(savedJoins, 10));
-      const savedStreak = localStorage.getItem(`civlink_streak_days_${guildId}`);
+      const savedStreak = localStorage.getItem(`erlcus_streak_days_${guildId}`);
       if (savedStreak) setStreakDays(parseInt(savedStreak, 10));
     };
-    window.addEventListener('civlink_credits_updated', handleUpdate);
-    return () => window.removeEventListener('civlink_credits_updated', handleUpdate);
+    window.addEventListener('erlcus_credits_updated', handleUpdate);
+    return () => window.removeEventListener('erlcus_credits_updated', handleUpdate);
   }, [guildId]);
 
   const serverIconUrl = guild?.iconUrl || (guild?.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null) || config.serverIconUrl;
   const serverName = guild?.name || config.serverName || 'Liberty County Community';
   const isPromoted = config.j4jEnabled !== false && Boolean(config.inviteUrl || config.serverDescription);
-  const isBotConnected = Boolean(workspace && workspace.isInGuild !== false && workspace.botUser?.username && workspace.status !== 'unconfigured');
-  const botInstanceName = workspace?.botUser?.username || '';
-  const botInviteUrl = getBotInviteUrl(guildId);
 
   // Available server channels for bump announcements
   const rawChannels = (guild as any)?.channels || (workspace as any)?.channels || [];
   const availableChannels: string[] = rawChannels.length > 0
     ? rawChannels.map((c: any) => `#${c.name.replace(/^#/, '')}`)
-    : ['#bot-commands', '#bumps', '#general', '#announcements', '#chat', '#media', '#bot-spam'];
+    : ['#bumps', '#general', '#announcements', '#chat', '#media'];
 
   const serverWords = serverName.trim().split(/\s+/);
   const serverInitial = serverWords.length > 1
@@ -261,27 +246,6 @@ export function OverviewTab({
 
               {/* Server Meta Chips */}
               <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400 font-mono">
-                {/* Integration status */}
-                {isBotConnected && botInstanceName ? (
-                  <div className="inline-flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-lg border border-emerald-500/20">
-                    <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-zinc-400">BOT:</span>
-                    <span className="font-semibold text-white">{botInstanceName}</span>
-                  </div>
-                ) : standaloneMode ? (
-                  <div className="inline-flex items-center gap-1.5 text-zinc-300 bg-white/[0.04] px-2.5 py-0.5 rounded-lg border border-white/[0.08]">
-                    <SlidersHorizontal className="size-3 text-zinc-400" />
-                    <span>SETUP WITHOUT BOT (SOON)</span>
-                  </div>
-                ) : (
-                  <div className="inline-flex items-center gap-1.5 text-zinc-400 bg-white/[0.04] px-2.5 py-0.5 rounded-lg border border-white/[0.08]">
-                    <span className="size-1.5 rounded-full bg-zinc-500" />
-                    <span>No Bot Linked</span>
-                  </div>
-                )}
-
-                <span className="text-zinc-600">·</span>
-
                 {/* Snowflake ID */}
                 <button
                   type="button"
@@ -294,44 +258,12 @@ export function OverviewTab({
                   {copiedId ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3 text-zinc-500" />}
                 </button>
 
-                <span className="text-zinc-600">·</span>
-
-                {/* Gateway Latency */}
-                <span className="inline-flex items-center gap-1 text-zinc-400">
-                  <Activity className="size-3 text-cyan-400" />
-                  <span>24ms Gateway</span>
-                </span>
               </div>
             </div>
           </div>
 
           {/* Right: Quick Action Controls */}
           <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto shrink-0">
-            {onOpenConnectModal && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  addToast('info', 'Coming Soon', 'Bot connection and onboarding setup is coming soon in the upcoming update.');
-                }}
-                className="h-9 px-3.5 border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Bot className="size-3.5 text-indigo-400" />
-                <span>{isBotConnected ? 'Manage Bot' : 'Connect / Setup'}</span>
-              </Button>
-            )}
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleQuickSync}
-              disabled={syncing}
-              className="h-9 px-3.5 border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 text-xs font-semibold rounded-xl transition-all cursor-pointer"
-            >
-              <RotateCw className={`size-3.5 mr-1.5 text-zinc-400 ${syncing ? 'animate-spin text-emerald-400' : ''}`} />
-              Sync
-            </Button>
-
             <Button
               size="sm"
               onClick={() => onNavigateTab('details')}
@@ -559,11 +491,11 @@ export function OverviewTab({
                 onClick={() => {
                   const next = !bumpAnnounceEnabled;
                   setBumpAnnounceEnabled(next);
-                  localStorage.setItem(`civlink_bump_enabled_${guildId}`, next ? 'true' : 'false');
+                  localStorage.setItem(`erlcus_bump_enabled_${guildId}`, next ? 'true' : 'false');
                   addToast(
                     'info',
                     next ? 'Bump Message Enabled' : 'Bump Message Disabled',
-                    next ? 'Mavely will thank bumpers in your Discord channel.' : 'Automated thank-you messages disabled.'
+                    next ? 'ERLC.US will thank bumpers in your Discord channel.' : 'Automated thank-you messages disabled.'
                   );
                 }}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
@@ -601,14 +533,14 @@ export function OverviewTab({
                     <Input
                       value={bumpChannel}
                       onChange={(e) => setBumpChannel(e.target.value)}
-                      placeholder="#bot-commands"
+                      placeholder="#bumps"
                       className="h-10 pl-8 text-xs bg-black/40 border-white/10 text-white rounded-xl font-mono focus:border-amber-500/50"
                     />
                   </div>
                   <Button
                     size="sm"
                     onClick={() => {
-                      localStorage.setItem(`civlink_bump_channel_${guildId}`, bumpChannel);
+                      localStorage.setItem(`erlcus_bump_channel_${guildId}`, bumpChannel);
                       addToast('success', 'Channel Saved', `Bump thank-you messages mapped to ${bumpChannel}`);
                     }}
                     className="h-10 px-4 text-xs bg-white/[0.08] hover:bg-white/15 text-white border border-white/10 rounded-xl cursor-pointer font-medium"
@@ -625,7 +557,7 @@ export function OverviewTab({
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <Hash className="size-3.5 text-amber-400 shrink-0" />
-                      <span className="text-white font-medium truncate">{bumpChannel || '#bot-commands'}</span>
+                      <span className="text-white font-medium truncate">{bumpChannel || '#bumps'}</span>
                     </div>
                     <ChevronDown className={`size-3.5 text-zinc-400 transition-transform duration-200 ${isChannelDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -654,7 +586,7 @@ export function OverviewTab({
                                 type="button"
                                 onClick={() => {
                                   setBumpChannel(ch);
-                                  localStorage.setItem(`civlink_bump_channel_${guildId}`, ch);
+                                  localStorage.setItem(`erlcus_bump_channel_${guildId}`, ch);
                                   setIsChannelDropdownOpen(false);
                                   setChannelSearch('');
                                   addToast('success', 'Channel Selected', `Bump announcements mapped to ${ch}`);

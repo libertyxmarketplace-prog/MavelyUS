@@ -12,8 +12,7 @@ import {
   Layers,
   Star,
   Bell,
-  Hash,
-  Bot
+  Hash
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,7 +43,7 @@ export function ServerDetailsTab({
   const bannerUrl = config.serverBannerUrl || config.bannerUrl || '';
   const hasBanner = Boolean(bannerUrl.trim());
 
-  // Bump cooldown logic (1-hour cycle matching Discord /bump)
+  // Bump cooldown logic (1-hour cycle)
   const BUMP_INTERVAL_MS = 60 * 60 * 1000;
   const [lastBumpTime, setLastBumpTime] = useState<number>(() => {
     const saved = localStorage.getItem(`server_bump_${guildId}`);
@@ -53,10 +52,10 @@ export function ServerDetailsTab({
 
   const { user } = useAuth();
   const [bumpChannel, setBumpChannel] = useState<string>(() => {
-    return localStorage.getItem(`civlink_bump_channel_${guildId}`) || '#bot-commands';
+    return localStorage.getItem(`erlcus_bump_channel_${guildId}`) || '#bumps';
   });
   const [bumpAnnounceEnabled, setBumpAnnounceEnabled] = useState<boolean>(() => {
-    return localStorage.getItem(`civlink_bump_enabled_${guildId}`) !== 'false';
+    return localStorage.getItem(`erlcus_bump_enabled_${guildId}`) !== 'false';
   });
 
   const [copiedCode, setCopiedCode] = useState(false);

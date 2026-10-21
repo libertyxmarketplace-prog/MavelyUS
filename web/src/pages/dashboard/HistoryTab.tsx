@@ -28,7 +28,7 @@ export function HistoryTab() {
   // Load real member joins from localStorage only (NO fake seeds)
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('civlink_my_joins_list');
+      const saved = localStorage.getItem('erlcus_my_joins_list');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -131,7 +131,7 @@ export function HistoryTab() {
                 Member Joins & Activity
               </CardTitle>
               <CardDescription className="text-xs text-slate-400">
-                Live log of Discord members who joined your server through Mavely campaigns and directory listings.
+                Live log of Discord members who joined your server through ERLC.US campaigns and directory listings.
               </CardDescription>
             </div>
 

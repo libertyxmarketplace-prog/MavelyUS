@@ -18,7 +18,7 @@ import { Rocket, ShieldCheck, Coins, Activity, Zap, Check, ArrowLeft, ArrowRight
 
 // Apply saved theme accent & performance mode on startup
 try {
-  const savedAccent = localStorage.getItem('mavely_theme_accent');
+  const savedAccent = localStorage.getItem('erlcus_theme_accent');
   if (savedAccent) {
     const accents: Record<string, { oklch: string; color: string }> = {
       mint: { oklch: '0.75 0.14 160', color: '#2ecc71' },
@@ -31,7 +31,7 @@ try {
     document.documentElement.style.setProperty('--theme-accent', theme.color);
     document.documentElement.style.setProperty('--embed-color', theme.color);
   }
-  if (localStorage.getItem('mavely_perf_mode') === 'true') {
+  if (localStorage.getItem('erlcus_perf_mode') === 'true') {
     document.body.classList.add('reduce-motion');
   }
 } catch {
@@ -49,6 +49,7 @@ export function LoginPage() {
     window.location.href = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=${redirectUri}&scope=identify+guilds`;
   };
 
+
   return (
     <div className="min-h-screen relative flex flex-col justify-between text-white font-sans overflow-x-hidden selection:bg-emerald-500/30">
       {/* Background Photography (Autumn ER:LC bridge) */}
@@ -65,11 +66,11 @@ export function LoginPage() {
       <header className="relative z-20 pt-8 px-6 sm:pt-10 sm:px-12 lg:px-16 flex items-center justify-between">
         <a href="/" className="inline-block transition-transform hover:scale-105 active:scale-95" title="Home">
           <img
-            src="/mavely_logo.png"
-            alt="Mavely"
+            src="/erlcus_logo.png"
+            alt="ERLC.US"
             className="h-10 sm:h-12 w-auto object-contain"
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/mavely-mark.png';
+              (e.currentTarget as HTMLImageElement).src = '/erlcus-mark.png';
             }}
           />
         </a>
@@ -246,7 +247,6 @@ function CallbackPage() {
 
       const searchParams = new URLSearchParams(window.location.search);
       const code = searchParams.get('code');
-      const guildId = searchParams.get('guild_id');
 
       // 1. If Discord redirected with access_token (implicit grant)
       if (token) {
@@ -257,7 +257,7 @@ function CallbackPage() {
           if (res.ok) {
             const user = await res.json();
             localStorage.setItem(
-              'mavely_user',
+              'erlcus_user',
               JSON.stringify({
                 id: user.id,
                 username: user.username,
@@ -273,7 +273,7 @@ function CallbackPage() {
               });
               if (gRes.ok) {
                 const guilds = await gRes.json();
-                localStorage.setItem('mavely_known_guilds', JSON.stringify(guilds));
+                localStorage.setItem('erlcus_known_guilds', JSON.stringify(guilds));
               }
             } catch { }
 

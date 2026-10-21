@@ -1,6 +1,6 @@
 Add-Type -AssemblyName System.Drawing
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$src = [System.Drawing.Bitmap]::FromFile((Join-Path $root 'assets\mavely_logo.png'))
+$src = [System.Drawing.Bitmap]::FromFile((Join-Path $root 'assets\erlcus_logo.png'))
 
 # Find the bounding box of the green "M" mark (ignore the white wordmark below it).
 $minX = $src.Width; $minY = $src.Height; $maxX = 0; $maxY = 0
@@ -37,7 +37,7 @@ function Save-Mark([int]$size, [string]$out, [double]$padRatio, [bool]$backgroun
 }
 
 $assets = Join-Path $root 'assets'
-Save-Mark 512 (Join-Path $assets 'mavely-mark.png') 0.04 $false
+Save-Mark 512 (Join-Path $assets 'erlcus-mark.png') 0.04 $false
 Save-Mark 32 (Join-Path $assets 'favicon-32.png') 0.04 $false
 Save-Mark 180 (Join-Path $assets 'apple-touch-icon.png') 0.16 $true
 Save-Mark 192 (Join-Path $assets 'icon-192.png') 0.14 $true

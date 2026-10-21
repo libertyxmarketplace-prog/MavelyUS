@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { Sidebar } from '@/components/Sidebar';
 import PricingComponent from '@/components/ui/interactive-pricing-component';
-import { getBotInviteUrl } from '@/lib/api';
 
 export function PricingPage() {
   return (
@@ -24,23 +23,19 @@ export function PricingPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <a
-              href={getBotInviteUrl()}
-              target="_blank"
-              rel="noreferrer"
+            <Link
+              to="/login"
               className="hidden sm:inline-flex items-center gap-1.5 text-xs text-white/60 hover:text-[#2ecc71] transition-colors font-medium px-2 py-1"
             >
               <span className="text-[#2ecc71] font-bold">+</span>
-              <span>Add to Discord</span>
-            </a>
+              <span>Sign in with Discord</span>
+            </Link>
 
             <a
-              href="https://discord.gg/UCqXrvHFqh"
-              target="_blank"
-              rel="noreferrer"
+              href="/docs"
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-zinc-300 hover:text-white hover:border-white/20 transition-all"
             >
-              <span>Discord Support</span>
+              <span>Help & Support</span>
               <ExternalLink className="size-3 text-zinc-500" />
             </a>
           </div>
@@ -55,14 +50,14 @@ export function PricingPage() {
         <footer className="mt-auto py-8 border-t border-white/[0.06] bg-[#090a0f] text-xs text-white/40">
           <div className="mx-auto max-w-6xl px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <img src="/mavely-mark.png" alt="Mavely" className="size-4 object-contain" />
-              <span className="font-medium text-white/70">Mavely</span>
+              <img src="/erlcus-mark.png" alt="ERLC.US" className="size-4 object-contain" />
+              <span className="font-medium text-white/70">ERLC.US</span>
               <span>&copy; {new Date().getFullYear()}</span>
             </div>
             <div className="flex items-center gap-6">
               <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
               <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
-              <a href="https://discord.gg/UCqXrvHFqh" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">Discord Server</a>
+              <a href="/docs" className="hover:text-white transition-colors">Discord Server</a>
             </div>
           </div>
         </footer>

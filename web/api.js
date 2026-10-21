@@ -3,33 +3,29 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Router } from 'express';
+// Workspace settings are still stored in the old bot-instance records (data/bot_instances*.json),
+// so the storage module keeps its name to stay compatible with existing data.
 import {
   createBotInstance,
   getBotInstance,
   loadBotInstances,
   updateBotInstance,
+  updateBotCustomization,
   DEFAULT_CUSTOMIZATIONS,
   MASTER_BOT_ID
 } from '../botManager.js';
-import { activeCustomerClients, startCustomerBot, stopCustomerBot } from '../customerBotRunner.js';
-import { deployCommands } from '../deploy-commands.js';
-import { CONFIG } from '../config.js';
-import { buildTicketPanel } from '../panelBuilder.js';
-import { activateLiveSessionPanel } from '../sessionManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const SESSIONS_FILE = path.join(DATA_DIR, 'web_sessions.json');
 
-const SESSION_COOKIE = 'mavely_session';
+const SESSION_COOKIE = 'erlcus_session';
 const SESSION_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const GUILD_CACHE_TTL = 60 * 1000;
-const RESOURCE_CACHE_TTL = 30 * 1000;
 const ERLC_CACHE_TTL = 15 * 1000;
 
 const sessions = new Map();
 const oauthStates = new Map();
-const resourceCache = new Map();
 const erlcCache = new Map();
 
 // ─── Settings the website is allowed to change ─────────────────────────────
@@ -131,7 +127,6 @@ const sweeper = setInterval(() => {
   for (const [state, pending] of oauthStates) {
     if (pending.expiresAt < now) oauthStates.delete(state);
   }
-  for (const [key, entry] of resourceCache) if (entry.expiresAt < now) resourceCache.delete(key);
   for (const [key, entry] of erlcCache) if (entry.expiresAt < now) erlcCache.delete(key);
   if (removed) persistSessions();
 }, 10 * 60 * 1000);
@@ -164,7 +159,7 @@ function rateLimit({ windowMs, max }) {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function oauthClientId() {
-  return process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID || '1552165138017165372';
+  return process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID || '1562365417815543808';
 }
 
 function appOrigin(req) {
@@ -291,7 +286,7 @@ function guildIconUrl(guild) {
   return `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.${ext}?size=128`;
 }
 
-/** Bot instance that powers a guild (any admin of that guild may manage it). */
+/** Stored settings record for a guild (any admin of that guild may manage it). */
 function findGuildBot(guildId) {
   const all = Object.values(loadBotInstances()).filter(bot => bot.guildId === guildId && !bot.banned);
   return all.find(bot => bot.botId !== MASTER_BOT_ID) || all.find(bot => bot.botId === MASTER_BOT_ID) || null;
@@ -301,121 +296,28 @@ function isBannedGuild(guildId) {
   return Object.values(loadBotInstances()).some(bot => bot.guildId === guildId && bot.banned);
 }
 
-let cachedBotGuilds = null;
-let cachedBotGuildsExpiresAt = 0;
-
-async function fetchRealBotGuilds() {
-  if (cachedBotGuilds && Date.now() < cachedBotGuildsExpiresAt) {
-    return cachedBotGuilds;
-  }
-  const token = (process.env.DISCORD_TOKEN || '').trim().replace(/^Bot\s+/i, '');
-  try {
-    const res = await fetch('https://discord.com/api/v10/users/@me/guilds?with_counts=true', {
-      headers: { Authorization: `Bot ${token}` },
-      signal: AbortSignal.timeout(6000)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const mapped = data.map(g => ({
-        id: g.id,
-        name: g.name,
-        icon: g.icon,
-        iconUrl: g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.${g.icon.startsWith('a_') ? 'gif' : 'png'}?size=128` : null,
-        owner: Boolean(g.owner),
-        memberCount: Number(g.approximate_member_count || g.member_count || 0)
-      }));
-      cachedBotGuilds = mapped;
-      cachedBotGuildsExpiresAt = Date.now() + 60000;
-      return mapped;
-    }
-  } catch (err) {
-    console.warn('[WEB] Error fetching bot guilds from Discord REST:', err.message);
-  }
-  return [];
-}
-
+/** Servers the signed-in user can manage, read from their own Discord OAuth token. */
 async function manageableGuilds(session, { force = false } = {}) {
-  const botGuilds = await fetchRealBotGuilds();
-
-  // Try to use a real access token if available in the session or in stored sessions
-  let token = session.accessToken;
-  if (!token || token === 'dev_mock_token') {
-    for (const s of sessions.values()) {
-      if (s.accessToken && s.accessToken !== 'dev_mock_token' && s.expiresAt > Date.now()) {
-        token = s.accessToken;
-        break;
-      }
-    }
+  const cached = session.guildCache;
+  if (!force && cached && cached.expiresAt > Date.now()) return decorateGuilds(cached.guilds);
+  try {
+    const token = await renewAccessToken(session);
+    const guilds = await discordJson('https://discord.com/api/v10/users/@me/guilds?with_counts=true', token);
+    const filtered = (Array.isArray(guilds) ? guilds : []).filter(permissionsAllowManageGuild).map(guild => ({
+      id: guild.id,
+      name: guild.name,
+      icon: guild.icon,
+      iconUrl: guildIconUrl(guild),
+      owner: Boolean(guild.owner),
+      memberCount: Number(guild.approximate_member_count || 0)
+    }));
+    session.guildCache = { guilds: filtered, expiresAt: Date.now() + GUILD_CACHE_TTL };
+    return decorateGuilds(filtered);
+  } catch (err) {
+    console.warn('[WEB] Could not fetch Discord user guilds:', err.message);
+    if (cached && !(err instanceof DiscordError && err.status === 401)) return decorateGuilds(cached.guilds);
+    throw err;
   }
-
-  if (token && token !== 'dev_mock_token') {
-    const cached = session.guildCache;
-    if (!force && cached && cached.expiresAt > Date.now()) return decorateGuilds(cached.guilds);
-    try {
-      const guilds = await discordJson('https://discord.com/api/v10/users/@me/guilds?with_counts=true', token);
-      if (Array.isArray(guilds)) {
-        const filtered = guilds.filter(permissionsAllowManageGuild).map(guild => {
-          const botGuild = botGuilds.find(bg => bg.id === guild.id);
-          return {
-            id: guild.id,
-            name: guild.name,
-            icon: guild.icon,
-            iconUrl: guildIconUrl(guild),
-            owner: Boolean(guild.owner),
-            memberCount: Number(guild.approximate_member_count || botGuild?.memberCount || 0)
-          };
-        });
-        session.guildCache = { guilds: filtered, expiresAt: Date.now() + GUILD_CACHE_TTL };
-        return decorateGuilds(filtered);
-      }
-    } catch (err) {
-      console.warn('[WEB] Could not fetch Discord user guilds with access token:', err.message);
-      if (cached && !(err instanceof DiscordError && err.status === 401)) return decorateGuilds(cached.guilds);
-    }
-  }
-
-  // Fallback for mock sessions, bot instances, and servers where the bot is joined
-  const instances = Object.values(loadBotInstances());
-  const dbGuilds = instances
-    .filter(b => b.guildId && /^\d{17,20}$/.test(b.guildId) && b.customizations?.serverName && !b.customizations.serverName.includes('Orlando') && !b.customizations.serverName.includes('Strict'))
-    .map(b => {
-      const matched = botGuilds.find(bg => bg.id === b.guildId);
-      return {
-        id: b.guildId,
-        name: matched?.name || b.customizations?.serverName || `Community (${b.guildId.slice(0, 6)})`,
-        icon: matched?.icon || null,
-        iconUrl: matched?.iconUrl || b.customizations?.serverIconUrl || null,
-        owner: true,
-        memberCount: Number(matched?.memberCount || 0)
-      };
-    });
-
-  const combined = [...botGuilds, ...dbGuilds];
-  const uniqueMap = new Map();
-  for (const g of combined) {
-    if (!g.name || g.name.includes('Orlando') || g.name.includes('Strict')) continue;
-    if (!uniqueMap.has(g.id)) {
-      uniqueMap.set(g.id, g);
-    } else {
-      const existing = uniqueMap.get(g.id);
-      if (!existing.iconUrl && g.iconUrl) existing.iconUrl = g.iconUrl;
-      if (g.memberCount && !existing.memberCount) existing.memberCount = g.memberCount;
-      if ((!existing.name || existing.name.startsWith('Community (')) && g.name && !g.name.startsWith('Community (')) {
-        existing.name = g.name;
-      }
-    }
-  }
-  const result = Array.from(uniqueMap.values());
-  return decorateGuilds(result.length > 0 ? result : [
-    {
-      id: '1530147023754367006',
-      name: 'Discord bot V.2',
-      icon: '5908ad08f6991f3db925e6967096d1a8',
-      iconUrl: 'https://cdn.discordapp.com/icons/1530147023754367006/5908ad08f6991f3db925e6967096d1a8.png?size=128',
-      owner: true,
-      memberCount: 14
-    }
-  ]);
 }
 
 function decorateGuilds(guilds) {
@@ -424,7 +326,7 @@ function decorateGuilds(guilds) {
     return {
       ...guild,
       hasWorkspace: Boolean(bot),
-      configured: Boolean(bot && bot.token && bot.erlcApiKey)
+      configured: Boolean(bot && bot.erlcApiKey)
     };
   });
 }
@@ -624,7 +526,6 @@ function publicBot(bot) {
     updatedAt: bot.updatedAt,
     hasDiscordToken: Boolean(bot.token || process.env.DISCORD_TOKEN),
     hasErlcApiKey: Boolean(bot.erlcApiKey),
-    hasAiApiKey: Boolean(bot.aiApiKey || bot.customizations?.aiApiKey),
     customizations: publicCustomizations(bot.customizations)
   };
 }
@@ -757,7 +658,7 @@ function validateCustomizations(input) {
 }
 
 function erlcBase() {
-  return CONFIG.SESSION?.API_BASE || 'https://api.erlc.gg/v1';
+  return process.env.ERLC_API_BASE || 'https://api.erlc.gg/v1';
 }
 
 async function validateErlcKey(apiKey) {
@@ -791,9 +692,6 @@ export function createDashboardRouter() {
       uptimeSeconds: Math.floor(process.uptime()),
       memoryUsageMB: Math.round(memory.rss / (1024 * 1024)),
       heapUsedMB: Math.round(memory.heapUsed / (1024 * 1024)),
-      activeClients: activeCustomerClients?.size || 1,
-      totalInstances: 1,
-      botPing: 14,
       nodeVersion: process.version,
       timestamp: new Date().toISOString()
     });
@@ -816,7 +714,7 @@ export function createDashboardRouter() {
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
-      scope: 'identify guilds guilds.join',
+      scope: 'identify guilds',
       state,
       prompt: 'consent'
     });
@@ -952,25 +850,10 @@ export function createDashboardRouter() {
     }
     let bot = findGuildBot(req.params.guildId);
     if (!bot) {
-      try {
-        bot = createBotInstance({
-          token: '',
-          guildId: req.params.guildId,
-          ownerUserId: req.dashboardSession?.user?.id || 'dev',
-          customizations: {
-            serverName: guild.name,
-            joinCode: 'ERLC-LINK'
-          }
-        });
-      } catch {
-        bot = {
-          botId: `bot_${req.params.guildId}`,
-          guildId: req.params.guildId,
-          token: '',
-          status: 'active',
-          customizations: DEFAULT_CUSTOMIZATIONS
-        };
-      }
+      bot = createBotInstance(req.dashboardSession.user.id, {
+        guildId: req.params.guildId,
+        customizations: { serverName: guild.name }
+      });
     }
 
     // Attempt to read live real member count from active Discord bot client
@@ -1051,7 +934,7 @@ export function createDashboardRouter() {
   router.get('/workspace/:guildId', async (req, res) => {
     const ctx = await withWorkspace(req, res);
     if (!ctx) return;
-    res.json({ workspace: publicBot(ctx.bot), guild: ctx.guild });
+    res.json({ workspace: publicWorkspace(ctx.bot), guild: ctx.guild });
   });
 
   router.post('/workspace', async (req, res) => {
@@ -1059,11 +942,11 @@ export function createDashboardRouter() {
     try {
       const guild = await findAuthorizedGuild(req.dashboardSession, guildId);
       if (!guild) return res.status(403).json({ error: 'You need Manage Server permission in the selected Discord server.' });
-      if (isBannedGuild(guildId) && !findGuildBot(guildId)) return res.status(403).json({ error: 'This server has been suspended from Mavely.' });
+      if (isBannedGuild(guildId) && !findGuildBot(guildId)) return res.status(403).json({ error: 'This server has been suspended from ERLC.US.' });
       const existing = findGuildBot(guildId);
-      if (existing) return res.json({ workspace: publicBot(existing), created: false });
+      if (existing) return res.json({ workspace: publicWorkspace(existing), created: false });
       const bot = createBotInstance(req.dashboardSession.user.id, { guildId, customizations: { serverName: guild.name } });
-      res.status(201).json({ workspace: publicBot(bot), created: true });
+      res.status(201).json({ workspace: publicWorkspace(bot), created: true });
     } catch (err) {
       if (err instanceof DiscordError && err.status === 401) return res.status(401).json({ error: 'Discord sign-in expired. Sign in again.' });
       res.status(502).json({ error: 'Could not verify your Discord server access. Retry in a moment.' });
@@ -1078,73 +961,10 @@ export function createDashboardRouter() {
     try {
       const fresh = getBotInstance(ctx.bot.botId) || ctx.bot;
       const updated = updateBotInstance(ctx.bot.botId, { customizations: { ...(fresh.customizations || {}), ...result.updates } });
-      res.json({ success: true, workspace: publicBot(updated) });
+      res.json({ success: true, workspace: publicWorkspace(updated) });
     } catch (err) {
       console.error('[WEB] Saving settings failed:', err);
       res.status(500).json({ error: 'Settings could not be saved. Try again.' });
-    }
-  });
-
-  router.get('/workspace/:guildId/resources', async (req, res) => {
-    const ctx = await withWorkspace(req, res);
-    if (!ctx) return;
-    try {
-      const resources = await guildResources(ctx.bot);
-      if (!resources) return res.json({ available: false, channels: [], roles: [] });
-      res.json({ available: true, ...resources });
-    } catch {
-      res.json({ available: false, channels: [], roles: [] });
-    }
-  });
-
-  router.post('/workspace/:guildId/send-embed', async (req, res) => {
-    const ctx = await withWorkspace(req, res);
-    if (!ctx) return;
-    const { webhookUrl, channelId, embed, content } = req.body || {};
-
-    try {
-      // 1. If webhook URL provided
-      if (webhookUrl && typeof webhookUrl === 'string' && webhookUrl.startsWith('https://discord.com/api/webhooks/')) {
-        const resp = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: content || undefined,
-            embeds: embed ? [embed] : []
-          })
-        });
-        if (!resp.ok) {
-          const errText = await resp.text();
-          return res.status(resp.status).json({ error: `Discord Webhook error: ${errText}` });
-        }
-        return res.json({ success: true, message: 'Message sent via webhook successfully!' });
-      }
-
-      // 2. If channelId provided, use client or REST API
-      const token = ctx.bot.token || process.env.DISCORD_TOKEN;
-      if (channelId && token) {
-        const cleanToken = token.trim().replace(/^Bot\s+/i, '');
-        const resp = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bot ${cleanToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            content: content || undefined,
-            embeds: embed ? [embed] : []
-          })
-        });
-        if (!resp.ok) {
-          const errText = await resp.text();
-          return res.status(resp.status).json({ error: `Discord channel post error: ${errText}` });
-        }
-        return res.json({ success: true, message: 'Embed dispatched to Discord channel!' });
-      }
-
-      return res.status(400).json({ error: 'Please specify a target Discord Channel or Webhook URL.' });
-    } catch (err) {
-      return res.status(500).json({ error: err.message || 'Failed to dispatch embed' });
     }
   });
 
@@ -1152,29 +972,10 @@ export function createDashboardRouter() {
     const ctx = await withWorkspace(req, res);
     if (!ctx) return;
     const { bot } = ctx;
-    const { discordToken, erlcApiKey, aiApiKey } = req.body || {};
+    const { erlcApiKey } = req.body || {};
     const updates = {};
 
     try {
-      if (discordToken !== undefined && discordToken !== '') {
-        if (bot.botId === MASTER_BOT_ID) return res.status(409).json({ error: 'This server runs on the main Mavely bot, so its token cannot be changed here.' });
-        if (typeof discordToken !== 'string' || discordToken.length > 200 || /[\s]/.test(discordToken.trim())) return res.status(400).json({ error: 'That bot token is not in the right format.' });
-        const cleanToken = discordToken.trim().replace(/^Bot\s+/i, '');
-        const response = await fetch('https://discord.com/api/v10/users/@me', {
-          headers: { Authorization: `Bot ${cleanToken}` },
-          signal: AbortSignal.timeout(8000)
-        });
-        if (!response.ok) return res.status(400).json({ error: 'Discord did not accept that bot token. Copy it again from the Bot page and paste the full value.' });
-        const botUser = await response.json();
-        if (!botUser.bot) return res.status(400).json({ error: 'That token belongs to a user account, not a bot.' });
-        const clash = Object.values(loadBotInstances()).find(other => other.botId !== bot.botId && other.token === cleanToken && !other.banned);
-        if (clash) return res.status(409).json({ error: 'That bot is already connected to a different server.' });
-        updates.token = cleanToken;
-        updates.discordBotId = botUser.id;
-        updates.status = 'active';
-        updates.setupCompleted = true;
-      }
-
       if (erlcApiKey !== undefined && erlcApiKey !== '') {
         if (typeof erlcApiKey !== 'string' || erlcApiKey.length > 250) return res.status(400).json({ error: 'That ER:LC API key is not in the right format.' });
         const result = await validateErlcKey(erlcApiKey.trim());
@@ -1186,11 +987,6 @@ export function createDashboardRouter() {
         if (result.server.joinCode) nextCustomizations.joinCode = result.server.joinCode;
         updates.customizations = nextCustomizations;
         erlcCache.delete(bot.botId);
-      }
-
-      if (aiApiKey !== undefined && aiApiKey !== '') {
-        if (typeof aiApiKey !== 'string' || aiApiKey.length > 500) return res.status(400).json({ error: 'That AI API key is not in the right format.' });
-        updates.aiApiKey = aiApiKey.trim();
       }
 
       if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'Nothing to save.' });
@@ -1210,7 +1006,7 @@ export function createDashboardRouter() {
       res.json({ success: true, workspace: publicBot(getBotInstance(bot.botId) || updated) });
     } catch (err) {
       console.error('[WEB] Credential update failed:', err?.message);
-      res.status(502).json({ error: 'Could not reach Discord or ER:LC to check those details. Try again.' });
+      res.status(502).json({ error: 'Could not reach ER:LC to check that key. Try again.' });
     }
   });
 
@@ -1425,6 +1221,15 @@ export function createDashboardRouter() {
     if (!targetGuildId || !/^\d{17,20}$/.test(targetGuildId)) {
       return res.status(400).json({ error: 'Invalid Discord server ID.' });
     }
+    // Only someone who manages this server may bump it.
+    let managed = null;
+    try {
+      managed = await findAuthorizedGuild(req.dashboardSession, targetGuildId);
+    } catch (err) {
+      return res.status(err instanceof DiscordError && err.status === 401 ? 401 : 502)
+        .json({ error: 'Could not verify your Discord server access. Sign in again or retry in a moment.' });
+    }
+    if (!managed) return res.status(403).json({ error: 'You need Manage Server in that server to bump it.' });
     const COOLDOWN_MS = 60 * 60 * 1000;
     const now = Date.now();
     if (!global.__bumpCooldowns) global.__bumpCooldowns = new Map();
@@ -1470,20 +1275,13 @@ async function completeDiscordAuth(req, res) {
   const currentOrigin = appOrigin(req);
   const fallback = currentOrigin || 'http://localhost:3000';
 
-  // 1. Handle bot invite redirect (guild_id present)
-  if (req.query.guild_id) {
-    const guildId = String(req.query.guild_id);
-    console.log(`[WEB OAuth] Bot invited to guild ${guildId}`);
-    return res.redirect(`${fallback}/dashboard/${guildId}?bot_installed=true`);
-  }
-
-  // 2. Handle Discord errors
+  // 1. Handle Discord errors
   if (req.query.error) {
     console.warn('[WEB OAuth] Discord returned error:', req.query.error, req.query.error_description);
     return res.redirect(`${fallback}/login?auth_error=${encodeURIComponent(String(req.query.error_description || req.query.error))}`);
   }
 
-  // 3. Handle code
+  // 2. Handle code
   const code = req.query.code;
   if (!code) {
     const sessionId = cookieValue(req, SESSION_COOKIE);
@@ -1496,6 +1294,8 @@ async function completeDiscordAuth(req, res) {
   const state = typeof req.query.state === 'string' ? req.query.state : '';
   const pending = state ? oauthStates.get(state) : null;
   if (state) oauthStates.delete(state);
+  // Only finish logins this server started, so a forged callback link cannot sign someone in.
+  if (!pending) return res.redirect(`${fallback}/login?auth_error=login_expired`);
 
   const clientId = oauthClientId();
   const clientSecret = process.env.DISCORD_CLIENT_SECRET;
@@ -1550,6 +1350,16 @@ async function completeDiscordAuth(req, res) {
 
   try {
     const user = await discordJson('https://discord.com/api/v10/users/@me', tokenData.access_token);
+    // For now only members of the allowed server(s) can log in (LOGIN_GUILD_IDS, comma separated).
+    const allowedGuilds = (process.env.LOGIN_GUILD_IDS || '1562353446294781972').split(',').map(id => id.trim()).filter(Boolean);
+    if (allowedGuilds.length) {
+      const userGuilds = await discordJson('https://discord.com/api/v10/users/@me/guilds', tokenData.access_token).catch(() => []);
+      const isMember = Array.isArray(userGuilds) && userGuilds.some(g => allowedGuilds.includes(String(g.id)));
+      if (!isMember) {
+        console.warn(`[WEB OAuth] Login refused for ${user.username} (${user.id}): not in an allowed server.`);
+        return res.redirect(`${fallback}/login?auth_error=${encodeURIComponent('Login is limited to members of the ERLC.US testing server for now.')}`);
+      }
+    }
     const sessionId = randomBytes(32).toString('hex');
     sessions.set(sessionId, {
       user: {

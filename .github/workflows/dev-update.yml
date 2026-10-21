@@ -1,4 +1,4 @@
-name: Mavely Development Update
+name: ERLC.US Development Update
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Send Mavely Update to Discord
+      - name: Send ERLC.US Update to Discord
         run: node .github/scripts/send-discord-update.js
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
