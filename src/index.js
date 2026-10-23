@@ -1470,15 +1470,55 @@ function staffRoleCount(guildId) {
   }
 }
 
+// Server-owned custom emojis (the ONLY emojis the session card may use).
+const SESSION_EMOJI = {
+  logo: '<:Alabama_logo:1536900254304174080>',
+  info: '<:Info:1549944835299868702>',
+  roblox: '<:roblox:1345920815983759460>',
+  star: '<:Star:1549231587131007066>',
+  check: '<:checkmark:1549993561871618060>',
+  wrong: '<:wrong:1549993610550714381>'
+};
+
+// Tracks when the server last came online so the footer can show
+// "Session active since <t:..:R>". Reset whenever the server goes offline.
+let sessionOnlineSince = null;
+
+/** Escapes backticks so a value can sit safely inside inline code. */
+function inlineCode(value) {
+  const v = String(value ?? '-').replace(/`/g, "'").trim() || '-';
+  return `\`${v}\``;
+}
+
+/** Stat row: emoji + bold label on the left, grey value pill on the right. */
+function statRow(emoji, label, pillLabel, pillId, pillStyle) {
+  return new SectionBuilder()
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`${emoji} **${label}:**`)
+    )
+    .setButtonAccessory(buildPill(pillLabel, pillId, pillStyle));
+}
+
 function buildContainer(stats, opts = {}) {
   const isShutdown = !!opts.isShutdown;
   const status = isShutdown
     ? { label: 'Server Offline • Do Not Join', style: ButtonStyle.Danger }
     : serverStatus(stats);
-  const live = !isShutdown && !!opts.sessionLive; // vote started → force orange "session on"
+  const live = !isShutdown && !!opts.sessionLive; // vote started → force "session on"
   const curPlayers = Number(stats?.players) || 0;
   const maxPlayers = Number(stats?.maxPlayers) || 50;
+  const queueCount = Number(stats?.queue) || 0;
+  const staffCount = Number(stats?.staff) || 0;
   const isFull = curPlayers >= maxPlayers && maxPlayers > 0;
+  const isOnline = !isShutdown && (live || status.style === ButtonStyle.Success || isFull);
+
+  const nowTs = Math.floor(Date.now() / 1000);
+  if (isOnline) {
+    if (!sessionOnlineSince) sessionOnlineSince = nowTs;
+  } else {
+    sessionOnlineSince = null;
+  }
+
   const container = new ContainerBuilder();
   if (opts.pingMention) {
     container.addTextDisplayComponents(
@@ -1493,9 +1533,11 @@ function buildContainer(stats, opts = {}) {
     );
   }
 
+  container.addSeparatorComponents(thinLine());
+
   // ── Header ──
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('## Session Information')
+    new TextDisplayBuilder().setContent(`## ${SESSION_EMOJI.logo} Alabama State Roleplay Sessions`)
   );
   const formattedDesc = SERVER.description.startsWith('>')
     ? SERVER.description
@@ -1507,85 +1549,91 @@ function buildContainer(stats, opts = {}) {
     container.addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
         curPlayers > 0
-          ? `> 🛑 **Server Offline • Do Not Join** - Session has ended. In-game players (${curPlayers}), please exit.`
-          : '> 🛑 **Server Offline • Do Not Join** (Session ended by staff team)'
-      )
-    );
-  } else if (live) {
-    // Orange alert line - the vote started, the session is ON.
-    container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(
-        isFull
-          ? '> ⚠️ **The server is currently FULL!** Join queue or wait for open slots.'
-          : '> **The session is LIVE**, hop into the server!'
+          ? `> ${SESSION_EMOJI.wrong} **Server Offline • Do Not Join** - Session has ended. In-game players (${curPlayers}), please exit.`
+          : `> ${SESSION_EMOJI.wrong} **Server Offline • Do Not Join** (Session ended by staff team)`
       )
     );
   } else if (isFull) {
     container.addTextDisplayComponents(
-      new TextDisplayBuilder().setContent('> ⚠️ **The server is currently FULL!**')
+      new TextDisplayBuilder().setContent(
+        `> ${SESSION_EMOJI.wrong} **The server is currently FULL!** Join the queue or wait for an open slot.`
+      )
+    );
+  } else if (live) {
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`> ${SESSION_EMOJI.check} **The session is LIVE**, hop into the server!`)
     );
   }
 
   container.addSeparatorComponents(thinLine());
 
-  // ── Label (left) + value pill (right) rows (rewritten captions) ──
-  container.addSectionComponents(
-    sectionRow('Server Name', 'Join with this private server name.', stats.serverName, 'info_name')
-  );
-  container.addSectionComponents(
-    sectionRow('Server Owner', 'Host of this in-game private server.', stats.ownerName, 'info_owner')
-  );
-  container.addSectionComponents(
-    sectionRow('Server Code', 'Enter this code on the join page.', sessionCode(), 'info_code')
-  );
-
-  container.addSeparatorComponents(thinLine());
-
-  container.addSectionComponents(
-    sectionRow('Players', 'How many players are in-game right now.', playersText(stats), 'info_players')
-  );
-  container.addSectionComponents(
-    sectionRow('Queue', 'Players currently waiting to get in.', queueText(stats), 'info_queue')
-  );
-  container.addSectionComponents(
-    sectionRow('Staff', 'Staff members active in-game.', String(stats.staff), 'info_staff')
-  );
-
-  container.addSeparatorComponents(thinLine());
-
-  // ── Bottom buttons: notification + quick join + live status ──
-  const statusButtonLabel = isShutdown
-    ? 'Server Offline • Do Not Join'
-    : (live
-      ? (isFull ? 'Session On • Full' : 'Session On')
-      : (isFull ? 'Server Full' : status.label));
-  const statusButtonStyle = isShutdown
-    ? ButtonStyle.Danger
-    : (live
-      ? (isFull ? ButtonStyle.Danger : ButtonStyle.Success)
-      : (isFull ? ButtonStyle.Danger : status.style));
-
-  container.addActionRowComponents(
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('session_notify').setLabel('Session Notification').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setLabel('Join Server').setStyle(ButtonStyle.Link).setURL(link),
-      new ButtonBuilder()
-        .setCustomId('server_status')
-        .setLabel(statusButtonLabel)
-        .setStyle(statusButtonStyle)
-        .setDisabled(true)
+  // ── In-game Information ──
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `### ${SESSION_EMOJI.info} In-game Information\n` +
+      `Server Name: ${inlineCode(stats.serverName)}\n` +
+      `Server Join Code: ${inlineCode(sessionCode())}\n` +
+      `Server Owner: ${inlineCode(stats.ownerName)}`
     )
   );
 
   container.addSeparatorComponents(thinLine());
 
+  // ── Live stats (label left, pill right) ──
+  const playersPill = isFull
+    ? `${curPlayers}/${maxPlayers} Players (Full)`
+    : `${curPlayers} Player${curPlayers === 1 ? '' : 's'}`;
+  container.addSectionComponents(
+    statRow(SESSION_EMOJI.roblox, 'Player Count', playersPill, 'info_players')
+  );
+  container.addSectionComponents(
+    statRow(SESSION_EMOJI.info, 'In Queue', `${queueCount} In Queue`, 'info_queue')
+  );
+  container.addSectionComponents(
+    statRow(SESSION_EMOJI.star, 'Staff In-game', `${staffCount} Staff`, 'info_staff')
+  );
+
+  // ── Status + Quick Join + Notifications ──
+  let statusLabel;
+  let statusStyle;
+  if (isShutdown) {
+    statusLabel = 'Status: Offline';
+    statusStyle = ButtonStyle.Danger;
+  } else if (isFull) {
+    statusLabel = 'Status: Full';
+    statusStyle = ButtonStyle.Danger;
+  } else if (isOnline) {
+    statusLabel = 'Status: Online';
+    statusStyle = ButtonStyle.Success;
+  } else {
+    statusLabel = 'Status: Offline';
+    statusStyle = ButtonStyle.Danger;
+  }
+
+  container.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('server_status')
+        .setLabel(statusLabel)
+        .setEmoji(statusStyle === ButtonStyle.Success ? SESSION_EMOJI.check : SESSION_EMOJI.wrong)
+        .setStyle(statusStyle)
+        .setDisabled(true),
+      new ButtonBuilder().setLabel('Quick Join').setStyle(ButtonStyle.Link).setURL(link),
+      new ButtonBuilder().setCustomId('session_notify').setLabel('Session Notification').setStyle(ButtonStyle.Secondary)
+    )
+  );
+
   // Always a real relative timestamp so it never freezes.
   const updatedTs =
     typeof stats.updatedAt === 'number'
       ? stats.updatedAt
-      : Math.floor(Date.now() / 1000);
+      : nowTs;
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`-# Last updated: <t:${updatedTs}:R>`)
+    new TextDisplayBuilder().setContent(
+      sessionOnlineSince
+        ? `-# Session active since <t:${sessionOnlineSince}:R> · updated <t:${updatedTs}:R>`
+        : `-# Session offline · updated <t:${updatedTs}:R>`
+    )
   );
 
   return container;
@@ -12828,7 +12876,7 @@ async function sendTicketAiOpening(channel, ticketData) {
   const isDefaultReason = !reason || reason === 'Not specified' || reason === 'No reason provided';
   if (isDefaultReason) {
     const welcomeText =
-      `Hello and welcome to **Alabama State Roleplay Support**! 👋\n\n` +
+      `Hello and welcome to **Alabama State Roleplay Support**!\n\n` +
       `How can we help you today? Please describe your inquiry or issue below, and an authorized staff member will assist you shortly.`;
     channel.send({
       content: welcomeText,
@@ -12852,10 +12900,9 @@ async function sendTicketAiOpening(channel, ticketData) {
     const cleanText = (res?.text || '')
       .replace(/🤖/g, '')
       .replace(/\u2014/g, ' - ')
-      .replace(/-/g, ' - ')
       .replace(/^\s*\*{0,2}Alabama Support Assistant\*{0,2}:?\s*/i, '')
       .trim() ||
-      `Thank you for reaching out! I have noted your inquiry regarding: **${String(reason).slice(0, 150)}**.\n\nPlease share any screenshots or details below, and our staff team will assist you shortly.`;
+      `Thank you for reaching out! Please share any screenshots or details below, and our staff team will assist you shortly.`;
 
     // Only escalate on opening if the initial reason explicitly requested an escalation
     const isStatementOrEscalation = /\b(escalat(?:e|ed|ing|ion))\b/i.test(reason) && res?.escalated === true;
@@ -12914,7 +12961,6 @@ async function sendTicketAiOpening(channel, ticketData) {
     console.warn(`[ticket-ai] Opening response failed: ${err.message}`);
     const fallbackText =
       `Thank you for reaching out to **Alabama State Roleplay Support**!\n\n` +
-      `I have noted your inquiry regarding: **${String(reason).slice(0, 150)}**.\n\n` +
       `Please provide any additional screenshots or details below, and an authorized staff member will assist you shortly.`;
     channel.send({
       content: fallbackText,
@@ -12987,10 +13033,26 @@ async function handleTicketAiMessage(message, ticket) {
 
   const isAuthor = Boolean(ticket.authorId && ticket.authorId !== 'Unknown' && message.author.id === ticket.authorId);
 
+  // Tickets are private: anyone other than the opener who can talk here is staff
+  // (or someone staff added). Even if their role name isn't recognised, the AI
+  // must step back the moment they speak so it never answers staff messages.
+  const isOtherHuman = !isAuthor && !message.author.bot &&
+    Boolean(ticket.authorId && ticket.authorId !== 'Unknown');
+  const actsAsStaff = authorIsStaff || isOtherHuman;
+  const staffWasAlreadyHere = Boolean(ticket.staffJoined || ticket.claimedBy);
+
   // If a staff member sends a message in the channel, or the ticket is claimed, mark staff joined
-  if (authorIsStaff || ticket.claimedBy) {
-    ticket.staffJoined = true;
+  if (actsAsStaff || ticket.claimedBy) {
+    if (!ticket.staffJoined) {
+      ticket.staffJoined = true;
+      ticket.aiActive = false;
+      ticket.aiStopped = true;
+      saveTickets();
+    }
   }
+
+  // Unrecognised staff / participants: never let the AI reply to them unless pinged.
+  if (isOtherHuman && !authorIsStaff && !isExplicitPing) return;
 
   // SEND PROOF JUST ONCE & PREVENT SPAM:
   // If the ticket has already been escalated or briefing/proof was already sent:
@@ -13014,7 +13076,7 @@ async function handleTicketAiMessage(message, ticket) {
   }
 
   // 0.01. Universal Stop / Pause request (from staff, author, or anyone in the ticket)
-  if (isAiStopRequest(content)) {
+  if ((!staffWasAlreadyHere || isExplicitPing) && isAiStopRequest(content)) {
     ticket.aiActive = false;
     ticket.aiStopped = true;
     ticket.manuallyPaused = true;
@@ -13030,7 +13092,7 @@ async function handleTicketAiMessage(message, ticket) {
 
   // 0.015. Staff Takeover / Handover ("I'll take it from here", "let go of the ticket", "unclaim so staff can claim")
   const staffTakeoverRegex = /\b(i'?ll take (?:it|over)|ill take (?:it|over)|il take (?:it|over)|i will take (?:it|over)|i got it from here|i got this|let me handle (?:this|it)|i'?ll handle (?:this|it)|ill handle (?:this|it)|i will handle (?:this|it)|take over|staff takeover|taking over|let go of (?:the )?ticket|step aside|hand (?:this )?over|unclaim so staff can claim)\b/i;
-  if (staffTakeoverRegex.test(content)) {
+  if (actsAsStaff && (!staffWasAlreadyHere || isExplicitPing) && staffTakeoverRegex.test(content)) {
     ticket.claimedBy = null;
     ticket.staffJoined = true;
     ticket.aiActive = false;
@@ -13058,7 +13120,7 @@ async function handleTicketAiMessage(message, ticket) {
   }
 
   // 0.02. Universal Continue / Resume request (from staff, author, or anyone in the ticket)
-  if (isAiContinueRequest(content)) {
+  if ((actsAsStaff || isExplicitPing) && isAiContinueRequest(content)) {
     ticket.aiActive = true;
     ticket.aiStopped = false;
     ticket.manuallyPaused = false;
@@ -13430,11 +13492,13 @@ async function handleTicketAiMessage(message, ticket) {
   // 2. User explicitly requests to stop AI or requests human only
   const humanRequestRegex = /\b(stop ai|no ai|don'?t want ai|dont want ai|i don'?t wanna chat with ai|i dont wanna chat with ai|stop talking to ai|talk to a human only|speak with a real person only|human only)\b/i;
   if ((isAuthor || authorIsStaff) && humanRequestRegex.test(content)) {
+    const alreadyHanded = ticket.manuallyPaused || ticket.escalated;
     ticket.aiActive = false;
     ticket.aiStopped = true;
     ticket.manuallyPaused = true;
     ticket.escalated = true;
     saveTickets();
+    if (alreadyHanded) return; // already handed to staff - never re-ping the role
     const roleId = TICKET_ESCALATION_ROLES[category] || TICKET_ESCALATION_ROLES.general;
     message.reply({
       content: `> **Human Support Requested** - I have stepped aside. Our staff team will assist you directly.` + (roleId ? `\n\n<@&${roleId}>` : ''),
@@ -13470,8 +13534,19 @@ async function handleTicketAiMessage(message, ticket) {
   if (!isExplicitPing && (!ticket.aiActive || ticket.aiStopped || humanClaimed)) return;
   if (!content && uploadedUrls.length === 0) return; // no text and no attachments
 
+  // Short acknowledgements ("ok", "ok thank you", "alright", "sent.") never need an AI reply.
+  if (uploadedUrls.length === 0 && !isExplicitPing) {
+    const ACK_WORDS = new Set([
+      'ok', 'okay', 'okk', 'k', 'kk', 'alright', 'alr', 'aight', 'ight', 'thanks', 'thank', 'you', 'ty', 'thx',
+      'tysm', 'got', 'it', 'cool', 'sure', 'yes', 'yeah', 'yea', 'yep', 'no', 'nope', 'np', 'sent', 'done',
+      'will', 'do', 'understood', 'bet', 'great', 'nice', 'perfect', 'so', 'much', 'appreciate', 'sounds', 'good'
+    ]);
+    const words = content.toLowerCase().replace(/<@!?\d+>/g, '').replace(/[^a-z\s]/g, ' ').split(/\s+/).filter(Boolean);
+    if (words.length > 0 && words.length <= 5 && words.every((w) => ACK_WORDS.has(w))) return;
+  }
+
   // 4.5. Direct Escalation or User Frustration Request -> Immediately Escalate to Staff
-  const isEscalateAsk = /\b(escalat(?:e|ed|ing|ion)|call staff|get staff|need staff|speak to staff|talk to staff|human|person|agent|supervisor|mod|admin)\b/i.test(content);
+  const isEscalateAsk = /\b(escalat(?:e|ed|ing|ion)|call staff|get staff|need staff|speak to staff|talk to staff|(?:talk|speak|chat) (?:to|with) (?:a |an )?(?:human|real person|person|agent|mod|admin|staff)|(?:get|need|want) (?:a |an )?(?:human|real person|agent|supervisor|mod|moderator|admin)|supervisor)\b/i.test(content);
   const isFrustrated = /\b(getting me mad|get me mad|making me mad|pissing me off|annoying|useless|stupid bot|dumb bot|shut up|bro escalate|just escalate)\b/i.test(content);
 
   if ((isAuthor || isExplicitPing) && (isEscalateAsk || isFrustrated || ticket.escalatedPendingReason)) {
@@ -13620,8 +13695,9 @@ async function handleTicketAiMessage(message, ticket) {
       userId: message.author.id
     }))
     .then(async (res) => {
-      const cleanText = (res?.text || '').replace(/🤖/g, '').trim() ||
-        `Thank you for reaching out! I have noted your message for our support staff. If you have any additional details or screenshots, please send them here and an authorized staff member will assist you shortly!`;
+      const cleanText = (res?.text || '').replace(/🤖/g, '').trim();
+      // AI unavailable / nothing useful to say: stay silent rather than echo the message back.
+      if (!cleanText && !res?.escalated) return;
 
       // Detect escalation:
       // (a) AI model escalated or AI reply states ticket will be escalated
@@ -13707,11 +13783,8 @@ async function handleTicketAiMessage(message, ticket) {
       );
     })
     .catch((err) => {
+      // Never spam a canned reply on failure - just log it.
       console.warn(`[ticket-ai] Follow-up response failed: ${err.message}`);
-      return message.reply({
-        content: `I have noted your message for our support staff. If you have any additional details or screenshots, please provide them here and an authorized staff member will assist you shortly!`,
-        allowedMentions: { repliedUser: true }
-      }).catch(() => {});
     });
 }
 

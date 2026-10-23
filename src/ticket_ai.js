@@ -548,10 +548,15 @@ export async function answerTicket({ question, category, history = [], ticketId 
     console.error(`[ticket-ai] AI generation failed: ${err.message}`);
   }
 
-  // 3) Graceful fallback acknowledging the inquiry
+  // 3) Graceful fallback. Only used for the very FIRST message of a ticket.
+  // For follow-ups (history present) we stay silent instead of echoing the
+  // user's message back as "I have noted your inquiry regarding: ...".
+  if (history && history.length > 0) {
+    return { text: null, source: 'fallback', escalated: false };
+  }
   return {
-    text: `Thank you for reaching out to **Alabama State Roleplay Support**!\n\nI have noted your inquiry regarding: **${cleanQ.slice(0, 150)}**.\n\nOur support team has been notified. Please provide any additional screenshots, player names, or details below, and an authorized staff member will assist you shortly!`,
-    source: 'ai',
+    text: `Thank you for reaching out to **Alabama State Roleplay Support**!\n\nOur support team has been notified. Please provide any additional screenshots, player names, or details below, and an authorized staff member will assist you shortly!`,
+    source: 'fallback',
     escalated: false
   };
 }
