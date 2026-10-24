@@ -486,11 +486,9 @@ export function markPendingAwaiting(id, staffAnswer, staffId) {
  *
  * @returns {Promise<{text:string, source:'knowledge'|'ai'|'disabled'|'fallback', escalated:boolean, meta?:object}>}
  */
-export async function answerTicket({ question, category, history = [], ticketId = null, channelId = null, userId = null }) {
-  // 0) Category gate - partnership/staff_partnership are disabled by owner request.
-  if (!isCategoryEnabled(category)) {
-    return { text: null, source: 'disabled', escalated: false };
-  }
+export async function answerTicket({ question, category, history = [], ticketId = null, channelId = null, userId = null } = {}) {
+  // Ticket AI is disabled permanently per server owner - tickets are handled by human staff.
+  return { text: null, source: 'disabled', escalated: false };
 
   const cleanQ = String(question ?? '').trim();
   const isDefaultReason = !cleanQ || cleanQ === 'Not specified' || cleanQ === 'No reason provided';

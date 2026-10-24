@@ -21600,65 +21600,6 @@ client.on(Events.MessageCreate, async (message) => {
       return;
     }
 
-    // ── Staff AI Global Toggle (@Alabama Utils shut off the ai for all category / -ai off all) ──
-    const rawContent = message.content?.trim() || '';
-    const botMentioned = !!client.user?.id && (message.mentions?.users?.has(client.user.id) || rawContent.includes(`<@${client.user.id}>`));
-    const isStaffMsg = isStaffMember(message.member) || ticketAiStaffAuthor(message.member);
-
-    // ── Staff AI Training: -train / -learn / @bot train: ──
-    if (isStaffMsg && (rawContent.startsWith('-train') || rawContent.startsWith('-learn') || (botMentioned && /\btrain\b/i.test(rawContent)))) {
-      await executeTrainCommand(message, rawContent);
-      return;
-    }
-
-    if (isStaffMsg && (botMentioned || rawContent.startsWith('-ai'))) {
-      const cleanMsg = rawContent.toLowerCase().replace(/<@!?\d+>/g, '').trim();
-
-      // Shut off AI for all categories
-      if (
-        /\b(shut off|turn off|disable|kill|stop)\b.*\b(ai|bot)\b.*\b(all category|all categories|all|every category)\b/i.test(cleanMsg) ||
-        cleanMsg.includes('shut off the ai for all category') ||
-        cleanMsg.includes('shut off ai for all category') ||
-        cleanMsg.includes('turn off ai for all category') ||
-        cleanMsg.includes('disable ai for all category') ||
-        cleanMsg === '-ai off all' ||
-        cleanMsg === '-ai disable all' ||
-        cleanMsg === '-ai shut off all'
-      ) {
-        disableAllAiCategories();
-        for (const [chanId, t] of activeTickets.entries()) {
-          t.aiActive = false;
-          t.aiStopped = true;
-          const ch = message.guild?.channels.cache.get(chanId);
-          if (ch) refreshTicketAiState(ch, t).catch(() => {});
-        }
-        saveTickets();
-        await message.reply({
-          content: '🛑 **Ticket AI has been shut off for all categories.** Automated responses have been stopped across all tickets so staff can handle them directly.',
-          allowedMentions: { repliedUser: false }
-        }).catch(() => {});
-        return;
-      }
-
-      // Re-enable AI for all categories
-      if (
-        /\b(turn on|enable|start|resume)\b.*\b(ai|bot)\b.*\b(all category|all categories|all|every category)\b/i.test(cleanMsg) ||
-        cleanMsg.includes('turn on the ai for all category') ||
-        cleanMsg.includes('enable ai for all category') ||
-        cleanMsg.includes('turn on ai for all category') ||
-        cleanMsg === '-ai on all' ||
-        cleanMsg === '-ai enable all' ||
-        cleanMsg === '-ai turn on all'
-      ) {
-        enableAllAiCategories();
-        await message.reply({
-          content: '▶️ **Ticket AI has been re-enabled for all categories.** Automated responses are now active.',
-          allowedMentions: { repliedUser: false }
-        }).catch(() => {});
-        return;
-      }
-    }
-
     const ticket = getActiveTicket(message.channel);
     const isPartnershipTicket = ticket && ticket.categoryKey === 'partnership';
 
@@ -21669,17 +21610,7 @@ client.on(Events.MessageCreate, async (message) => {
       saveTickets();
     }
 
-    // ── Ticket AI: plain (non-command) messages inside an active ticket ──
-    // Captures staff replies as candidate knowledge and lets the assistant answer
-    // the ticket author's follow-ups while a human hasn't claimed the ticket yet.
-    // Command messages (starting with '-') fall through to the handlers below.
-    if (ticket && !message.content?.trim().startsWith('-')) {
-      try {
-        handleTicketAiMessage(message, ticket);
-      } catch (aiErr) {
-        console.warn('[ticket-ai] Message hook threw:', aiErr.message);
-      }
-    }
+
 
     // ── 1. -partnership command ──
     if (message.content?.startsWith('-')) {
