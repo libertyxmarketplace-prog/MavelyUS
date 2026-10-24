@@ -244,60 +244,62 @@ export function OverviewTab({
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
-      {/* ── COMMAND CENTER HERO ── */}
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#18181b] p-6 sm:p-7 shadow-xl">
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
-        
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-          {/* Left: Server Identity */}
-          <div className="flex items-center gap-4 sm:gap-5 min-w-0">
-            {serverIconUrl ? (
-              <img
-                src={serverIconUrl}
-                alt={serverName}
-                className="size-16 sm:size-20 rounded-2xl object-cover border border-white/15 shadow-xl shrink-0"
-              />
-            ) : (
-              <div className="size-16 sm:size-20 rounded-2xl bg-[#27272a] border border-white/15 flex items-center justify-center font-bold text-white text-xl sm:text-2xl shadow-xl shrink-0 tracking-tight">
-                {serverInitial}
-              </div>
-            )}
+      {/* ── COMMAND CENTER HERO (With Rotating Circulating Green Border Beam) ── */}
+      <div className="relative rounded-3xl p-[1px] overflow-hidden group shadow-2xl">
+        {/* Animated circulating emerald luminous beam that turns around the card */}
+        <div className="absolute inset-[-150%] animate-border-beam bg-[conic-gradient(from_0deg_at_50%_50%,transparent_0deg,transparent_220deg,#10b981_280deg,#34d399_320deg,#10b981_360deg)] pointer-events-none" />
 
-            <div className="space-y-1.5 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight truncate">
-                  {serverName}
-                </h1>
-              </div>
+        <div className="relative rounded-3xl bg-[#18181b] border border-white/10 p-6 sm:p-7 z-10 overflow-hidden">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            {/* Left: Server Identity */}
+            <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+              {serverIconUrl ? (
+                <img
+                  src={serverIconUrl}
+                  alt={serverName}
+                  className="size-16 sm:size-20 rounded-2xl object-cover border border-white/15 shadow-xl shrink-0"
+                />
+              ) : (
+                <div className="size-16 sm:size-20 rounded-2xl bg-[#27272a] border border-white/15 flex items-center justify-center font-bold text-white text-xl sm:text-2xl shadow-xl shrink-0 tracking-tight">
+                  {serverInitial}
+                </div>
+              )}
 
-              {/* Server Meta Chips */}
-              <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400 font-mono">
-                {/* Snowflake ID */}
-                <button
-                  type="button"
-                  onClick={handleCopyGuildId}
-                  className="inline-flex items-center gap-1 hover:text-white transition-colors text-zinc-400 bg-white/[0.03] hover:bg-white/[0.06] px-2 py-0.5 rounded-lg border border-white/[0.06] cursor-pointer"
-                  title="Copy Snowflake ID"
-                >
-                  <span className="text-zinc-500">ID:</span>
-                  <span>{guildId}</span>
-                  {copiedId ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3 text-zinc-500" />}
-                </button>
+              <div className="space-y-1.5 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight truncate">
+                    {serverName}
+                  </h1>
+                </div>
 
+                {/* Server Meta Chips */}
+                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400 font-mono">
+                  {/* Snowflake ID */}
+                  <button
+                    type="button"
+                    onClick={handleCopyGuildId}
+                    className="inline-flex items-center gap-1 hover:text-white transition-colors text-zinc-400 bg-white/[0.03] hover:bg-white/[0.06] px-2 py-0.5 rounded-lg border border-white/[0.06] cursor-pointer"
+                    title="Copy Snowflake ID"
+                  >
+                    <span className="text-zinc-500">ID:</span>
+                    <span>{guildId}</span>
+                    {copiedId ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3 text-zinc-500" />}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Right: Quick Action Controls */}
-          <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto shrink-0">
-            <Button
-              size="sm"
-              onClick={() => onNavigateTab('details')}
-              className="h-9 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer"
-            >
-              <Eye className="size-3.5" />
-              <span>Server Details Page</span>
-            </Button>
+            {/* Right: Quick Action Controls */}
+            <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto shrink-0">
+              <Button
+                size="sm"
+                onClick={() => onNavigateTab('details')}
+                className="h-9 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Eye className="size-3.5" />
+                <span>Server Details Page</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>

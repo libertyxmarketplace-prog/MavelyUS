@@ -3,6 +3,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@keyframes border-beam-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-border-beam {
+  animation: border-beam-spin 7s linear infinite;
+}
+
 /* High-end dark theme tokens with rich slate-zinc grays and a single mint/emerald accent */
 :root {
   --radius: 0.75rem;

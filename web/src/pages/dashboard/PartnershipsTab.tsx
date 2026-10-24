@@ -352,12 +352,12 @@ export function PartnershipsTab({
           )}
         </div>
 
-        {/* 4 Telemetry Metrics - Refined Premium Earn Growth Style */}
+        {/* 4 Telemetry Metrics - Exact Earn Growth Style (Treasury/Joins/Streak Style) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 pt-2">
-          {/* Connected Communities */}
+          {/* Card 1: Connected Communities */}
           <div
             onClick={() => handleJump('active')}
-            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-emerald-500/30 hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg cursor-pointer"
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-emerald-500/20 cursor-pointer"
           >
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <Handshake className="size-8 text-emerald-400/20" />
@@ -366,20 +366,16 @@ export function PartnershipsTab({
               <div className="flex items-center justify-center size-12">
                 <Handshake className="size-6 text-emerald-400" />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Connected Communities</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight font-sans">
-                    {dashboardData.activePartnerships?.length || 0}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    Active
-                  </span>
+                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight flex items-baseline">
+                  <span>{dashboardData.activePartnerships?.length || 0}</span>
+                  <span className="text-xs sm:text-sm text-emerald-400 font-medium ml-1.5">Active</span>
                 </div>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[11px] text-zinc-400 font-medium font-sans">Partnered Servers</span>
+              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Partnered Servers</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -387,17 +383,17 @@ export function PartnershipsTab({
                   e.stopPropagation();
                   handleJump('active');
                 }}
-                className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all"
+                className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all cursor-pointer"
               >
                 View Hub
               </Button>
             </div>
           </div>
 
-          {/* Pending Inbound */}
+          {/* Card 2: Pending Inbound */}
           <div
             onClick={() => handleJump('requests')}
-            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-cyan-500/30 hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg cursor-pointer"
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-cyan-500/20 cursor-pointer"
           >
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <Users className="size-8 text-cyan-400/20" />
@@ -406,20 +402,16 @@ export function PartnershipsTab({
               <div className="flex items-center justify-center size-12">
                 <Users className="size-6 text-cyan-400" />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Pending Inbound</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight font-sans">
-                    {dashboardData.incomingRequests?.length || 0}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                    Requests
-                  </span>
+                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight flex items-baseline">
+                  <span>{dashboardData.incomingRequests?.length || 0}</span>
+                  <span className="text-xs sm:text-sm text-cyan-400 font-medium ml-1.5">Requests</span>
                 </div>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[11px] text-zinc-400 font-medium font-sans">Awaiting Review</span>
+              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Awaiting Review</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -427,17 +419,17 @@ export function PartnershipsTab({
                   e.stopPropagation();
                   handleJump('requests');
                 }}
-                className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all"
+                className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all cursor-pointer"
               >
                 Review
               </Button>
             </div>
           </div>
 
-          {/* Ads Sent */}
+          {/* Card 3: Ads Sent */}
           <div
             onClick={() => handleJump('active')}
-            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-indigo-500/30 hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg cursor-pointer"
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-indigo-500/20 cursor-pointer"
           >
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <Server className="size-8 text-indigo-400/20" />
@@ -446,20 +438,16 @@ export function PartnershipsTab({
               <div className="flex items-center justify-center size-12">
                 <Server className="size-6 text-indigo-400" />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Ads Sent</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight font-sans">
-                    {dashboardData.analytics?.adsDelivered || 0}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                    Delivered
-                  </span>
+                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight flex items-baseline">
+                  <span>{dashboardData.analytics?.adsDelivered || dashboardData.settings?.totalAdsSent || 0}</span>
+                  <span className="text-xs sm:text-sm text-indigo-400 font-medium ml-1.5">Delivered</span>
                 </div>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[11px] text-zinc-400 font-medium font-sans">Delivery Success</span>
+              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Delivery Success</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -467,39 +455,35 @@ export function PartnershipsTab({
                   e.stopPropagation();
                   handleJump('active');
                 }}
-                className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all"
+                className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all cursor-pointer"
               >
                 Campaigns
               </Button>
             </div>
           </div>
 
-          {/* Players Joined */}
+          {/* Card 4: Players Joined */}
           <div
             onClick={() => handleJump('browse')}
-            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-amber-500/30 hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg cursor-pointer"
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-amber-500/20 cursor-pointer"
           >
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              <ShieldCheck className="size-8 text-amber-400/20" />
+              <Coins className="size-8 text-amber-400/20" />
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center justify-center size-12">
-                <ShieldCheck className="size-6 text-amber-400" />
+                <Coins className="size-6 text-amber-400" />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Players Joined</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight font-sans">
-                    {dashboardData.analytics?.verifiedJoinsGenerated || 0}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                    Joined
-                  </span>
+                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight flex items-baseline">
+                  <span>{dashboardData.analytics?.verifiedJoinsGenerated || dashboardData.campaignJoins || 0}</span>
+                  <span className="text-xs sm:text-sm text-amber-400 font-medium ml-1.5">Joined</span>
                 </div>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[11px] text-zinc-400 font-medium font-sans">Campaign Joins</span>
+              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Campaign Joins</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -507,13 +491,14 @@ export function PartnershipsTab({
                   e.stopPropagation();
                   handleJump('browse');
                 }}
-                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all"
+                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all cursor-pointer"
               >
                 Browse
               </Button>
             </div>
           </div>
         </div>
+
       </div>
 
       {/* ── NOTIFICATION DISPLAY (if any) ── */}

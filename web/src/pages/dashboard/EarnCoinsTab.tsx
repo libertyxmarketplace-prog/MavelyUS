@@ -771,34 +771,49 @@ export function EarnCoinsTab({ currentGuildId, workspace, onNavigateTab, onAddCo
               <div
                 key={server.id}
                 onClick={() => handleOpenServerDetails(server)}
-                className="group relative rounded-2xl border border-white/[0.08] bg-[#111113] overflow-hidden hover:bg-[#141416] hover:border-white/20 transition-all duration-300 flex flex-col justify-between cursor-pointer shadow-lg hover:shadow-2xl hover:-translate-y-1"
+                className="group relative rounded-2xl border border-white/[0.08] bg-[#0c0c0e] overflow-hidden hover:bg-[#111115] hover:border-emerald-500/40 transition-all duration-300 flex flex-col justify-between cursor-pointer shadow-lg hover:shadow-2xl"
               >
                 <div>
-                  {/* Banner with CSS alpha-mask fade into #111113 */}
+                  {/* Banner with Floating Badges */}
                   {resolvedCardBanner ? (
-                    <div className="relative w-full h-32 overflow-hidden bg-[#111113] shrink-0">
+                    <div className="relative w-full h-36 overflow-hidden bg-zinc-950 shrink-0">
                       <img
                         src={resolvedCardBanner}
                         alt={server.name}
                         className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
-                        style={{
-                          maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 35%, rgba(0,0,0,0) 100%)',
-                          WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 35%, rgba(0,0,0,0) 100%)'
-                        }}
                       />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0e] via-transparent to-black/30" />
+                      <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wider font-sans uppercase bg-black/60 backdrop-blur-md text-zinc-200 border border-white/10">
+                          {serverCats[0] || 'Community'}
+                        </span>
+                        {server.currentPlayers !== null && server.currentPlayers !== undefined ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-medium font-sans bg-black/60 backdrop-blur-md text-zinc-300 border border-white/10">
+                            Live: {server.currentPlayers} In-Game
+                          </span>
+                        ) : server.joinCode ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-medium font-sans bg-black/60 backdrop-blur-md text-zinc-300 border border-white/10">
+                            Code: {server.joinCode}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   ) : (
-                    <div className="w-full h-16 bg-gradient-to-b from-white/[0.04] to-transparent shrink-0" />
+                    <div className="relative w-full h-20 bg-gradient-to-br from-white/[0.04] to-transparent border-b border-white/[0.04] flex items-center justify-end px-4 shrink-0">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wider font-sans uppercase bg-white/[0.04] text-zinc-300 border border-white/[0.08]">
+                        {serverCats[0] || 'Community'}
+                      </span>
+                    </div>
                   )}
 
-                  {/* Content Container */}
-                  <div className={`p-5 space-y-3.5 ${resolvedCardBanner ? '-mt-8 relative z-10' : ''}`}>
-                    <div className="flex items-start gap-3.5">
+                  {/* Overlapping Avatar & Identity Block */}
+                  <div className="px-5 pt-1 space-y-3">
+                    <div className="flex items-end justify-between -mt-7 relative z-10">
                       {getResolvedServerIcon(server) ? (
                         <img
                           src={getResolvedServerIcon(server)!}
                           alt={server.name}
-                          className="size-14 rounded-2xl object-cover ring-4 ring-[#111113] border border-white/10 shadow-xl bg-zinc-900 shrink-0"
+                          className="size-14 rounded-2xl object-cover ring-4 ring-[#0c0c0e] border border-white/10 shadow-xl bg-zinc-900 shrink-0 group-hover:border-emerald-500/40 transition-colors"
                           onError={(e) => {
                             (e.currentTarget as HTMLElement).style.display = 'none';
                             const fallback = (e.currentTarget.parentElement?.querySelector('.icon-fallback') as HTMLElement);
@@ -807,47 +822,34 @@ export function EarnCoinsTab({ currentGuildId, workspace, onNavigateTab, onAddCo
                         />
                       ) : null}
                       <div
-                        className="icon-fallback size-14 rounded-2xl bg-zinc-900 ring-4 ring-[#111113] border border-white/10 flex items-center justify-center shrink-0 font-bold text-white text-base shadow-xl"
+                        className="icon-fallback size-14 rounded-2xl bg-zinc-900 ring-4 ring-[#0c0c0e] border border-white/10 flex items-center justify-center shrink-0 font-bold text-white text-base shadow-xl"
                         style={{ display: getResolvedServerIcon(server) ? 'none' : 'flex' }}
                       >
                         {server.name.slice(0, 2).toUpperCase()}
                       </div>
+                    </div>
 
-                      <div className="space-y-1 min-w-0 flex-1 pt-0.5">
-                        <h4 className="text-base font-bold text-white tracking-tight truncate font-sans">
-                          {server.name}
-                        </h4>
-                        <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-sans">
-                          <span className="text-zinc-300 font-medium">{serverCats[0] || 'Community'}</span>
-                          <span className="text-zinc-600">·</span>
-                          <span className="flex items-center gap-1 text-zinc-400">
-                            <Users className="size-3 text-zinc-500" />
-                            <span>{members.toLocaleString()} members</span>
-                          </span>
-                        </div>
+                    <div className="space-y-1">
+                      <h4 className="text-base font-bold text-white tracking-tight truncate font-sans group-hover:text-emerald-400 transition-colors">
+                        {server.name}
+                      </h4>
+                      <div className="flex items-center gap-2 text-xs font-sans text-zinc-400">
+                        <span className="flex items-center gap-1 font-semibold text-white tabular-nums">
+                          <Users className="size-3.5 text-zinc-400" />
+                          <span>{members.toLocaleString()} Members</span>
+                        </span>
+                        <span className="text-zinc-600">·</span>
+                        <span className="text-emerald-400 font-medium">+{coinsPerJoin} Credits Bounty</span>
                       </div>
                     </div>
 
-                    {/* Live In-Game Session Telemetry (if server API configured) */}
-                    {server.currentPlayers !== null && server.currentPlayers !== undefined ? (
-                      <div className="flex items-center gap-1.5 text-[11px] font-sans font-medium text-zinc-400 bg-white/[0.04] border border-white/[0.08] px-2.5 py-0.5 rounded-lg w-fit">
-                        <span>Live Session: {server.currentPlayers} Players In-Game</span>
-                      </div>
-                    ) : server.joinCode ? (
-                      <div className="flex items-center gap-1.5 text-[11px] font-sans font-medium text-zinc-400 bg-white/[0.03] border border-white/10 px-2.5 py-0.5 rounded-lg w-fit">
-                        <span>Join Code: {server.joinCode}</span>
-                      </div>
-                    ) : null}
-
-                    {/* Server Description */}
                     <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 min-h-[32px] font-sans">
-                      {server.description || 'No description provided by community owner.'}
+                      {server.description || 'Verified ER:LC community with active roleplay sessions and bounties.'}
                     </p>
 
-                    {/* Tag Chips */}
                     {server.tags && server.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {server.tags.map((tag) => (
+                        {server.tags.slice(0, 4).map((tag) => (
                           <span
                             key={tag}
                             className="text-[10px] font-sans font-medium text-zinc-400 bg-white/[0.03] px-2 py-0.5 rounded-md border border-white/[0.06]"
@@ -860,8 +862,8 @@ export function EarnCoinsTab({ currentGuildId, workspace, onNavigateTab, onAddCo
                   </div>
                 </div>
 
-                {/* Bottom Action Bar */}
-                <div className="px-4.5 py-3 border-t border-white/[0.06] bg-black/20 flex items-center justify-between gap-2">
+                {/* Original Mavely Action Dock */}
+                <div className="px-5 py-3.5 border-t border-white/[0.06] bg-black/30 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     {isOwnServer ? (
                       <span
@@ -875,9 +877,9 @@ export function EarnCoinsTab({ currentGuildId, workspace, onNavigateTab, onAddCo
                         size="sm"
                         disabled
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold h-8.5 px-3.5 rounded-xl cursor-default font-sans"
+                        className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold h-9 px-3.5 rounded-xl cursor-default font-sans flex items-center gap-1.5"
                       >
-                        <Check className="size-3.5 mr-1" />
+                        <Check className="size-3.5" />
                         <span>Joined</span>
                       </Button>
                     ) : (
@@ -891,15 +893,28 @@ export function EarnCoinsTab({ currentGuildId, workspace, onNavigateTab, onAddCo
                           }
                           handleOpenVerification(server);
                         }}
-                        className="bg-white hover:bg-zinc-200 text-black font-semibold text-xs h-8.5 px-3.5 rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5 font-sans"
+                        className="bg-white hover:bg-zinc-200 text-black font-bold text-xs h-9 px-4 rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5 font-sans active:scale-95"
                       >
                         <span>Join Server</span>
                         <ExternalLink className="size-3" />
                       </Button>
                     )}
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenServerDetails(server);
+                      }}
+                      className="h-9 px-3 rounded-xl border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-xs font-medium text-zinc-300 flex items-center gap-1.5 font-sans cursor-pointer"
+                    >
+                      <Eye className="size-3 text-zinc-400" />
+                      <span>Details</span>
+                    </Button>
                   </div>
 
-                  {/* Bump button (1 bump per cooldown, elevates to #1) */}
+                  {/* Bump button */}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -907,7 +922,7 @@ export function EarnCoinsTab({ currentGuildId, workspace, onNavigateTab, onAddCo
                       handleBumpServer(server);
                     }}
                     disabled={isCooldown}
-                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-xs font-sans transition-all ${
+                    className={`flex items-center gap-1.5 px-3.5 h-9 rounded-xl border text-xs font-sans transition-all ${
                       isCooldown
                         ? 'border-white/5 bg-white/[0.02] text-zinc-500 cursor-not-allowed opacity-60'
                         : 'border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 shadow-sm cursor-pointer active:scale-95'
