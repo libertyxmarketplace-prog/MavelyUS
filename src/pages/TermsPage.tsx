@@ -11,8 +11,8 @@ export function TermsPage() {
             Back to Home
           </Link>
           <div className="flex items-center gap-2">
-            <img src="/erlcus-mark.png" alt="ERLC.US" className="size-6 rounded" />
-            <span className="font-semibold text-sm">ERLC.US Terms of Service</span>
+            <img src="/mavely-mark.png" alt="Mavely" className="size-6 rounded" />
+            <span className="font-semibold text-sm">Mavely Terms of Service</span>
           </div>
         </div>
       </header>
@@ -25,7 +25,7 @@ export function TermsPage() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Terms of Service</h1>
           <p className="text-sm text-white/60">
-            Please review these Terms of Service before inviting ERLC.US to your Discord server or using our dashboard.
+            Please review these Terms of Service before inviting Mavely to your Discord server or using our dashboard.
           </p>
         </div>
 
@@ -33,14 +33,14 @@ export function TermsPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-semibold text-white">1. Acceptance of Terms</h2>
             <p>
-              By adding ERLC.US to your Discord server, connecting via Discord OAuth2, or utilizing the web dashboard, you agree to comply with and be bound by these Terms of Service, as well as Discord&apos;s Terms of Service and Community Guidelines.
+              By adding Mavely to your Discord server, connecting via Discord OAuth2, or utilizing the web dashboard, you agree to comply with and be bound by these Terms of Service, as well as Discord&apos;s Terms of Service and Community Guidelines.
             </p>
           </section>
 
           <section className="space-y-3">
             <h2 className="text-lg font-semibold text-white">2. Community Growth &amp; Join-for-Join Integrity</h2>
             <p>
-              ERLC.US provides verified Discord community discovery and join-for-join progression. To maintain network integrity:
+              Mavely provides verified Discord community discovery and join-for-join progression. To maintain network integrity:
             </p>
             <ul className="list-disc pl-5 space-y-2 text-white/70">
               <li><strong>No Automated Bot Accounts:</strong> All joining accounts must be genuine Discord users. Automated user-bots, headless accounts, or scripted join farms are strictly prohibited and subject to automated platform bans.</li>
@@ -71,14 +71,14 @@ export function TermsPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-semibold text-white">5. Anti-Raid &amp; Server Security Protection</h2>
             <p>
-              ERLC.US checks joins made through the directory to prevent raid cascades and malicious mass-joins. Community administrators reserve the right to configure custom verification roles and account age thresholds.
+              Mavely checks joins made through the directory to prevent raid cascades and malicious mass-joins. Community administrators reserve the right to configure custom verification roles and account age thresholds.
             </p>
           </section>
 
           <section className="space-y-3">
             <h2 className="text-lg font-semibold text-white">6. Availability &amp; Disclaimer</h2>
             <p>
-              ERLC.US is provided &quot;as is&quot; without warranties of any kind. While we aim for continuous 24/7 uptime, service may occasionally be interrupted for scheduled maintenance or Discord API outages.
+              Mavely is provided &quot;as is&quot; without warranties of any kind. While we aim for continuous 24/7 uptime, service may occasionally be interrupted for scheduled maintenance or Discord API outages.
             </p>
           </section>
 
@@ -91,7 +91,7 @@ export function TermsPage() {
         </div>
 
         <div className="mt-12 pt-6 border-t border-white/[0.08] flex items-center justify-between text-xs text-white/50">
-          <span>&copy; {new Date().getFullYear()} ERLC.US. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} Mavely. All rights reserved.</span>
           <Link to="/privacy" className="text-brand hover:underline">View Privacy Policy</Link>
         </div>
       </main>

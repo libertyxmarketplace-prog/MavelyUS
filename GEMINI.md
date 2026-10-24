@@ -1,4 +1,4 @@
-# ERLC.US Platform Development Rules & Standards
+# Mavely (MavelyUS) Platform Development Rules & Standards
 
 ## Critical Core Principles
 
@@ -11,7 +11,7 @@
 
 2. **Reference Images & Competitor Differentiations**:
    - When the user shares reference images, screenshots, or competitor mockups (e.g., CADLY or other dashboards): **NEVER** copy the text, names, labels, or layout verbatim.
-   - Always differentiate and transform the design and copy into original, premium ERLC.US platform concepts unless the user specifically asks to preserve a phrase.
+   - Always differentiate and transform the design and copy into original, premium Mavely platform concepts unless the user specifically asks to preserve a phrase.
 
 3. **Lenient URL Handling (`inviteUrl`)**:
    - `inviteUrl` must NEVER fail with strict "must be a valid HTTPS URL". It is completely optional.
@@ -58,3 +58,23 @@
    - Verified Joins counter: Leaving a server must decrement the verified joins counter.
    - Minimalist stat badges: Remove heavy rectangular background cards behind balance, streak, and verified joins counters. Keep only the clean icons directly (`Coins`, `Check`, `Flame`).
    - Celebration modals ("Membership Confirmed & Bounty Secured!"): No heavy colored rectangles behind the checkmark. Ultra-clean typography and sleek modal design.
+
+10. **No Rectangular Boxes Behind Logos/Icons**:
+   - Never wrap naked SVG icons or logos in heavy colored rounded boxes/squares (`bg-[#27272a]`, `size-16 rounded-2xl`, etc.). Keep icons minimal, clean, and directly aligned with typography.
+
+11. **Growth Trajectory Telemetry Standards**:
+   - `M T W T F S S` must remain clean, non-clickable minimal day labels (never make day labels clickable buttons).
+   - No `Live` badge and no `+2 cr/join` pills on the growth trajectory.
+   - The chart must cleanly render honest telemetry without clunky or broken interactive states.
+
+12. **Daily Check-In Staging**:
+   - Daily Check-In displays a sleek, flush "Coming Soon" design with a 5-day countdown timer (matching the homepage aesthetic) until full production release.
+
+13. **404 & Banned Pages (Minimalist Centered Aesthetics)**:
+   - 404 page must follow the user's reference image: massive bold `404` centered on pitch-black background, `Page not found` heading, `The page you are looking for does not exist or has been moved.` subtitle, and two pill buttons (`Go home` in solid white and `Browse pages` in dark zinc).
+   - Account Suspended / Banned page must follow the same aesthetic: massive bold `403` on pitch black, `Account Suspended`, clear administrative notice, and support pill buttons.
+
+14. **Hidden Admin Portal (`/admin-portal`)**:
+   - Located strictly at `/admin-portal` without being exposed in public navigation or sidebars.
+   - Full portal capabilities: User moderation (ban/unban user accounts), Treasury management (gift credits/coins to user IDs), Changelog manager (add/remove/edit changelog items), Directory listing moderation, and live diagnostic telemetry.
+

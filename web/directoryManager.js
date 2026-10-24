@@ -62,11 +62,16 @@ export function upsertPromotedServer(serverData, ownerUserId) {
   const existing = existingIndex >= 0 ? data.servers[existingIndex] : null;
 
   const now = Date.now();
+  let cleanIcon = serverData.icon || serverData.iconUrl || existing?.icon || null;
+  if (cleanIcon && !cleanIcon.startsWith('http://') && !cleanIcon.startsWith('https://') && !cleanIcon.startsWith('data:')) {
+    cleanIcon = `https://cdn.discordapp.com/icons/${id}/${cleanIcon}.${cleanIcon.startsWith('a_') ? 'gif' : 'png'}?size=128`;
+  }
+
   const cleanServer = {
     id,
     name: String(serverData.name || existing?.name || `Server ${id.slice(0, 6)}`).trim(),
-    icon: serverData.icon || serverData.iconUrl || existing?.icon || null,
-    iconUrl: serverData.iconUrl || serverData.icon || existing?.iconUrl || null,
+    icon: cleanIcon,
+    iconUrl: cleanIcon,
     category: serverData.category || serverData.serverCategory || existing?.category || 'Roleplay Server',
     categories: Array.isArray(serverData.categories) ? serverData.categories : [serverData.category || existing?.category || 'Roleplay Server'],
     language: serverData.language || existing?.language || 'English',
@@ -109,9 +114,8 @@ export function bumpPromotedServer(guildId, userId) {
 
   if (lastBump && (now - lastBump < COOLDOWN_MS)) {
     const remainingSeconds = Math.ceil((COOLDOWN_MS - (now - lastBump)) / 1000);
-    const minutes = Math.floor(remainingSeconds / 60);
-    const seconds = remainingSeconds % 60;
-    const cooldownErr = new Error(`Server was bumped recently. Next bump available in ${minutes}m ${seconds}s.`);
+    const minutes = Math.ceil(remainingSeconds / 60);
+    const cooldownErr = new Error(`⚠️ Cooldown Active: This server was bumped recently. You can run /bump again in ${minutes} minute${minutes === 1 ? '' : 's'}. (Limit: 1 bump per hour)`);
     cooldownErr.status = 429;
     cooldownErr.cooldownSeconds = remainingSeconds;
     throw cooldownErr;
@@ -135,8 +139,10 @@ export function getUserCredits(userId) {
   return { balance, joined };
 }
 
-/** Claim bounty for joining server */
-export function claimServerJoinBounty(userId, guildId) {
+/** Claim bounty for joining server with real Anti-Raid Defense verification */
+export function claimServerJoinBounty(userOrId, guildId) {
+  const user = typeof userOrId === 'object' && userOrId !== null ? userOrId : { id: String(userOrId) };
+  const userId = user.id;
   if (!userId) throw new Error('You must be signed in to earn credits.');
   const data = loadDirectoryData();
   const targetId = String(guildId);
@@ -146,6 +152,32 @@ export function claimServerJoinBounty(userId, guildId) {
   if (server.ownerId && server.ownerId === userId) {
     throw new Error('You cannot claim credits for joining your own community.');
   }
+
+  // 1. Anti-Raid: 7-Day Minimum Discord Account Age via Snowflake
+  try {
+    const discordEpoch = 1420070400000n;
+    const createdAtMs = Number((BigInt(userId) >> 22n) + discordEpoch);
+    const accountAgeDays = (Date.now() - createdAtMs) / (1000 * 60 * 60 * 24);
+    if (accountAgeDays < 7) {
+      throw new Error('Anti-Raid Defense: Discord account must be at least 7 days old to claim rewards.');
+    }
+  } catch (err) {
+    if (err.message.includes('Anti-Raid')) throw err;
+  }
+
+  // 2. Anti-Raid: Default Avatar Filter
+  if (server.requireAvatar !== false && !user.avatar && (user.avatarUrl?.includes('embed/avatars') || !user.avatarUrl)) {
+    throw new Error('Anti-Raid Defense: A custom Discord profile avatar is required to claim rewards.');
+  }
+
+  // 3. Raid Wave Velocity Limiter: Rate-limit sudden bursts (max 5 claims in 60s)
+  data.joinVelocity = data.joinVelocity || {};
+  const recent = (data.joinVelocity[targetId] || []).filter(ts => Date.now() - ts < 60000);
+  if (recent.length >= 5) {
+    throw new Error('Raid Wave Velocity Limiter: Rapid join burst detected for this server. Please wait a moment.');
+  }
+  recent.push(Date.now());
+  data.joinVelocity[targetId] = recent;
 
   const userJoined = Array.isArray(data.userJoins[userId]) ? data.userJoins[userId] : [];
   if (userJoined.includes(targetId)) {
@@ -162,4 +194,46 @@ export function claimServerJoinBounty(userId, guildId) {
 
   saveDirectoryData(data);
   return { success: true, newBalance, joined: userJoined, reward };
+}
+
+/** Delist / remove a server from directory */
+export function removePromotedServer(guildId) {
+  const data = loadDirectoryData();
+  const targetId = String(guildId);
+  data.servers = data.servers.filter(s => String(s.id) !== targetId);
+  saveDirectoryData(data);
+  return true;
+}
+
+/** Update specific parameters of a promoted server */
+export function updatePromotedServerDetails(guildId, patch = {}) {
+  const data = loadDirectoryData();
+  const targetId = String(guildId);
+  const server = data.servers.find(s => String(s.id) === targetId);
+  if (!server) return null;
+
+  if (patch.name !== undefined) server.name = String(patch.name).trim();
+  if (patch.description !== undefined) server.description = String(patch.description).trim();
+  if (patch.category !== undefined) server.category = String(patch.category).trim();
+  if (patch.verified !== undefined) server.verified = Boolean(patch.verified);
+  if (patch.memberCount !== undefined) server.memberCount = Number(patch.memberCount) || 0;
+  if (patch.bumps !== undefined) server.bumps = Number(patch.bumps) || 0;
+  if (patch.rewardCoins !== undefined) server.rewardCoins = Number(patch.rewardCoins) || 2;
+  if (patch.inviteUrl !== undefined) server.inviteUrl = String(patch.inviteUrl).trim();
+  if (patch.bannerUrl !== undefined) server.bannerUrl = String(patch.bannerUrl).trim();
+  server.updatedAt = Date.now();
+
+  saveDirectoryData(data);
+  return server;
+}
+
+export function loadUserBalances() {
+  const data = loadDirectoryData();
+  return data.userBalances || {};
+}
+
+export function saveUserBalances(balances) {
+  const data = loadDirectoryData();
+  data.userBalances = balances;
+  return saveDirectoryData(data);
 }

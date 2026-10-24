@@ -50,7 +50,7 @@ export function ReferralsTab({ currentGuildId, addToast }: ReferralsTabProps) {
   };
 
   const handleCopyDiscordMessage = () => {
-    const text = `Join ERLC.US and boost your Discord server with verified members! Claim free growth credits here: ${refLink}`;
+    const text = `Join Mavely and boost your Discord server with verified members! Claim free growth credits here: ${refLink}`;
     navigator.clipboard.writeText(text);
     addToast('success', 'Message Template Copied', 'Discord invite message copied to clipboard.');
   };
@@ -146,7 +146,7 @@ export function ReferralsTab({ currentGuildId, addToast }: ReferralsTabProps) {
           </div>
 
           <CardDescription className="text-xs text-slate-400 leading-relaxed pt-1">
-            Share this link with Discord server owners and community leaders. When they invite ERLC.US and register their server, you both receive +15 free growth credits.
+            Share this link with Discord server owners and community leaders. When they invite Mavely and register their server, you both receive +15 free growth credits.
           </CardDescription>
         </CardHeader>
 

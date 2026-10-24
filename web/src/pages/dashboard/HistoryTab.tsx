@@ -131,7 +131,7 @@ export function HistoryTab() {
                 Member Joins & Activity
               </CardTitle>
               <CardDescription className="text-xs text-slate-400">
-                Live log of Discord members who joined your server through ERLC.US campaigns and directory listings.
+                Live log of Discord members who joined your server through Mavely campaigns and directory listings.
               </CardDescription>
             </div>
 

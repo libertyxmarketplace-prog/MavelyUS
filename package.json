@@ -1,7 +1,7 @@
 {
-  "name": "erlc-us",
+  "name": "mavely-us",
   "version": "1.0.0",
-  "description": "ERLC.US website and dashboard backend: Discord login and server settings for ER:LC communities",
+  "description": "Mavely community management platform and web dashboard",
   "main": "server.js",
   "type": "module",
   "scripts": {

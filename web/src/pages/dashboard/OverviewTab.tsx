@@ -20,12 +20,14 @@ import {
   ChevronDown,
   Eye,
   Bell,
-  Hash
+  Hash,
+  Handshake
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
+import { fetchChannels } from '@/lib/api';
 import { CartesianGrid, Line, LineChart, XAxis } from 'recharts';
 import {
   type ChartConfig,
@@ -194,11 +196,35 @@ export function OverviewTab({
   const serverName = guild?.name || config.serverName || 'Liberty County Community';
   const isPromoted = config.j4jEnabled !== false && Boolean(config.inviteUrl || config.serverDescription);
 
-  // Available server channels for bump announcements
+  // Real server channels from Discord for bump announcements
+  const [serverChannels, setServerChannels] = useState<string[]>(() => {
+    try {
+      const cached = localStorage.getItem(`erlcus_channels_${guildId}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((c: any) => `#${(c.name || c).replace(/^#/, '')}`);
+        }
+      }
+    } catch {}
+    const raw = (guild as any)?.channels || (workspace as any)?.channels || [];
+    return raw.length > 0 ? raw.map((c: any) => `#${(c.name || c).replace(/^#/, '')}`) : [];
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchChannels(guildId).then((chs) => {
+      if (isMounted && Array.isArray(chs) && chs.length > 0) {
+        setServerChannels(chs.map((c) => `#${c.name.replace(/^#/, '')}`));
+      }
+    });
+    return () => { isMounted = false; };
+  }, [guildId]);
+
   const rawChannels = (guild as any)?.channels || (workspace as any)?.channels || [];
-  const availableChannels: string[] = rawChannels.length > 0
-    ? rawChannels.map((c: any) => `#${c.name.replace(/^#/, '')}`)
-    : ['#bumps', '#general', '#announcements', '#chat', '#media'];
+  const availableChannels: string[] = serverChannels.length > 0
+    ? serverChannels
+    : (rawChannels.length > 0 ? rawChannels.map((c: any) => `#${(c.name || c).replace(/^#/, '')}`) : ['#bumps', '#general', '#announcements']);
 
   const serverWords = serverName.trim().split(/\s+/);
   const serverInitial = serverWords.length > 1
@@ -219,7 +245,7 @@ export function OverviewTab({
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
       {/* ── COMMAND CENTER HERO ── */}
-      <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-b from-[#131722] to-[#0e111a] p-6 sm:p-7 shadow-2xl">
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#18181b] p-6 sm:p-7 shadow-xl">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent" />
         
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
@@ -229,10 +255,10 @@ export function OverviewTab({
               <img
                 src={serverIconUrl}
                 alt={serverName}
-                className="size-16 sm:size-20 rounded-2xl object-cover border border-white/10 shadow-xl shrink-0"
+                className="size-16 sm:size-20 rounded-2xl object-cover border border-white/15 shadow-xl shrink-0"
               />
             ) : (
-              <div className="size-16 sm:size-20 rounded-2xl bg-[#313338] border border-white/10 flex items-center justify-center font-bold text-white text-xl sm:text-2xl shadow-xl shrink-0 tracking-tight">
+              <div className="size-16 sm:size-20 rounded-2xl bg-[#27272a] border border-white/15 flex items-center justify-center font-bold text-white text-xl sm:text-2xl shadow-xl shrink-0 tracking-tight">
                 {serverInitial}
               </div>
             )}
@@ -281,36 +307,36 @@ export function OverviewTab({
         {/* Card 1: Verified Joins */}
         <div
           onClick={() => onNavigateTab('joins')}
-          className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-3 hover:bg-white/[0.04] transition-all cursor-pointer group"
+          className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-5 space-y-3 hover:bg-white/[0.04] transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between text-zinc-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">Verified Member Joins</span>
+            <span className="text-xs font-sans font-medium text-zinc-400">Verified Member Joins</span>
             <Users className="size-4 text-emerald-400 shrink-0" />
           </div>
           <div>
-            <div className="text-2xl font-bold font-mono tracking-tight text-white flex items-baseline gap-2">
+            <div className="text-2xl font-bold font-sans tracking-tight text-white flex items-baseline gap-2 tabular-nums">
               <span>{dailyJoins}</span>
               <span className="text-xs text-zinc-400 font-sans font-medium">Verified members</span>
             </div>
-            <div className="text-[11px] text-zinc-500 mt-1">Directory campaign verified joins</div>
+            <div className="text-[11px] text-zinc-500 mt-1 font-sans">Directory campaign verified joins</div>
           </div>
         </div>
 
         {/* Card 2: Credits Treasury */}
         <div
           onClick={() => onNavigateTab('earn')}
-          className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-3 hover:bg-white/[0.04] transition-all cursor-pointer group"
+          className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-5 space-y-3 hover:bg-white/[0.04] transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between text-zinc-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">Credits Treasury</span>
+            <span className="text-xs font-sans font-medium text-zinc-400">Credits Treasury</span>
             <Coins className="size-4 text-amber-400 shrink-0" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-amber-400 font-mono tracking-tight flex items-baseline gap-2">
+            <div className="text-2xl font-bold text-amber-400 font-sans tracking-tight flex items-baseline gap-2 tabular-nums">
               <span>{creditsBalance}</span>
               <span className="text-xs text-amber-400/80 font-sans font-medium">Available</span>
             </div>
-            <div className="text-[11px] text-zinc-400 mt-1">
+            <div className="text-[11px] text-zinc-400 mt-1 font-sans">
               +{config.coinsPerJoin || 2} credits per join bounty
             </div>
           </div>
@@ -319,21 +345,21 @@ export function OverviewTab({
         {/* Card 3: Bump Cooldown Tracker */}
         <div
           onClick={() => onNavigateTab('details')}
-          className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-3 hover:bg-white/[0.04] transition-all cursor-pointer group"
+          className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-5 space-y-3 hover:bg-white/[0.04] transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between text-zinc-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">Bump Status</span>
+            <span className="text-xs font-sans font-medium text-zinc-400">Bump Status</span>
             <Flame className="size-4 text-rose-400 shrink-0" />
           </div>
           <div>
-            <div className="text-xl font-bold font-mono tracking-tight text-white">
+            <div className="text-xl font-bold font-sans tracking-tight text-white tabular-nums">
               {canBump ? (
                 <span className="text-emerald-400">Ready to Bump</span>
               ) : (
                 <span>In {bumpRemainingMinutes}m</span>
               )}
             </div>
-            <div className="text-[11px] text-zinc-400 mt-1">
+            <div className="text-[11px] text-zinc-400 mt-1 font-sans">
               {canBump ? 'Boost visibility now' : 'Directory bump cooldown'}
             </div>
           </div>
@@ -342,24 +368,24 @@ export function OverviewTab({
         {/* Card 4: Daily Streak */}
         <div
           onClick={() => onNavigateTab('rewards')}
-          className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-3 hover:bg-white/[0.04] transition-all cursor-pointer group"
+          className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-5 space-y-3 hover:bg-white/[0.04] transition-all cursor-pointer group"
         >
           <div className="flex items-center justify-between text-zinc-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">Active Streak</span>
+            <span className="text-xs font-sans font-medium text-zinc-400">Active Streak</span>
             <Sparkles className="size-4 text-cyan-400 shrink-0" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-white font-mono tracking-tight flex items-baseline gap-2">
+            <div className="text-2xl font-bold text-white font-sans tracking-tight flex items-baseline gap-2 tabular-nums">
               <span>{streakDays}</span>
               <span className="text-xs text-cyan-400 font-sans font-medium">Days active</span>
             </div>
-            <div className="text-[11px] text-zinc-400 mt-1">Check-in reward claimable</div>
+            <div className="text-[11px] text-zinc-400 mt-1 font-sans">Check-in reward claimable</div>
           </div>
         </div>
       </div>
 
       {/* ── VERIFIED MEMBER GROWTH TELEMETRY (Recharts Line Chart) ── */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 space-y-4">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-4">
           <div>
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
@@ -370,29 +396,28 @@ export function OverviewTab({
               Verified community directory joins and active member telemetry
             </p>
           </div>
-          <span className="text-xs font-mono text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg self-start sm:self-auto">
-            {dailyJoins > 0 ? `${dailyJoins} Verified Joins` : '0 Verified Joins · Live'}
-          </span>
+          {Math.max(dailyJoins, Number(config.bountiesClaimed || 0), parseInt(localStorage.getItem(`erlcus_joins_${guildId}`) || '0', 10)) > 0 && (
+            <span className="text-xs font-sans text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg self-start sm:self-auto">
+              {Math.max(dailyJoins, Number(config.bountiesClaimed || 0), parseInt(localStorage.getItem(`erlcus_joins_${guildId}`) || '0', 10))} Directory Joins
+            </span>
+          )}
         </div>
 
         <ChartLineDefault data={dynamicChartData} />
       </div>
 
       {/* ── WORKSPACE STUDIO HUBS ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Hub 1: Server Details Showcase */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 flex flex-col justify-between hover:bg-white/[0.04] transition-all">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-6 flex flex-col justify-between hover:bg-white/[0.04] transition-all">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Eye className="size-5 text-emerald-400" />
-              <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 text-[10px] font-mono">
-                PUBLIC PROFILE
-              </Badge>
             </div>
             <div>
               <h3 className="text-base font-bold text-white">Server Details Page</h3>
               <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                Your public community page with custom banner, member ratings, and direct invite.
+                View your public community profile with custom banner, member ratings, and invite link.
               </p>
             </div>
             <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1.5 text-xs text-zinc-300 font-mono">
@@ -422,7 +447,7 @@ export function OverviewTab({
         </div>
 
         {/* Hub 2: Promote Server Studio */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 flex flex-col justify-between hover:bg-white/[0.04] transition-all">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-6 flex flex-col justify-between hover:bg-white/[0.04] transition-all">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Rocket className="size-5 text-indigo-400" />
@@ -463,7 +488,7 @@ export function OverviewTab({
         </div>
 
         {/* Hub 3: Bump Announcements */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 flex flex-col justify-between hover:bg-white/[0.04] transition-all space-y-5">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-6 flex flex-col justify-between hover:bg-[#141416] transition-all space-y-5">
           <div className="space-y-4">
             <div className="flex items-center gap-2.5">
               <Bell className="size-5 text-amber-400 shrink-0" />
@@ -476,7 +501,7 @@ export function OverviewTab({
             </div>
 
             {/* Small Dedicated Enable / Disable Area */}
-            <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.08]">
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#141416] border border-white/[0.06]">
               <div className="space-y-0.5 pr-2">
                 <span className="text-xs font-semibold text-white block">Automated Thank-You</span>
                 <p className="text-[11px] text-zinc-400 leading-tight">
@@ -495,7 +520,7 @@ export function OverviewTab({
                   addToast(
                     'info',
                     next ? 'Bump Message Enabled' : 'Bump Message Disabled',
-                    next ? 'ERLC.US will thank bumpers in your Discord channel.' : 'Automated thank-you messages disabled.'
+                    next ? 'Mavely will thank bumpers in your Discord channel.' : 'Automated thank-you messages disabled.'
                   );
                 }}
                 className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
@@ -620,6 +645,47 @@ export function OverviewTab({
           >
             <span>Open Server Details</span>
             <ChevronRight className="size-4 text-amber-400" />
+          </Button>
+        </div>
+
+        {/* Hub 4: Server Partnerships */}
+        <div className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-6 flex flex-col justify-between hover:bg-[#141416] transition-all space-y-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Handshake className="size-5 text-emerald-400" />
+              <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/10 text-[10px] font-mono">
+                {config.acceptPartnerships !== false ? 'OPEN' : 'PAUSED'}
+              </Badge>
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">Server Partnerships</h3>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                Automated mutual Discord cross-posts and player acquisition with verified ER:LC servers.
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1.5 text-xs text-zinc-300 font-mono">
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Mentions:</span>
+                <span className="text-zinc-300 font-sans font-medium truncate max-w-[130px]">
+                  {config.allowPartnerMentions ? 'Allowed' : 'Disabled'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Min Gate:</span>
+                <span className="text-emerald-400 font-sans font-medium tabular-nums">
+                  {config.partnershipMinMembers || 50} Members
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            onClick={() => onNavigateTab('partnerships')}
+            className="w-full mt-2 bg-white/[0.06] hover:bg-white/[0.12] text-white border border-white/10 text-xs font-semibold h-10 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <span>Open Partnerships Hub</span>
+            <ChevronRight className="size-4 text-emerald-400" />
           </Button>
         </div>
       </div>

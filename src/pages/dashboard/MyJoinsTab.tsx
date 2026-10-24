@@ -82,7 +82,7 @@ export function MyJoinsTab({ onNavigateTab, addToast }: MyJoinsTabProps) {
             My Joined Communities
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Servers you joined through ERLC.US directory campaigns. Leaving a server removes bounty credits and updates your verified joins count.
+            Servers you joined through Mavely directory campaigns. Leaving a server removes bounty credits and updates your verified joins count.
           </p>
         </div>
 

@@ -1,276 +1,311 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { CheckIcon, Loader2Icon } from "lucide-react"
+import { CheckIcon } from "lucide-react";
+import {
+  createContext,
+  useContext,
+  useState,
+  type ComponentProps,
+} from "react";
+import { cn } from "@/lib/utils";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+type StepperOrientation = "horizontal" | "vertical";
+type StepperState = "complete" | "current" | "upcoming";
 
-export type Step = {
-  id: string
-  title: React.ReactNode
-  description?: React.ReactNode
-  /** Replaces the step number in the indicator; sized to 3.5. */
-  icon?: React.ReactNode
-  optional?: boolean
+interface StepperLabels {
+  /** Read after the number of a finished step. */
+  complete: string;
+  /** Read after the number of the step in progress. */
+  current: string;
+  /** Read after the number of a step not reached yet. An empty string reads nothing. */
+  upcoming: string;
 }
 
-/** Where a step sits relative to the one being worked on. */
-export type StepState = "completed" | "active" | "upcoming"
+const defaultLabels: StepperLabels = {
+  complete: "Completed",
+  current: "Current",
+  upcoming: "Upcoming",
+};
 
-export type StepperProps = React.ComponentProps<"div"> & {
-  steps: Step[]
-  /** Index of the step being worked on. */
-  activeStep: number
-  /** Which steps are done; without it, everything before activeStep is. */
-  completedSteps?: number[]
-  orientation?: "horizontal" | "vertical"
-  onStepClick?: (index: number) => void
-  size?: "sm" | "default"
-  /** Which steps onStepClick reaches; nothing is clickable without a handler. */
-  clickable?: "all" | "completed" | "none"
+interface StepperContextValue {
+  value: number;
+  setValue: (value: number) => void;
+  orientation: StepperOrientation;
+  linear: boolean;
+  labels: StepperLabels;
 }
 
-const INDICATOR: Record<StepState, string> = {
-  completed: "border-primary bg-primary text-primary-foreground",
-  active: "border-primary text-primary",
-  upcoming: "border-border text-muted-foreground",
+const StepperContext = createContext<StepperContextValue | null>(null);
+
+function useStepper(part: string) {
+  const context = useContext(StepperContext);
+  if (!context) throw new Error(`${part} must be used inside <Stepper>.`);
+  return context;
 }
 
-export type StepIndicatorProps = {
-  step: Step
-  /** Zero-based; the circle shows index + 1 when the step has no icon. */
-  index: number
-  state: StepState
-  size?: "sm" | "default"
+interface StepperItemContextValue {
+  step: number;
+  state: StepperState;
 }
 
-/** The numbered circle: 24px, a hairline border, filled once the step is done. */
-function StepIndicator({ step, index, state, size = "default" }: StepIndicatorProps) {
-  return (
-    <span
-      data-slot="stepper-indicator"
-      data-state={state}
-      aria-hidden="true"
-      className={cn(
-        "flex shrink-0 items-center justify-center rounded-full border font-medium tabular-nums transition-colors",
-        size === "sm" ? "size-5 text-avatar" : "size-6 text-xs",
-        INDICATOR[state],
-        "[&_svg]:size-3.5"
-      )}
-    >
-      {state === "completed" ? <CheckIcon /> : (step.icon ?? index + 1)}
-    </span>
-  )
+const StepperItemContext = createContext<StepperItemContextValue | null>(null);
+
+function useStepperItem(part: string) {
+  const context = useContext(StepperItemContext);
+  if (!context) throw new Error(`${part} must be used inside <StepperItem>.`);
+  return context;
 }
 
-/** A numbered progress rail through a multi-step flow, across or down the page. */
+/** True inside a `StepperTrigger`, which then carries `aria-current` instead of the indicator. */
+const StepperTriggerContext = createContext(false);
+
+interface StepperProps extends Omit<ComponentProps<"nav">, "defaultValue"> {
+  /** The current step, as a 0-based index. Steps before it are complete. */
+  value?: number;
+  /** The first current step when uncontrolled. */
+  defaultValue?: number;
+  /** Called with the index of the step a `StepperTrigger` asks for. */
+  onValueChange?: (value: number) => void;
+  orientation?: StepperOrientation;
+  /**
+   * When true (the default), a `StepperTrigger` on a step not reached yet is
+   * disabled, so steps are taken in order. Set it to false to let people jump
+   * to any step.
+   */
+  linear?: boolean;
+  /** Accessible name of the `<nav>` landmark. */
+  label?: string;
+  /** State text read by screen readers after each step's number. */
+  labels?: Partial<StepperLabels>;
+}
+
+/**
+ * The steps of a multi-step flow (checkout, onboarding, a long form) and
+ * where the user is in it.
+ */
 function Stepper({
-  className,
-  steps,
-  activeStep,
-  completedSteps,
+  value: valueProp,
+  defaultValue = 0,
+  onValueChange,
   orientation = "horizontal",
-  onStepClick,
-  size = "default",
-  clickable = "completed",
+  linear = true,
+  label = "Progress",
+  labels: labelsProp,
+  className,
+  children,
   ...props
 }: StepperProps) {
-  const vertical = orientation === "vertical"
-  const isCompleted = (index: number) =>
-    completedSteps ? completedSteps.includes(index) : index < activeStep
-
-  // The step being worked on is current whatever completedSteps says: a
-  // reader who goes back to a finished step is on it again, and the rail has
-  // to say where they are.
-  function stateOf(index: number): StepState {
-    if (index === activeStep) return "active"
-    return isCompleted(index) ? "completed" : "upcoming"
-  }
-
-  // Going back to a finished step is safe; jumping ahead over unfinished work
-  // usually is not, so "completed" is the default and "all" is opt-in. The
-  // current step is where the reader already is, so it is never "completed".
-  function canClick(index: number) {
-    if (!onStepClick || clickable === "none") return false
-    return clickable === "all" || stateOf(index) === "completed"
-  }
-
+  const [internal, setInternal] = useState(defaultValue);
+  const value = valueProp ?? internal;
+  const setValue = (next: number) => {
+    if (valueProp === undefined) setInternal(next);
+    onValueChange?.(next);
+  };
+  const labels = { ...defaultLabels, ...labelsProp };
   return (
-    <div
+    <nav
       data-slot="stepper"
       data-orientation={orientation}
-      data-size={size}
-      className={cn("w-full", className)}
+      aria-label={label}
+      className={className}
       {...props}
     >
       <ol
         data-slot="stepper-list"
-        className={cn("flex", vertical ? "flex-col" : "items-start")}
+        data-orientation={orientation}
+        className={cn(
+          "flex",
+          orientation === "vertical"
+            ? "flex-col"
+            : "items-center gap-1.5 sm:gap-2",
+        )}
       >
-        {steps.map((step, index) => {
-          const state = stateOf(index)
-          const last = index === steps.length - 1
-          const isClickable = canClick(index)
-
-          // A narrow step — four across a phone — wraps its words inside
-          // itself: a word longer than the step breaks rather than running
-          // into the next one, and the Optional tag is set off from the title
-          // by a space, not a margin, so it drops under the title flush.
-          const labels = (
-            <span
-              className={cn(
-                "flex min-w-0 flex-col gap-0.5 text-start wrap-anywhere",
-                !vertical && "col-span-2 pt-2 pe-3"
-              )}
-            >
-              <span
-                className={cn(
-                  "leading-tight font-medium",
-                  size === "sm" ? "text-xs" : "text-sm",
-                  state === "upcoming" && "text-muted-foreground"
-                )}
-              >
-                {step.title}
-                {step.optional ? (
-                  <>
-                    {" "}
-                    <span className="text-xs font-normal whitespace-nowrap text-muted-foreground">
-                      Optional
-                    </span>
-                  </>
-                ) : null}
-              </span>
-              {step.description ? (
-                <span className="text-xs text-muted-foreground">{step.description}</span>
-              ) : null}
-              {/* The circle's tick is decorative, so the state is said in words. */}
-              {state === "completed" ? <span className="sr-only">Completed</span> : null}
-            </span>
-          )
-
-          const connector = last ? null : (
-            <span
-              data-slot="stepper-connector"
-              data-filled={state === "completed" || undefined}
-              aria-hidden="true"
-              className={cn(
-                "transition-colors",
-                state === "completed" ? "bg-primary" : "bg-border",
-                // Down the page the line hangs from the circle's centre; across
-                // it, the line fills its own grid cell beside the circle and
-                // stops just short of the next one.
-                vertical
-                  ? cn("my-1 min-h-4 w-px", size === "sm" ? "ms-2.5" : "ms-3")
-                  : "me-2 h-px"
-              )}
-            />
-          )
-
-          // Beside the circle when the rail runs down the page; underneath it
-          // when it runs across, where a column is too narrow to hold both.
-          const triggerClassName = cn(
-            "rounded-md focus-ring",
-            vertical
-              ? "flex min-w-0 items-center gap-2.5"
-              : "grid w-full grid-cols-[auto_1fr] items-center gap-x-2"
-          )
-          const triggerContent = (
-            <>
-              <StepIndicator step={step} index={index} state={state} size={size} />
-              {vertical ? labels : connector}
-              {vertical ? null : labels}
-            </>
-          )
-
-          return (
-            <li
-              key={step.id}
-              data-slot="stepper-step"
-              data-state={state}
-              aria-current={state === "active" ? "step" : undefined}
-              className={cn("min-w-0", vertical ? "flex flex-col" : "flex-1")}
-            >
-              {isClickable ? (
-                <button
-                  type="button"
-                  data-slot="stepper-trigger"
-                  onClick={() => onStepClick?.(index)}
-                  className={triggerClassName}
-                >
-                  {triggerContent}
-                </button>
-              ) : (
-                <span data-slot="stepper-trigger" className={triggerClassName}>
-                  {triggerContent}
-                </span>
-              )}
-
-              {vertical ? connector : null}
-            </li>
-          )
-        })}
+        <StepperContext.Provider
+          value={{ value, setValue, orientation, linear, labels }}
+        >
+          {children}
+        </StepperContext.Provider>
       </ol>
-    </div>
-  )
+    </nav>
+  );
 }
 
-export type StepperActionsProps = React.ComponentProps<"div"> & {
-  onBack?: () => void
-  onNext?: () => void
-  canBack?: boolean
-  canNext?: boolean
-  /** Swaps the next label for the finish label. */
-  isLast?: boolean
-  nextText?: string
-  backText?: string
-  finishText?: string
-  /** Locks both buttons and spins the forward one. */
-  loading?: boolean
+interface StepperItemProps extends ComponentProps<"li"> {
+  /** This step's 0-based index. */
+  step: number;
 }
 
-/** The Back and Next row under a stepped form. */
-function StepperActions({
+/** One step. Its state is `data-state`: "complete", "current" or "upcoming". */
+function StepperItem({ step, className, ...props }: StepperItemProps) {
+  const { value, orientation } = useStepper("StepperItem");
+  const state: StepperState =
+    step < value ? "complete" : step === value ? "current" : "upcoming";
+  return (
+    <StepperItemContext.Provider value={{ step, state }}>
+      <li
+        data-slot="stepper-item"
+        data-state={state}
+        data-orientation={orientation}
+        className={cn(
+          "group/stepper-item",
+          orientation === "vertical"
+            ? "relative flex flex-col pb-6 last:pb-0"
+            : "flex items-center gap-1.5 sm:gap-2 [&:not(:last-child)]:flex-1 max-sm:[&:not(:last-child)]:flex-auto",
+          orientation === "horizontal" && state === "current" && "min-w-0",
+          className,
+        )}
+        {...props}
+      />
+    </StepperItemContext.Provider>
+  );
+}
+
+/**
+ * Makes the step a button that moves to it. Disabled for steps not reached
+ * yet while the Stepper is `linear`; pass `disabled` to lock any step.
+ */
+function StepperTrigger({
   className,
-  onBack,
-  onNext,
-  canBack = true,
-  canNext = true,
-  isLast = false,
-  nextText = "Next",
-  backText = "Back",
-  finishText = "Finish",
-  loading = false,
+  disabled,
+  onClick,
+  type = "button",
+  ...props
+}: ComponentProps<"button">) {
+  const { setValue, linear } = useStepper("StepperTrigger");
+  const { step, state } = useStepperItem("StepperTrigger");
+  return (
+    <StepperTriggerContext.Provider value={true}>
+      <button
+        data-slot="stepper-trigger"
+        data-state={state}
+        type={type}
+        aria-current={state === "current" ? "step" : undefined}
+        disabled={disabled ?? (linear && state === "upcoming")}
+        onClick={(event) => {
+          onClick?.(event);
+          if (!event.defaultPrevented) setValue(step);
+        }}
+        className={cn(
+          "inline-flex min-w-0 cursor-pointer items-center gap-2 rounded-md text-left",
+          "transition-[color,box-shadow] outline-none motion-reduce:transition-none",
+          "focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+          "disabled:cursor-not-allowed disabled:opacity-50",
+          className,
+        )}
+        {...props}
+      />
+    </StepperTriggerContext.Provider>
+  );
+}
+
+/**
+ * The round marker with the step's number, or a check mark once complete.
+ */
+function StepperIndicator({
+  className,
   children,
   ...props
-}: StepperActionsProps) {
+}: ComponentProps<"span">) {
+  const { labels } = useStepper("StepperIndicator");
+  const { step, state } = useStepperItem("StepperIndicator");
+  const inTrigger = useContext(StepperTriggerContext);
+  const stateLabel = labels[state];
   return (
-    <div
-      data-slot="stepper-actions"
-      className={cn("flex items-center gap-2", className)}
+    <span
+      data-slot="stepper-indicator"
+      data-state={state}
+      aria-current={!inTrigger && state === "current" ? "step" : undefined}
+      className={cn(
+        "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
+        "transition-all duration-200 motion-reduce:transition-none",
+        "data-[state=upcoming]:bg-[#141416] data-[state=upcoming]:text-zinc-500 data-[state=upcoming]:border-white/10",
+        "data-[state=current]:border-white/20 data-[state=current]:bg-zinc-800 data-[state=current]:text-white",
+        "data-[state=complete]:border-white/10 data-[state=complete]:bg-[#141416] data-[state=complete]:text-zinc-300",
+        "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        className,
+      )}
       {...props}
     >
-      {onBack ? (
-        <Button type="button" variant="ghost" disabled={!canBack || loading} onClick={onBack}>
-          {backText}
-        </Button>
-      ) : null}
-      <div className="ms-auto flex items-center gap-2">
-        {children}
-        {onNext ? (
-          <Button
-            type="button"
-            disabled={!canNext || loading}
-            aria-busy={loading || undefined}
-            onClick={onNext}
-          >
-            {loading ? <Loader2Icon className="animate-spin motion-reduce:animate-none in-data-[motion=reduced]:animate-none" /> : null}
-            {isLast ? finishText : nextText}
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  )
+      {state === "complete" ? (
+        <>
+          <CheckIcon aria-hidden="true" className="size-3.5 text-emerald-400 stroke-[2.5]" />
+          <span className="sr-only">{step + 1}</span>
+        </>
+      ) : (
+        (children ?? step + 1)
+      )}
+      {stateLabel ? <span className="sr-only">{`, ${stateLabel}`}</span> : null}
+    </span>
+  );
 }
 
-export { Stepper, StepperActions, StepIndicator }
+/**
+ * The step's name.
+ */
+function StepperTitle({ className, ...props }: ComponentProps<"span">) {
+  const stepper = useContext(StepperContext);
+  const item = useContext(StepperItemContext);
+  const horizontal = stepper?.orientation === "horizontal" && item !== null;
+  return (
+    <span
+      data-slot="stepper-title"
+      className={cn(
+        "group-data-[state=upcoming]/stepper-item:text-zinc-500 group-data-[state=current]/stepper-item:text-white group-data-[state=complete]/stepper-item:text-zinc-300 block text-xs font-medium",
+        horizontal &&
+          (item.state === "current" ? "max-sm:truncate" : "max-sm:sr-only"),
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function StepperDescription({ className, ...props }: ComponentProps<"span">) {
+  return (
+    <span
+      data-slot="stepper-description"
+      className={cn("text-zinc-500 block text-[11px]", className)}
+      {...props}
+    />
+  );
+}
+
+/**
+ * The line to the next step, coloured once this step is complete.
+ */
+function StepperSeparator({ className, ...props }: ComponentProps<"span">) {
+  const { orientation } = useStepper("StepperSeparator");
+  return (
+    <span
+      data-slot="stepper-separator"
+      data-orientation={orientation}
+      aria-hidden="true"
+      className={cn(
+        "bg-white/10 block shrink-0 group-last/stepper-item:hidden",
+        "group-data-[state=complete]/stepper-item:bg-emerald-500/50 transition-colors motion-reduce:transition-none",
+        orientation === "vertical"
+          ? "absolute top-10 bottom-2 left-[calc(1rem-0.5px)] w-px"
+          : "h-px min-w-2 flex-1 sm:min-w-4",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export {
+  Stepper,
+  StepperDescription,
+  StepperIndicator,
+  StepperItem,
+  StepperSeparator,
+  StepperTitle,
+  StepperTrigger,
+  type StepperItemProps,
+  type StepperLabels,
+  type StepperOrientation,
+  type StepperProps,
+  type StepperState,
+};
+
+export default Stepper;

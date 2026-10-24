@@ -11,8 +11,8 @@ export function PrivacyPage() {
             Back to Home
           </Link>
           <div className="flex items-center gap-2">
-            <img src="/erlcus-mark.png" alt="ERLC.US" className="size-6 rounded" />
-            <span className="font-semibold text-sm">ERLC.US Privacy Policy</span>
+            <img src="/mavely-mark.png" alt="Mavely" className="size-6 rounded" />
+            <span className="font-semibold text-sm">Mavely Privacy Policy</span>
           </div>
         </div>
       </header>
@@ -25,7 +25,7 @@ export function PrivacyPage() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Privacy Policy</h1>
           <p className="text-sm text-white/60">
-            This Privacy Policy explains how ERLC.US collects, uses, and safeguards information when you use the ERLC.US web dashboard.
+            This Privacy Policy explains how Mavely collects, uses, and safeguards information when you use the Mavely web dashboard.
           </p>
         </div>
 
@@ -33,7 +33,7 @@ export function PrivacyPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-semibold text-white">1. Information We Collect</h2>
             <p>
-              When you use ERLC.US, we collect only the minimal data necessary to provide dashboard functionality:
+              When you use Mavely, we collect only the minimal data necessary to provide dashboard functionality:
             </p>
             <ul className="list-disc pl-5 space-y-2 text-white/70">
               <li><strong className="text-white">Discord Account Information:</strong> Your Discord user ID, username, and guild memberships when you authenticate via Discord OAuth2 to access the dashboard.</li>
@@ -63,20 +63,20 @@ export function PrivacyPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-semibold text-white">4. Data Retention &amp; Deletion</h2>
             <p>
-              Server configurations are retained as long as your server workspace remains registered with ERLC.US. You can request deletion of all associated data at any time by contacting our support server.
+              Server configurations are retained as long as your server workspace remains registered with Mavely. You can request deletion of all associated data at any time by contacting our support server.
             </p>
           </section>
 
           <section className="space-y-3">
             <h2 className="text-lg font-semibold text-white">5. Third-Party Services</h2>
             <p>
-              ERLC.US interacts with the Discord API and the Emergency Response: Liberty County (ER:LC) public server API. Your use of these platforms remains subject to the Discord Terms of Service and Roblox Community Guidelines.
+              Mavely interacts with the Discord API and the Emergency Response: Liberty County (ER:LC) public server API. Your use of these platforms remains subject to the Discord Terms of Service and Roblox Community Guidelines.
             </p>
           </section>
         </div>
 
         <div className="mt-12 pt-6 border-t border-white/[0.08] flex items-center justify-between text-xs text-white/50">
-          <span>&copy; {new Date().getFullYear()} ERLC.US. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} Mavely. All rights reserved.</span>
           <Link to="/terms" className="text-brand hover:underline">View Terms of Service</Link>
         </div>
       </main>

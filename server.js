@@ -40,7 +40,7 @@ const candidatePaths = [
 ];
 
 const webDistPath = candidatePaths.find(p => fs.existsSync(p));
-console.log('[ERLC.US WEB] Serving frontend from:', webDistPath || 'NOT FOUND');
+console.log('[MAVELY WEB] Serving frontend from:', webDistPath || 'NOT FOUND');
 
 if (webDistPath) {
   app.use(express.static(webDistPath));
@@ -56,7 +56,7 @@ if (webDistPath) {
 app.use((err, req, res, _next) => {
   if (err?.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid request body.' });
   if (err?.type === 'entity.too.large') return res.status(413).json({ error: 'Request is too large.' });
-  console.error('[ERLC.US WEB API] Unhandled route error:', err);
+  console.error('[MAVELY WEB API] Unhandled route error:', err);
   if (res.headersSent) return;
   res.status(500).json({ error: 'Something went wrong on our side. Try again.' });
 });

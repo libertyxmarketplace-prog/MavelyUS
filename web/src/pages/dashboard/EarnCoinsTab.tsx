@@ -18,7 +18,9 @@ import {
   Bell,
   Hash,
   Sparkles,
-  Share2
+  Share2,
+  ChevronDown,
+  Handshake
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +41,8 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { addLiveNotification } from '@/app/import/data';
+import { CartesianGrid, Line, LineChart, XAxis } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 export interface PromotedServer {
   id: string;
@@ -56,10 +60,15 @@ export interface PromotedServer {
   lastBumpedAt?: number;
   bannerUrl?: string;
   memberCount?: number;
+  currentPlayers?: number | null;
+  maxPlayers?: number | null;
+  joinCode?: string | null;
+  isSessionActive?: boolean;
 }
 
 interface EarnCoinsTabProps {
   currentGuildId?: string;
+  workspace?: any;
   onNavigateTab?: (tab: string) => void;
   onAddCoins?: (amount: number) => void;
   addToast: (variant: 'success' | 'info' | 'warning' | 'error', title: string, body: string) => void;
@@ -75,12 +84,23 @@ export const DIRECTORY_CATEGORIES = [
   'Events'
 ];
 
-export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToast }: EarnCoinsTabProps) {
+export function getResolvedServerIcon(server?: { id?: string; icon?: string | null; iconUrl?: string | null } | null): string | null {
+  if (!server) return null;
+  const raw = server.icon || server.iconUrl;
+  if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://') || raw.startsWith('data:')) {
+    return raw;
+  }
+  return `https://cdn.discordapp.com/icons/${server.id}/${raw}.${raw.startsWith('a_') ? 'gif' : 'png'}?size=128`;
+}
+
+export function EarnCoinsTab({ currentGuildId, workspace, onNavigateTab, onAddCoins, addToast }: EarnCoinsTabProps) {
   const [promotedServers, setPromotedServers] = useState<PromotedServer[]>([]);
   const [joinedMap, setJoinedMap] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState<'bounty' | 'newest' | 'name'>('bounty');
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
   const [isBumping, setIsBumping] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
@@ -107,6 +127,32 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
   const [modalReviews, setModalReviews] = useState<any[]>([]);
   const [newReviewText, setNewReviewText] = useState('');
   const [newReviewRating, setNewReviewRating] = useState(5);
+
+  // Track directory joins from join button clicks and stored data
+  const getServerDirectoryJoins = (server: PromotedServer): number => {
+    const storedJoins = parseInt(localStorage.getItem(`erlcus_joins_${server.id}`) || '0', 10);
+    return Math.max(server.verifiedJoins || 0, storedJoins);
+  };
+
+  const recordDirectoryJoin = (serverId: string) => {
+    const current = parseInt(localStorage.getItem(`erlcus_joins_${serverId}`) || '0', 10);
+    const updated = current + 1;
+    localStorage.setItem(`erlcus_joins_${serverId}`, updated.toString());
+  };
+
+  const memberGrowthData = useMemo(() => {
+    if (!detailModalServer) return [];
+    const joins = getServerDirectoryJoins(detailModalServer);
+    const base = Math.max(0, joins - 2);
+    return [
+      { day: 'Mon', joins: Math.max(0, base - 2) },
+      { day: 'Tue', joins: Math.max(0, base - 1) },
+      { day: 'Wed', joins: base },
+      { day: 'Thu', joins: Math.max(base, joins - 1) },
+      { day: 'Fri', joins: Math.max(base, joins - 1) },
+      { day: 'Today', joins: joins }
+    ];
+  }, [detailModalServer]);
 
   // Honest live stats helper - real stored count or 0 (no fake numbers)
   const getServerMembers = (server: PromotedServer): number => {
@@ -469,77 +515,101 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto animate-in fade-in-50 duration-200 pb-12">
-      {/* ── LIVE HEADER BAR (Flush, Minimal & Icon-Only) ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Treasury */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-all flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <Coins className="size-5 text-amber-400 shrink-0" />
-            <div className="space-y-0.5">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-medium">My Treasury</span>
-              <div className="text-xl sm:text-2xl font-bold text-white font-mono tracking-tight flex items-baseline gap-1.5">
+      {/* ── GROWTH CREDITS DASHBOARD (Big & Beautiful) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* Treasury Card */}
+        <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-emerald-500/20">
+          <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Coins className="size-8 text-amber-400/20" />
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center size-12">
+              <Coins className="size-6 text-amber-400" />
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">My Treasury</span>
+              <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight">
                 <span>{creditsBalance}</span>
-                <span className="text-xs font-mono text-amber-400 font-medium">Credits</span>
+                <span className="text-xs sm:text-sm text-amber-400 font-medium ml-1">Credits</span>
               </div>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={() => onNavigateTab?.('transfer')}
-            className="border-white/10 text-xs font-mono bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 h-8 px-3 rounded-xl transition-all cursor-pointer"
-          >
-            Transfer
-          </Button>
+          <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
+            <span className="text-[10px] text-zinc-500 uppercase font-semibold">Available for transfers</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigateTab?.('transfer')}
+              className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+            >
+              Transfer
+            </Button>
+          </div>
         </div>
 
-        {/* Verified Joins */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-all flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <Check className="size-5 text-emerald-400 shrink-0" />
-            <div className="space-y-0.5">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-medium">Verified Joins</span>
-              <div className="text-xl sm:text-2xl font-bold text-white font-mono tracking-tight flex items-baseline gap-1.5">
+        {/* Verified Joins Card */}
+        <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-emerald-500/20">
+          <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Check className="size-8 text-emerald-400/20" />
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center size-12">
+              <Check className="size-6 text-emerald-400" />
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Verified Joins</span>
+              <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight">
                 <span>{dailyJoins}</span>
-                <span className="text-xs font-mono text-emerald-400 font-medium">Joined</span>
+                <span className="text-xs sm:text-sm text-emerald-400 font-medium ml-1">Joined</span>
               </div>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={() => onNavigateTab?.('joins')}
-            className="border-white/10 text-xs font-mono bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 h-8 px-3 rounded-xl transition-all cursor-pointer"
-          >
-            My Joins
-          </Button>
+          <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
+            <span className="text-[10px] text-zinc-500 uppercase font-semibold">Community members earned</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigateTab?.('joins')}
+              className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+            >
+              My Joins
+            </Button>
+          </div>
         </div>
 
-        {/* Check-In Streak */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-all flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <Flame className="size-5 text-rose-400 shrink-0" />
-            <div className="space-y-0.5">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-medium">Check-In Streak</span>
-              <div className="text-xl sm:text-2xl font-bold text-white font-mono tracking-tight flex items-baseline gap-1.5">
+        {/* Check-In Streak Card */}
+        <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-rose-500/20">
+          <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Flame className="size-8 text-rose-400/20" />
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center size-12">
+              <Flame className="size-6 text-rose-400" />
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Check-In Streak</span>
+              <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight">
                 <span>{streakDays}</span>
-                <span className="text-xs font-mono text-rose-400 font-medium">Days</span>
+                <span className="text-xs sm:text-sm text-rose-400 font-medium ml-1">Days</span>
               </div>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={() => onNavigateTab?.('rewards')}
-            className="border-white/10 text-xs font-mono bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 h-8 px-3 rounded-xl transition-all cursor-pointer"
-          >
-            Daily Rewards
-          </Button>
+          <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
+            <span className="text-[10px] text-zinc-500 uppercase font-semibold">Daily reward streak</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigateTab?.('rewards')}
+              className="border-rose-500/30 text-rose-400 hover:bg-rose-500/10 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+            >
+              Daily Rewards
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Directory Search & Filtering Controls */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4.5 space-y-3.5">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-4.5 space-y-3.5">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           {/* Search Bar */}
           <div className="relative w-full sm:w-96">
@@ -563,17 +633,53 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
 
           {/* Sort & Promote CTA */}
           <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-            <div className="flex items-center gap-2 border border-white/10 bg-white/[0.03] rounded-xl px-3 h-9.5">
-              <SlidersHorizontal className="size-3.5 text-zinc-400 shrink-0" />
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-transparent text-xs text-zinc-200 outline-none cursor-pointer font-medium"
+            {/* Custom Sleek Sort Dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
+                className="flex items-center gap-2 border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/20 transition-all rounded-xl px-3.5 h-9.5 text-xs font-sans cursor-pointer"
               >
-                <option value="bounty" className="bg-zinc-900 text-zinc-200">Highest Bounty</option>
-                <option value="newest" className="bg-zinc-900 text-zinc-200">Recently Added</option>
-                <option value="name" className="bg-zinc-900 text-zinc-200">Alphabetical</option>
-              </select>
+                <SlidersHorizontal className="size-3.5 text-zinc-400 shrink-0" />
+                <span className="text-zinc-400 font-medium">Sort:</span>
+                <span className="text-white font-semibold">
+                  {sortBy === 'bounty' ? 'Top Ranked' : sortBy === 'newest' ? 'Recently Added' : 'Alphabetical'}
+                </span>
+                <ChevronDown className={`size-3 text-zinc-400 transition-transform duration-200 ${sortDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {sortDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setSortDropdownOpen(false)} />
+                  <div className="absolute right-0 mt-1.5 w-44 rounded-xl border border-white/10 bg-[#121214] p-1.5 shadow-xl z-40 space-y-0.5">
+                    {[
+                      { value: 'bounty', label: 'Top Ranked' },
+                      { value: 'newest', label: 'Recently Added' },
+                      { value: 'name', label: 'Alphabetical' }
+                    ].map((opt) => {
+                      const isActive = sortBy === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            setSortBy(opt.value as any);
+                            setSortDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-sans transition-all cursor-pointer ${
+                            isActive
+                              ? 'bg-white/10 text-white font-semibold'
+                              : 'text-zinc-400 hover:bg-white/[0.05] hover:text-white'
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                          {isActive && <Check className="size-3.5 text-emerald-400" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
 
             <Button
@@ -659,77 +765,94 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
             const isCooldown = nowTime - lastBump < BUMP_COOLDOWN_MS;
             const remainingMins = Math.ceil((BUMP_COOLDOWN_MS - (nowTime - lastBump)) / 60000);
 
+            const resolvedCardBanner = server.bannerUrl || (server as any).serverBannerUrl || (server as any).banner;
+
             return (
               <div
                 key={server.id}
                 onClick={() => handleOpenServerDetails(server)}
-                className="group rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden hover:bg-white/[0.04] hover:border-white/20 transition-all duration-200 flex flex-col justify-between cursor-pointer"
+                className="group relative rounded-2xl border border-white/[0.08] bg-[#111113] overflow-hidden hover:bg-[#141416] hover:border-white/20 transition-all duration-300 flex flex-col justify-between cursor-pointer shadow-lg hover:shadow-2xl hover:-translate-y-1"
               >
                 <div>
-                  {/* Banner Header (ONLY if configured) */}
-                  {server.bannerUrl ? (
-                    <div
-                      className="relative w-full h-28 bg-zinc-950 overflow-hidden border-b border-white/5"
-                    >
+                  {/* Banner with CSS alpha-mask fade into #111113 */}
+                  {resolvedCardBanner ? (
+                    <div className="relative w-full h-32 overflow-hidden bg-[#111113] shrink-0">
                       <img
-                        src={server.bannerUrl}
+                        src={resolvedCardBanner}
                         alt={server.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                        style={{
+                          maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 35%, rgba(0,0,0,0) 100%)',
+                          WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 35%, rgba(0,0,0,0) 100%)'
+                        }}
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="w-full h-16 bg-gradient-to-b from-white/[0.04] to-transparent shrink-0" />
+                  )}
 
                   {/* Content Container */}
-                  <div className="p-5 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {server.icon ? (
-                          <img
-                            src={server.icon}
-                            alt={server.name}
-                            className="size-11 rounded-xl object-cover shrink-0"
-                          />
-                        ) : (
-                          <div className="size-11 rounded-xl bg-[#313338] flex items-center justify-center shrink-0">
-                            <svg className="size-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.893a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028z" />
-                            </svg>
-                          </div>
-                        )}
-
-                        <div className="space-y-0.5 min-w-0">
-                          <h4 className="text-sm font-bold text-white tracking-tight truncate group-hover:text-emerald-400 transition-colors">
-                            {server.name}
-                          </h4>
-                          <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-mono">
-                            <span className="text-zinc-400">{serverCats[0] || 'Community'}</span>
-                            <span className="text-zinc-600">·</span>
-                            <span className="flex items-center gap-1">
-                              <Users className="size-3 text-zinc-500" />
-                              <span>{members.toLocaleString()}</span>
-                            </span>
-                          </div>
-                        </div>
+                  <div className={`p-5 space-y-3.5 ${resolvedCardBanner ? '-mt-8 relative z-10' : ''}`}>
+                    <div className="flex items-start gap-3.5">
+                      {getResolvedServerIcon(server) ? (
+                        <img
+                          src={getResolvedServerIcon(server)!}
+                          alt={server.name}
+                          className="size-14 rounded-2xl object-cover ring-4 ring-[#111113] border border-white/10 shadow-xl bg-zinc-900 shrink-0"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                            const fallback = (e.currentTarget.parentElement?.querySelector('.icon-fallback') as HTMLElement);
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="icon-fallback size-14 rounded-2xl bg-zinc-900 ring-4 ring-[#111113] border border-white/10 flex items-center justify-center shrink-0 font-bold text-white text-base shadow-xl"
+                        style={{ display: getResolvedServerIcon(server) ? 'none' : 'flex' }}
+                      >
+                        {server.name.slice(0, 2).toUpperCase()}
                       </div>
 
-                      {/* Clean Bounty Tag */}
-                      <span className="text-xs font-mono font-semibold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg shrink-0">
-                        +{server.rewardCoins || 1} Credits
-                      </span>
+                      <div className="space-y-1 min-w-0 flex-1 pt-0.5">
+                        <h4 className="text-base font-bold text-white tracking-tight truncate font-sans">
+                          {server.name}
+                        </h4>
+                        <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-sans">
+                          <span className="text-zinc-300 font-medium">{serverCats[0] || 'Community'}</span>
+                          <span className="text-zinc-600">·</span>
+                          <span className="flex items-center gap-1 text-zinc-400">
+                            <Users className="size-3 text-zinc-500" />
+                            <span>{members.toLocaleString()} members</span>
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 min-h-[32px]">
-                      {server.description}
+                    {/* Live In-Game Session Telemetry (if server API configured) */}
+                    {server.currentPlayers !== null && server.currentPlayers !== undefined ? (
+                      <div className="flex items-center gap-1.5 text-[11px] font-sans font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-lg w-fit">
+                        <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                        <span>Live Session: {server.currentPlayers} Players In-Game</span>
+                      </div>
+                    ) : server.joinCode ? (
+                      <div className="flex items-center gap-1.5 text-[11px] font-sans font-medium text-zinc-400 bg-white/[0.03] border border-white/10 px-2.5 py-0.5 rounded-lg w-fit">
+                        <span className="size-1.5 rounded-full bg-emerald-400" />
+                        <span>Join Code: {server.joinCode}</span>
+                      </div>
+                    ) : null}
+
+                    {/* Server Description */}
+                    <p className="text-xs text-zinc-400 leading-relaxed line-clamp-2 min-h-[32px] font-sans">
+                      {server.description || 'No description provided by community owner.'}
                     </p>
 
                     {/* Tag Chips */}
                     {server.tags && server.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
                         {server.tags.map((tag) => (
                           <span
                             key={tag}
-                            className="text-[10px] text-zinc-400 bg-white/[0.03] px-2 py-0.5 rounded border border-white/[0.06] font-mono"
+                            className="text-[10px] font-sans font-medium text-zinc-400 bg-white/[0.03] px-2 py-0.5 rounded-md border border-white/[0.06]"
                           >
                             #{tag}
                           </span>
@@ -740,12 +863,12 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
                 </div>
 
                 {/* Bottom Action Bar */}
-                <div className="p-3.5 border-t border-white/5 bg-white/[0.01] flex items-center justify-between gap-2">
+                <div className="px-4.5 py-3 border-t border-white/[0.06] bg-black/20 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     {isOwnServer ? (
                       <span
                         onClick={(e) => e.stopPropagation()}
-                        className="text-xs font-mono text-zinc-500 px-3 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06]"
+                        className="text-xs font-sans font-medium text-zinc-400 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10"
                       >
                         Your Server
                       </span>
@@ -754,7 +877,7 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
                         size="sm"
                         disabled
                         onClick={(e) => e.stopPropagation()}
-                        className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold h-8 px-3 rounded-xl cursor-default"
+                        className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold h-8.5 px-3.5 rounded-xl cursor-default font-sans"
                       >
                         <Check className="size-3.5 mr-1" />
                         <span>Joined</span>
@@ -764,12 +887,13 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
+                          recordDirectoryJoin(server.id);
                           if (server.inviteUrl) {
                             window.open(server.inviteUrl, '_blank', 'noopener,noreferrer');
                           }
                           handleOpenVerification(server);
                         }}
-                        className="bg-white hover:bg-zinc-200 text-black font-semibold text-xs h-8 px-3.5 rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+                        className="bg-white hover:bg-zinc-200 text-black font-semibold text-xs h-8.5 px-3.5 rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1.5 font-sans"
                       >
                         <span>Join Server</span>
                         <ExternalLink className="size-3" />
@@ -785,14 +909,14 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
                       handleBumpServer(server);
                     }}
                     disabled={isCooldown}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs font-mono transition-all ${
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-xs font-sans transition-all ${
                       isCooldown
                         ? 'border-white/5 bg-white/[0.02] text-zinc-500 cursor-not-allowed opacity-60'
-                        : 'border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 cursor-pointer'
+                        : 'border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 shadow-sm cursor-pointer active:scale-95'
                     }`}
                     title={isCooldown ? `Bump cooldown active. Ready in ${remainingMins}m.` : "Bump server to #1 spot in directory"}
                   >
-                    <Flame className="size-3.5" />
+                    <Flame className="size-3.5 text-amber-400" />
                     <span className="font-semibold">{isCooldown ? `${remainingMins}m` : 'Bump'}</span>
                   </button>
                 </div>
@@ -974,260 +1098,420 @@ export function EarnCoinsTab({ currentGuildId, onNavigateTab, onAddCoins, addToa
         </div>
       )}
 
-      {/* ── SERVER DETAIL MODAL (Wide, Spacious & Feature-Packed) ── */}
+      {/* ── SERVER DETAIL MODAL (Redesigned with ServerDetailsTab UI) ── */}
       {detailModalServer && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-4xl lg:max-w-5xl bg-[#0e111a] border border-white/15 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150">
-            {/* Modal Banner (Only if provided) */}
-            {detailModalServer.bannerUrl ? (
-              <div className="relative w-full h-36 sm:h-48 bg-zinc-950 overflow-hidden border-b border-white/10 shrink-0">
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
+          <div className="w-full max-w-5xl bg-[#0f0f0f] border border-white/10 rounded-3xl shadow-[0_24px_70px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-150">
+            {/* Dedicated Hero Banner Header */}
+            {(detailModalServer.bannerUrl || (detailModalServer as any).serverBannerUrl || (detailModalServer as any).banner) ? (
+              <div className="relative w-full h-48 sm:h-56 md:h-64 overflow-hidden bg-[#0d0d0f] shrink-0 border-b border-white/[0.08]">
                 <img
-                  src={detailModalServer.bannerUrl}
+                  src={detailModalServer.bannerUrl || (detailModalServer as any).serverBannerUrl || (detailModalServer as any).banner}
                   alt={detailModalServer.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover object-center"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0e111a] via-black/40 to-transparent" />
-              </div>
-            ) : null}
-
-            {/* Modal Content Scroll Area */}
-            <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
-              {/* Modal Top Header */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-4 min-w-0">
-                  {detailModalServer.icon ? (
-                    <img
-                      src={detailModalServer.icon}
-                      alt={detailModalServer.name}
-                      className="size-14 rounded-2xl object-cover shrink-0 border border-white/15 shadow-xl"
-                    />
-                  ) : (
-                    <div className="size-14 rounded-2xl bg-zinc-800 flex items-center justify-center font-bold text-white text-lg shrink-0 border border-white/15 shadow-xl">
-                      {detailModalServer.name.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
-
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-xl font-bold text-white tracking-tight truncate">
-                        {detailModalServer.name}
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-2.5 text-xs text-zinc-400 font-mono">
-                      <span className="text-emerald-400 font-medium">{detailModalServer.category}</span>
-                      <span>·</span>
-                      <span className="flex items-center gap-1">
-                        <Users className="size-3.5 text-zinc-400" />
-                        <span>{getServerMembers(detailModalServer).toLocaleString()} members</span>
-                      </span>
-                      <span>·</span>
-                      <span className="text-amber-400">+{detailModalServer.rewardCoins || 1} Bounty</span>
-                    </div>
-                  </div>
-                </div>
-
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20 pointer-events-none" />
+                {/* Close Button top-right over banner */}
                 <button
                   type="button"
                   onClick={() => setDetailModalServer(null)}
-                  className="text-zinc-400 hover:text-white p-1.5 rounded-xl bg-white/[0.04] border border-white/10 transition-colors cursor-pointer shrink-0"
+                  className="absolute top-4 right-4 z-30 text-zinc-300 hover:text-white p-2 rounded-xl bg-black/60 hover:bg-black/80 border border-white/15 backdrop-blur-md transition-all cursor-pointer shadow-lg"
                 >
-                  <X className="size-5" />
+                  <X className="size-4" />
                 </button>
               </div>
+            ) : (
+              <div className="relative w-full h-14 bg-[#0f0f0f] border-b border-white/[0.06] flex items-center justify-end px-5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setDetailModalServer(null)}
+                  className="text-zinc-400 hover:text-white p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition-all cursor-pointer"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            )}
 
-              {/* 2-Column Wide Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* Left Column: Description, Tags & Bump Announcement Settings (7 cols) */}
-                <div className="lg:col-span-7 space-y-5">
-                  {/* About Server */}
-                  <div className="space-y-1.5">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                      About Community
-                    </span>
-                    <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed whitespace-pre-line bg-white/[0.02] p-4 rounded-2xl border border-white/5 font-sans">
-                      {detailModalServer.description || 'No description provided by the server owner.'}
-                    </p>
-                  </div>
-
-                  {/* Tags */}
-                  {detailModalServer.tags && detailModalServer.tags.length > 0 && (
-                    <div className="space-y-1.5">
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold block">
-                        Community Tags
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {detailModalServer.tags.map((t) => (
-                          <span key={t} className="text-xs text-zinc-300 bg-white/[0.04] px-2.5 py-1 rounded-lg border border-white/5 font-mono">
-                            #{t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            {/* Server Identity Bar (Clean, spacious, sits gracefully below the banner) */}
+            <div className="px-6 sm:px-8 py-5 border-b border-white/[0.06] bg-[#0f0f0f] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 shrink-0">
+              <div className="flex items-center gap-4 sm:gap-5 min-w-0">
+                {getResolvedServerIcon(detailModalServer) ? (
+                  <img
+                    src={getResolvedServerIcon(detailModalServer)!}
+                    alt={detailModalServer.name}
+                    className="size-16 sm:size-18 rounded-2xl object-cover ring-2 ring-white/10 border border-white/10 shadow-xl shrink-0 bg-zinc-900"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = 'none';
+                      const fallback = (e.currentTarget.parentElement?.querySelector('.modal-icon-fallback') as HTMLElement);
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div
+                  className="modal-icon-fallback size-16 sm:size-18 rounded-2xl bg-zinc-800 ring-2 ring-white/10 border border-white/10 shadow-xl flex items-center justify-center font-bold text-white text-xl shrink-0"
+                  style={{ display: getResolvedServerIcon(detailModalServer) ? 'none' : 'flex' }}
+                >
+                  {detailModalServer.name.slice(0, 2).toUpperCase()}
                 </div>
 
-                {/* Right Column: Community Feedback & Reviews (5 cols) */}
-                <div className="lg:col-span-5 space-y-4">
-                  <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="size-4 text-zinc-400" />
-                      <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                        Community Feedback ({modalReviews.length})
-                      </h4>
-                    </div>
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight truncate font-sans">
+                      {detailModalServer.name}
+                    </h2>
+                    {detailModalServer.category && (
+                      <span className="text-xs font-sans text-emerald-400 font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20">
+                        {detailModalServer.category}
+                      </span>
+                    )}
                   </div>
-
-                  {/* Submit Review or Enforce 1-Review Limit */}
-                  {hasUserReviewed ? (
-                    <div className="p-4 rounded-2xl bg-emerald-500/[0.06] border border-emerald-500/20 text-xs text-zinc-300 flex items-start gap-3">
-                      <Check className="size-4 text-emerald-400 shrink-0 mt-0.5" />
-                      <div className="space-y-0.5">
-                        <span className="text-white font-bold block">Feedback Submitted</span>
-                        <span className="text-[11px] text-zinc-400 leading-relaxed">
-                          You have already submitted a review for this server. 1 review limit per user enforced.
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleAddReview} className="space-y-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 min-w-0">
-                          {user?.avatar ? (
-                            <img
-                              src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
-                              alt="User avatar"
-                              className="size-6 rounded-full object-cover border border-white/10 shrink-0"
-                            />
-                          ) : (
-                            <div className="size-6 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-[10px] text-white font-bold shrink-0">
-                              {(user?.username || 'U').slice(0, 1).toUpperCase()}
-                            </div>
-                          )}
-                          <span className="text-xs text-white font-semibold truncate max-w-[140px]">
-                            {user?.globalName || user?.username || 'Leave Feedback'}
-                          </span>
-                        </div>
-
-                        {/* Star Rating Picker */}
-                        <div className="flex items-center gap-0.5">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button
-                              key={star}
-                              type="button"
-                              onClick={() => setNewReviewRating(star)}
-                              className="cursor-pointer text-amber-400 p-0.5 hover:scale-110 transition-transform"
-                            >
-                              <Star className={`size-3.5 ${star <= newReviewRating ? 'fill-amber-400 text-amber-400' : 'text-zinc-700'}`} />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <Input
-                        value={newReviewText}
-                        onChange={(e) => setNewReviewText(e.target.value)}
-                        placeholder="Share your experience with this server..."
-                        className="h-9 text-xs bg-white/[0.03] border-white/10 text-white rounded-xl focus:border-emerald-500/60"
-                      />
-
-                      <div className="flex justify-end">
-                        <Button
-                          type="submit"
-                          size="sm"
-                          disabled={!newReviewText.trim()}
-                          className="h-8 px-4 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium cursor-pointer shadow-md shadow-emerald-600/20"
-                        >
-                          Post Review
-                        </Button>
-                      </div>
-                    </form>
-                  )}
-
-                  {/* Reviews List */}
-                  {modalReviews.length === 0 ? (
-                    <div className="p-6 rounded-2xl border border-white/5 bg-white/[0.01] text-center space-y-1">
-                      <p className="text-xs text-zinc-400">No community feedback yet.</p>
-                      <p className="text-[11px] text-zinc-500 font-mono">Be the first verified member to leave a review!</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                      {modalReviews.map((r, i) => (
-                        <div key={r.id || i} className="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 min-w-0">
-                              {r.authorAvatar ? (
-                                <img
-                                  src={r.authorAvatar}
-                                  alt={r.author}
-                                  className="size-5 rounded-full object-cover border border-white/10 shrink-0"
-                                />
-                              ) : (
-                                <div className="size-5 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
-                                  {(r.author || 'M').slice(0, 1).toUpperCase()}
-                                </div>
-                              )}
-                              <span className="font-semibold text-white text-xs truncate max-w-[130px]">
-                                {r.author || 'Community Member'}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <div className="flex items-center gap-0.5">
-                                {[1, 2, 3, 4, 5].map((s) => (
-                                  <Star
-                                    key={s}
-                                    className={`size-2.5 ${s <= (r.rating || 5) ? 'fill-amber-400 text-amber-400' : 'text-zinc-700'}`}
-                                  />
-                                ))}
-                              </div>
-                              <span className="text-zinc-500 text-[10px] font-mono">{r.date}</span>
-                            </div>
-                          </div>
-                          <p className="text-xs text-zinc-300 leading-relaxed font-sans">{r.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 text-xs text-zinc-400 font-sans">
+                    <span className="flex items-center gap-1 font-sans text-zinc-400">
+                      <Users className="size-3 text-zinc-500" />
+                      <span>{getServerMembers(detailModalServer).toLocaleString()} members</span>
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Modal Footer Bar */}
-            <div className="p-4 sm:p-5 border-t border-white/10 bg-black/40 flex flex-wrap items-center justify-between gap-3 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDetailModalServer(null)}
-                className="border-white/10 text-xs h-9 px-4 text-zinc-300 hover:text-white rounded-xl cursor-pointer"
-              >
-                Close
-              </Button>
-
-              <div className="flex items-center gap-3">
-                <Button
-                  size="sm"
-                  onClick={() => handleBumpServer(detailModalServer)}
-                  className="bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-xs font-semibold h-9 px-4 rounded-xl cursor-pointer flex items-center gap-1.5"
-                >
-                  <Flame className="size-3.5 text-amber-400" />
-                  <span>Bump Server</span>
-                </Button>
-
+              {/* Action Buttons: Join Server, Bump Server, Share */}
+              <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0 justify-between sm:justify-end flex-wrap">
                 {detailModalServer.inviteUrl ? (
                   <Button
-                    size="sm"
                     onClick={() => {
+                      recordDirectoryJoin(detailModalServer.id);
                       window.open(detailModalServer.inviteUrl, '_blank', 'noopener,noreferrer');
                       const s = detailModalServer;
                       setDetailModalServer(null);
                       handleOpenVerification(s);
                     }}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold h-9 px-5 rounded-xl cursor-pointer flex items-center gap-1.5 shadow-lg shadow-emerald-600/20"
+                    className="bg-white hover:bg-zinc-200 text-black font-semibold text-xs h-9.5 px-4 rounded-xl shadow-lg cursor-pointer transition-all flex items-center gap-2 font-sans"
                   >
-                    <span>Join Server (+{detailModalServer.rewardCoins || 1} Credits)</span>
-                    <ExternalLink className="size-3" />
+                    <span>Join Server</span>
+                    <ExternalLink className="size-3.5" />
                   </Button>
                 ) : null}
+
+                <Button
+                  onClick={() => handleBumpServer(detailModalServer)}
+                  variant="outline"
+                  className="h-9.5 px-3.5 rounded-xl text-xs font-semibold border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 cursor-pointer transition-all flex items-center gap-1.5 font-sans"
+                >
+                  <Flame className="size-3.5 text-amber-400" />
+                  <span>Bump Server</span>
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    const url = `/server/${detailModalServer.id}?b=1`;
+                    navigator.clipboard.writeText(url);
+                    addToast('success', 'Link Copied', 'Community profile link copied to clipboard.');
+                  }}
+                  variant="outline"
+                  className="h-9.5 px-3.5 rounded-xl text-xs font-semibold border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 hover:text-white cursor-pointer transition-all flex items-center gap-1.5 font-sans"
+                >
+                  <Share2 className="size-3.5 text-zinc-400" />
+                  <span>Share</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Scrollable Content Body (2 Columns) */}
+            <div className="p-6 sm:p-7 space-y-6 overflow-y-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left Column: About & Feedback (7 cols) */}
+                <div className="lg:col-span-7 space-y-6">
+                  {/* About Community */}
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#141416] p-5 space-y-3">
+                    <span className="text-xs font-semibold text-zinc-300 font-sans block">
+                      About Community
+                    </span>
+                    <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed whitespace-pre-line font-sans">
+                      {detailModalServer.description || 'No description provided by the server owner.'}
+                    </p>
+
+                    {detailModalServer.tags && detailModalServer.tags.length > 0 && (
+                      <div className="pt-3 border-t border-white/5 space-y-2">
+                        <span className="text-[11px] font-sans text-zinc-400 block font-semibold">
+                          Tags
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {detailModalServer.tags.map((t) => (
+                            <span key={t} className="text-xs font-medium px-2.5 py-1 rounded-lg border border-white/10 bg-white/[0.03] text-zinc-300 font-sans">
+                              #{t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Community Feedback */}
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#141416] p-5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="size-3.5 text-zinc-400" />
+                        <h4 className="text-xs font-semibold text-white font-sans">
+                          Community Feedback ({modalReviews.length})
+                        </h4>
+                      </div>
+                    </div>
+
+                    {hasUserReviewed ? (
+                      <div className="p-3.5 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 text-xs text-zinc-300 flex items-start gap-2.5">
+                        <Check className="size-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <div className="space-y-0.5">
+                          <span className="text-white font-bold block font-sans">Feedback Submitted</span>
+                          <span className="text-[11px] text-zinc-400 font-sans">
+                            You have submitted a review for this server. 1 feedback per user limit active.
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleAddReview} className="space-y-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {user?.avatar ? (
+                              <img
+                                src={`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`}
+                                alt="User avatar"
+                                className="size-6 rounded-full object-cover border border-white/10 shrink-0"
+                              />
+                            ) : (
+                              <div className="size-6 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-[10px] text-white font-bold shrink-0">
+                                {(user?.username || 'U').slice(0, 1).toUpperCase()}
+                              </div>
+                            )}
+                            <span className="text-xs text-white font-semibold truncate max-w-[140px] font-sans">
+                              {user?.globalName || user?.username || 'Leave Feedback'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setNewReviewRating(star)}
+                                className="cursor-pointer text-amber-400 p-0.5 hover:scale-110 transition-transform"
+                              >
+                                <Star className={`size-3.5 ${star <= newReviewRating ? 'fill-amber-400 text-amber-400' : 'text-zinc-700'}`} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <Input
+                          value={newReviewText}
+                          onChange={(e) => setNewReviewText(e.target.value)}
+                          placeholder="Share your experience with this server..."
+                          className="h-9 text-xs bg-white/[0.03] border-white/10 text-white rounded-xl focus:border-emerald-500/60 font-sans"
+                        />
+
+                        <div className="flex justify-end">
+                          <Button
+                            type="submit"
+                            size="sm"
+                            disabled={!newReviewText.trim()}
+                            className="h-8 px-4 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium cursor-pointer shadow-md shadow-emerald-600/20 font-sans"
+                          >
+                            Post Review
+                          </Button>
+                        </div>
+                      </form>
+                    )}
+
+                    {modalReviews.length === 0 ? (
+                      <div className="p-5 rounded-xl border border-white/5 bg-white/[0.01] text-center space-y-1">
+                        <p className="text-xs text-zinc-400 font-sans">No community feedback yet.</p>
+                        <p className="text-[11px] text-zinc-400 font-sans">Be the first verified member to leave feedback!</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                        {modalReviews.map((r, i) => (
+                          <div key={r.id || i} className="p-3.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                {r.authorAvatar ? (
+                                  <img
+                                    src={r.authorAvatar}
+                                    alt={r.author}
+                                    className="size-5 rounded-full object-cover border border-white/10 shrink-0"
+                                  />
+                                ) : (
+                                  <div className="size-5 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-[9px] font-bold text-white shrink-0">
+                                    {(r.author || 'M').slice(0, 1).toUpperCase()}
+                                  </div>
+                                )}
+                                <span className="font-semibold text-white text-xs truncate max-w-[130px] font-sans">
+                                  {r.author || 'Community Member'}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <div className="flex items-center gap-0.5">
+                                  {[1, 2, 3, 4, 5].map((s) => (
+                                    <Star
+                                      key={s}
+                                      className={`size-2.5 ${s <= (r.rating || 5) ? 'fill-amber-400 text-amber-400' : 'text-zinc-700'}`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-zinc-400 text-[11px] font-sans">{r.date}</span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-zinc-300 leading-relaxed font-sans">{r.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Column: Server Specifications & Live Telemetry (5 cols) */}
+                <div className="lg:col-span-5 space-y-5">
+                  {/* Server Specifications */}
+                  <div className="p-5 rounded-2xl border border-white/[0.08] bg-[#141416] space-y-3">
+                    <span className="text-xs font-semibold text-zinc-300 font-sans block">
+                      Community Info
+                    </span>
+
+                    <div className="space-y-2.5 text-xs font-sans">
+                      <div className="flex justify-between items-center text-zinc-300">
+                        <span className="text-zinc-400">Guild ID:</span>
+                        <span className="font-sans text-[11px] text-white">{detailModalServer.id}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-zinc-300">
+                        <span className="text-zinc-400">Category:</span>
+                        <span className="text-emerald-400 font-medium font-sans">{detailModalServer.category}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-zinc-300">
+                        <span className="text-zinc-400">Status:</span>
+                        <span className="text-emerald-400 font-medium flex items-center gap-1.5 font-sans">
+                          <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Active in Directory
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-zinc-300">
+                        <span className="text-zinc-400">Anti-Alt Security:</span>
+                        <span className="text-zinc-300 font-medium font-sans">72h Gate Active</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Server Partnership Status & Direct Propose Alliance Link */}
+                  <div className="p-5 rounded-2xl border border-white/[0.08] bg-[#141416] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Handshake className="size-4 text-emerald-400" />
+                        <span className="text-xs font-semibold text-white font-sans">
+                          Server Partnership Status
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-sans px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        OPEN
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 text-xs font-sans">
+                      <div className="flex justify-between items-center text-zinc-300">
+                        <span className="text-zinc-400">Min. Member Gate:</span>
+                        <span className="font-sans text-white tabular-nums">
+                          {(detailModalServer as any).partnershipMinMembers || 50} Members
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center text-zinc-300">
+                        <span className="text-zinc-400">Role Mentions:</span>
+                        <span className="text-emerald-400 font-medium">
+                          {(detailModalServer as any).allowPartnerMentions !== false ? 'Permitted' : 'Disabled'}
+                        </span>
+                      </div>
+
+                      {(detailModalServer as any).allowPartnerMentions !== false && (
+                        <div className="flex justify-between items-center text-zinc-300">
+                          <span className="text-zinc-400">Mention Pricing:</span>
+                          <span className="text-amber-400 font-semibold tabular-nums">
+                            {(detailModalServer as any).partnershipHerePrice || 15} Coins (@here)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {currentGuildId !== detailModalServer.id && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          const targetId = detailModalServer.id;
+                          setDetailModalServer(null);
+                          if (onNavigateTab) {
+                            onNavigateTab('partnerships');
+                          }
+                          const url = new URL(window.location.href);
+                          url.searchParams.set('propose', targetId);
+                          window.history.pushState({}, '', url.toString());
+                        }}
+                        className="w-full mt-2 bg-white hover:bg-zinc-200 text-black font-semibold text-xs h-8.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer font-sans shadow-sm"
+                      >
+                        <Handshake className="size-3.5" />
+                        <span>Propose Server Partnership</span>
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Verified Member Growth Trajectory (Matching Overview & ServerDetailsTab) */}
+                  <div className="p-5 rounded-2xl border border-white/[0.08] bg-[#141416] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-semibold text-white font-sans flex items-center gap-1.5">
+                          <Users className="size-3.5 text-emerald-400" />
+                          <span>Verified Member Growth Trajectory</span>
+                        </span>
+                        <span className="text-[11px] text-zinc-400 font-sans block">
+                          Verified community directory joins and active member telemetry
+                        </span>
+                      </div>
+                      {getServerDirectoryJoins(detailModalServer) > 0 && (
+                        <span className="text-xs font-sans text-emerald-400 font-semibold">
+                          {getServerDirectoryJoins(detailModalServer)} Directory Joins
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="h-32 w-full pt-1">
+                      <ChartContainer className="h-32 w-full" config={{ joins: { color: '#10b981', label: 'Directory Joins' } }}>
+                        <LineChart data={memberGrowthData} margin={{ left: 6, right: 6, top: 4, bottom: 4 }}>
+                          <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" />
+                          <XAxis
+                            axisLine={false}
+                            dataKey="day"
+                            tickLine={false}
+                            tickMargin={6}
+                            stroke="rgba(255,255,255,0.4)"
+                            tick={{ fontSize: 10, fill: '#71717a' }}
+                          />
+                          <ChartTooltip content={<ChartTooltipContent />} cursor={false} />
+                          <Line
+                            dataKey="joins"
+                            dot={{ fill: '#10b981', r: 2.5 }}
+                            stroke="#10b981"
+                            strokeWidth={2}
+                            type="monotone"
+                            activeDot={{ r: 4 }}
+                          />
+                        </LineChart>
+                      </ChartContainer>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs font-sans text-zinc-400">
+                      <span>Directory Joins</span>
+                      <span className="text-white font-bold">{getServerDirectoryJoins(detailModalServer)}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

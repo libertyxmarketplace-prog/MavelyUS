@@ -1,6 +1,7 @@
-import { Changelog, type ChangelogEntry } from "@/components/ui/changelog"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Sparkles } from "lucide-react"
+import React, { useState, useEffect } from 'react';
+import { Changelog, type ChangelogEntry } from "@/components/ui/changelog";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Sparkles } from "lucide-react";
 
 const ENTRIES: ChangelogEntry[] = [
   {
@@ -10,7 +11,7 @@ const ENTRIES: ChangelogEntry[] = [
     description: "Server bump counters and direct links, alongside dynamic Recharts member growth charts and directory pagination.",
     tags: ["new", "improved"],
     items: [
-      "Bump counter and erlc.us directory link on every server page",
+      "Bump counter and mavely.us directory link on every server page",
       "Dynamic verified member growth trajectory line chart powered by Recharts",
       "Custom banner image upload in Promote Server Studio with real-time preview",
       "Complete Anti-Raid & Churn Security suite with live defense shield rating and 72h retention enforcement",
@@ -22,7 +23,7 @@ const ENTRIES: ChangelogEntry[] = [
   {
     version: "3.0.0",
     date: "2026-10-17T08:00:00.000Z",
-    title: "ERLC.US Community Growth & Discord Directory",
+    title: "Mavely Community Growth & Discord Directory",
     description: "Major release introducing the real-time Discord directory and 72-hour credit retention guarantees.",
     tags: ["new", "improved"],
     items: [
@@ -77,7 +78,7 @@ const ENTRIES: ChangelogEntry[] = [
   {
     version: "2.0.0",
     date: "2026-09-28T09:00:00.000Z",
-    title: "Initial ERLC.US Platform Launch",
+    title: "Initial Mavely Platform Launch",
     description: "The core platform engine connecting Discord communities with community growth tools.",
     tags: ["new"],
     items: [
@@ -88,29 +89,69 @@ const ENTRIES: ChangelogEntry[] = [
   },
 ]
 
-export function ChangelogTab() {
-  return (
-    <div className="space-y-6 animate-in fade-in-50 duration-200">
-      <Card className="border-white/[0.08] bg-[#161a24] shadow-[0_4px_20px_-4px_rgba(0,0,0,0.5),inset_0_1px_0_0_rgba(255,255,255,0.06)]">
-        <CardHeader className="pb-4 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono uppercase tracking-wider">
-            <Sparkles className="size-4" />
-            <span>Platform Updates</span>
-          </div>
-          <CardTitle className="text-lg font-bold text-white tracking-tight">
-            Release Notes & Development Changelog
-          </CardTitle>
-          <CardDescription className="text-xs text-slate-400 leading-relaxed">
-            Real historical releases, engineering improvements, and feature rollouts for the ERLC.US Discord platform.
-          </CardDescription>
-        </CardHeader>
+export const DEFAULT_ENTRIES: ChangelogEntry[] = ENTRIES;
 
-        <CardContent className="p-6">
-          <Changelog className="w-full" entries={ENTRIES} />
-        </CardContent>
-      </Card>
+export function mergeChangelogEntries(custom: ChangelogEntry[] = [], defaults: ChangelogEntry[] = ENTRIES): ChangelogEntry[] {
+  if (!Array.isArray(custom)) return defaults;
+  const customVersions = new Set(custom.map(c => c.version));
+  const merged = [...custom];
+  for (const def of defaults) {
+    if (!customVersions.has(def.version)) {
+      merged.push(def);
+    }
+  }
+  return merged;
+}
+
+export function ChangelogTab() {
+  const [entries, setEntries] = React.useState<ChangelogEntry[]>(() => {
+    try {
+      const stored = localStorage.getItem('erlcus_custom_changelog');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return mergeChangelogEntries(parsed, ENTRIES);
+        }
+      }
+    } catch {}
+    return ENTRIES;
+  });
+
+  React.useEffect(() => {
+    // Fetch live entries from backend API to ensure latest entries
+    fetch('/api/changelog')
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (data && Array.isArray(data.entries) && data.entries.length > 0) {
+          const merged = mergeChangelogEntries(data.entries, ENTRIES);
+          setEntries(merged);
+          try {
+            localStorage.setItem('erlcus_custom_changelog', JSON.stringify(merged));
+          } catch {}
+        }
+      })
+      .catch(() => {});
+
+    const handleUpdate = () => {
+      try {
+        const stored = localStorage.getItem('erlcus_custom_changelog');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setEntries(mergeChangelogEntries(parsed, ENTRIES));
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener('erlcus_changelog_updated', handleUpdate);
+    return () => window.removeEventListener('erlcus_changelog_updated', handleUpdate);
+  }, []);
+
+  return (
+    <div className="w-full max-w-3xl mx-auto space-y-6 pb-16 animate-in fade-in-50 duration-200">
+      <Changelog className="w-full" entries={entries} />
     </div>
-  )
+  );
 }
 
 export default ChangelogTab;

@@ -120,19 +120,19 @@ const DEFAULT_RESULTS: SearchResult[] = [
   {
     name: "Open Dashboard",
     meta: "Manage your servers and ER:LC radar",
-    avatar: "/erlcus-mark.png",
+    avatar: "/mavely-mark.png",
     onClick: () => { window.location.href = "/dashboard"; }
   },
   {
     name: "Live PRC Server Radar",
     meta: "Real-time player count, join codes, server queue",
-    avatar: "/erlcus-mark.png",
+    avatar: "/mavely-mark.png",
     onClick: () => { window.location.href = "/dashboard"; }
   },
   {
     name: "Documentation & Setup Guide",
     meta: "Full API reference and ER:LC integration tutorial",
-    avatar: "/erlcus-mark.png",
+    avatar: "/mavely-mark.png",
     onClick: () => { window.location.href = "/docs"; }
   },
 ];

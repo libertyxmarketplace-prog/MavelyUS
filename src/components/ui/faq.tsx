@@ -69,7 +69,7 @@ function Faq({
   className,
   eyebrow = "FAQ",
   title = "Frequently asked questions",
-  description = "Answers to common questions about configuring ERLC.US for your ER:LC community.",
+  description = "Answers to common questions about configuring Mavely for your ER:LC community.",
   items = DEFAULT_ITEMS,
   layout = "split",
   type = "single",

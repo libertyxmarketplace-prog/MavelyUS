@@ -1,30 +1,30 @@
-# ERLC.US
+# Mavely (MavelyUS)
 
-ERLC.US is a website and web dashboard for Emergency Response: Liberty County (ER:LC) Roblox communities. You sign in with Discord, pick a server you manage, and set up its listing, growth campaigns and live ER:LC stats from the browser.
-
-There is no Discord bot any more. Discord is only used for login and for listing the servers you have Manage Server or Administrator permission in.
+Mavely is the community management platform and web dashboard for Discord communities. Sign in with Discord, pick a server you manage, and configure growth campaigns, directory listings, partner exchanges, and server telemetry.
 
 ---
 
-## What the website does
+## Features
 
-1. **Discord login**
-   - Sign in through Discord OAuth2. The backend runs the login, so your Discord access token never reaches the browser.
-   - For now only members of the ERLC.US testing server can log in (`LOGIN_GUILD_IDS`).
+1. **Discord OAuth2 Login**
+   - Secure server-side OAuth2 authentication. Discord tokens stay protected on the server.
+   - Automatic discovery of servers where you have Manage Server or Administrator permissions.
 
 2. **Dashboard (`/dashboard`)**
-   - Shows the Discord servers you can manage.
-   - Saves each server's settings (listing text, invite link, banners, growth settings).
+   - Clean, modern community workspace switcher with Discord server icons.
+   - Manage community directory listings, custom descriptions, and verified invite links.
 
-3. **Live ER:LC stats**
-   - Add your private server API key to see player counts, queue size and staff online.
+3. **Community Discovery & Directory**
+   - Publish servers to the directory.
+   - Single-bump cooldown engine to elevate active communities.
+   - Earn credits, verified joins tracking, and automated rewards.
 
-4. **Server directory and bumps**
-   - Publish your server in the directory and bump it once per cooldown window.
+4. **Telemetry & Live Stats**
+   - Real-time process metrics, memory tracking, and server health monitoring.
 
 ---
 
-## How to run it
+## Getting Started
 
 ### 1. Install dependencies
 ```bash
@@ -32,32 +32,23 @@ npm install
 ```
 
 ### 2. Configure environment variables
-Copy `.env.example` to `.env` and fill in the Discord OAuth2 values of the "ERLC US" Discord application:
+Copy `.env.example` to `.env` and fill in your Discord OAuth2 values:
 ```env
 DISCORD_CLIENT_ID=your_oauth_application_id
 DISCORD_CLIENT_SECRET=your_oauth_client_secret
 APP_ORIGIN=http://localhost:3000
-LOGIN_GUILD_IDS=1562353446294781972
+DISCORD_REDIRECT_URI=http://localhost:3000/auth/discord/callback
 ```
-Register `<APP_ORIGIN>/auth/discord/callback` as a redirect URL in the Discord Developer Portal. Without `DISCORD_CLIENT_SECRET` nobody can log in.
+Register `<APP_ORIGIN>/auth/discord/callback` as a Redirect URI in your Discord Developer Application.
 
-### 3. Start the frontend
+### 3. Start development
 ```bash
 npm run dev
 ```
 Open `http://localhost:3000`.
 
-### 4. Start the backend
-In a second terminal:
+### 4. Build for production
 ```bash
+npm run build
 npm start
 ```
-The backend listens on port 3001 and handles login, the server list and saved settings. In production it also serves the built site from `dist/` (build it with `npm run build`).
-
----
-
-## File storage
-
-Data is saved in the `data/` folder as JSON files:
-- `data/bot_instances.db.json` (and `bot_instances.json`): saved settings for each server. The file name is left over from the old bot so existing settings keep loading.
-- `data/web_sessions.json`: active dashboard sessions.

@@ -2,39 +2,53 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { LayoutGrid, ExternalLink } from 'lucide-react';
 import sunsetBg from '@/assets/erlc_sunset.png';
-import erlcusLogo from '@/assets/erlcus_logo.png';
+import erlcusLogo from '@/assets/mavely_logo.png';
+
+const HOME_STORAGE_KEY = 'erlcus_launch_countdown_target_v1';
+
+function getHomeTarget(): number {
+  try {
+    const saved = localStorage.getItem(HOME_STORAGE_KEY);
+    if (saved) {
+      const val = parseInt(saved, 10);
+      if (!isNaN(val) && val > Date.now()) {
+        return val;
+      }
+    }
+  } catch {}
+  const target = Date.now() + (12 * 86400 + 19 * 3600 + 16 * 60 + 57) * 1000;
+  try {
+    localStorage.setItem(HOME_STORAGE_KEY, String(target));
+  } catch {}
+  return target;
+}
+
+function calculateHomeTimeLeft(targetTime: number) {
+  const diff = Math.max(0, targetTime - Date.now());
+  return {
+    days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+    hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+    minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+    seconds: Math.floor((diff % (1000 * 60)) / 1000),
+  };
+}
 
 export function HomePage() {
   useEffect(() => {
-    document.title = 'ERLC.US - Coming Soon';
+    document.title = 'Mavely - Coming Soon';
   }, []);
 
-  // 15 days countdown target
-  const [timeLeft, setTimeLeft] = useState({
-    days: 12,
-    hours: 19,
-    minutes: 16,
-    seconds: 57,
-  });
+  const [targetTime] = useState<number>(getHomeTarget);
+  const [timeLeft, setTimeLeft] = useState(() => calculateHomeTimeLeft(targetTime));
 
   useEffect(() => {
-    // Target date set to 12 days, 19 hours from reference
-    const targetDate = new Date(Date.now() + (12 * 86400 + 19 * 3600 + 16 * 60 + 57) * 1000).getTime();
-
-    const timer = setInterval(() => {
-      const now = Date.now();
-      const diff = Math.max(0, targetDate - now);
-
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setTimeLeft({ days, hours, minutes, seconds });
-    }, 1000);
-
+    const updateTimer = () => {
+      setTimeLeft(calculateHomeTimeLeft(targetTime));
+    };
+    updateTimer();
+    const timer = setInterval(updateTimer, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [targetTime]);
 
   return (
     <div className="min-h-screen bg-[#050608] text-white flex flex-col justify-between font-sans relative overflow-hidden select-none">
@@ -52,11 +66,11 @@ export function HomePage() {
         <div className="flex items-center gap-3">
           <img
             src={erlcusLogo}
-            alt="ERLC.US"
+            alt="Mavely"
             className="h-10 sm:h-12 w-auto object-contain filter drop-shadow-[0_2px_12px_rgba(255,255,255,0.15)]"
           />
           <div className="flex flex-col">
-            <span className="text-sm font-bold tracking-tight text-white leading-tight">ERLC.US</span>
+            <span className="text-sm font-bold tracking-tight text-white leading-tight">Mavely</span>
             <span className="text-[10px] text-zinc-400 font-mono">Community Platform</span>
           </div>
         </div>
@@ -127,7 +141,7 @@ export function HomePage() {
       {/* Clean Footer Bar */}
       <footer className="relative z-20 w-full px-6 sm:px-12 pb-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-zinc-500 font-mono">
         <div>
-          <span>ERLC.US Systems · Reciprocal Discord Community Growth</span>
+          <span>Mavely Systems · Reciprocal Discord Community Growth</span>
         </div>
         <div className="flex items-center gap-4">
           <Link to="/dashboard/1530147023754367006/earn" className="hover:text-zinc-300 transition-colors">

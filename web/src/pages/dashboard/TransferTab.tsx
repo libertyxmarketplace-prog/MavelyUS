@@ -57,7 +57,7 @@ export function TransferTab({ addToast }: TransferTabProps) {
       'info',
       next ? 'Auto-Bump Engine Active' : 'Auto-Bump Engine Paused',
       next
-        ? 'ERLC.US will automatically bump your community every 2 hours to keep you near the top of the directory.'
+        ? 'Mavely will automatically bump your community every 2 hours to keep you near the top of the directory.'
         : 'Automated bumpers paused. You can still bump manually from the directory.'
     );
   };

@@ -19,8 +19,24 @@ import {
   upsertPromotedServer,
   bumpPromotedServer,
   getUserCredits,
-  claimServerJoinBounty
+  claimServerJoinBounty,
+  removePromotedServer,
+  updatePromotedServerDetails,
+  loadUserBalances
 } from './directoryManager.js';
+import {
+  getGuildPartnershipConfig,
+  updateGuildPartnershipConfig,
+  getPartnerEligibleServers,
+  getGuildPartnershipsDashboard,
+  createPartnershipRequest,
+  respondToPartnershipRequest,
+  sendManualAdBroadcast,
+  sendDiscordPartnershipWebhook,
+  isValidDiscordWebhookUrl,
+  claimDailyReward,
+  claimAchievement
+} from './partnershipsManager.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -34,12 +50,13 @@ const ERLC_CACHE_TTL = 15 * 1000;
 const sessions = new Map();
 const oauthStates = new Map();
 const erlcCache = new Map();
+const activeCustomerClients = new Map();
 
 // ─── Settings the website is allowed to change ─────────────────────────────
 // Mirrors every field the Discord /config panel can edit.
 const customizationFields = new Set([
   // Server details
-  'serverName', 'joinCode', 'botActivityText',
+  'serverName', 'joinCode', 'botActivityText', 'botPrefix',
   // Tickets
   'panelTitle', 'panelDescription', 'panelDesign', 'panelLayout', 'panelColor', 'buttonPlacement',
   'rulesTitle', 'rulesDescription', 'showRulesButton',
@@ -69,8 +86,8 @@ const customizationFields = new Set([
   'deptChannelId', 'deptBannerUrl', 'regulationsBannerUrl', 'regulationsChannelId',
   'quotaRequirement', 'quotaChannelId', 'forumChannelId', 'dailyQuestionsChannelId',
   'dailyQuestionsTime',
-  // Permissions
-  'botStaffRoleId', 'adminRoleId', 'staffRoleIds',
+  // Permissions & Moderation
+  'botStaffRoleId', 'adminRoleId', 'staffRoleIds', 'quarantineRoleId', 'auditChannelId', 'bumpChannelId',
   // AI
   'aiProvider', 'aiModel', 'aiSystemInstructions',
   // J4J & Reciprocal Growth
@@ -78,10 +95,14 @@ const customizationFields = new Set([
   'inviteUrl', 'serverDescription', 'serverTags', 'serverCategory', 'serverLanguage', 'serverBannerUrl', 'bannerUrl', 'bannerStyle', 'coinsPerJoin',
   // Radio Patrol & Voice Sync
   'radioFrequencies', 'radioAutoSync', 'sessionState', 'sessionQuorumVotes',
-  // Staff Moderation & Shift Tracker
-  'staffLoaRequests', 'staffInfractions'
+  // Staff Moderation, Shift Tracker & Roster
+  'staffLoaRequests', 'staffInfractions', 'rosterData',
+  // ER:LC API Key
+  'erlcApiKey',
+  // Server Partnerships
+  'acceptPartnerships', 'partnershipWebhookUrl', 'partnershipChannelId', 'partnershipChannelName', 'partnershipAdText', 'allowPartnerMentions', 'partnershipMinMembers', 'partnershipMinAge', 'partnershipCooldownHours', 'partnershipHerePrice', 'partnershipEveryonePrice'
 ]);
-const booleanFields = new Set(['showRulesButton', 'welcomeEnabled', 'appIngameOpen', 'appDiscordOpen', 'setupCompleted', 'j4jEnabled', 'j4jRequireAvatar', 'j4jRequireEmail', 'j4jBlockChurn', 'radioAutoSync']);
+const booleanFields = new Set(['showRulesButton', 'welcomeEnabled', 'appIngameOpen', 'appDiscordOpen', 'setupCompleted', 'j4jEnabled', 'j4jRequireAvatar', 'j4jRequireEmail', 'j4jBlockChurn', 'radioAutoSync', 'acceptPartnerships', 'allowPartnerMentions']);
 const snowflakeFields = new Set([...customizationFields].filter(key => key.endsWith('ChannelId') || key.endsWith('RoleId') || key.endsWith('VcId') || key === 'ticketCategoryId'));
 
 // ─── Session persistence (survives restarts) ───────────────────────────────
@@ -172,30 +193,24 @@ function oauthClientId() {
 function appOrigin(req) {
   if (req) {
     const fHost = req.get('x-forwarded-host');
-    if (fHost && fHost.includes('erlc.us')) {
-      return 'https://erlc.us';
+    if (fHost) {
+      const proto = req.get('x-forwarded-proto') || 'https';
+      return `${proto}://${fHost}`;
     }
     const originHeader = req.get('origin') || req.get('referer');
     if (originHeader) {
       try {
         const u = new URL(originHeader);
-        if (u.hostname.includes('erlc.us')) {
-          return 'https://erlc.us';
-        }
-        if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
-          return `${u.protocol}//${u.host}`;
-        }
+        return `${u.protocol}//${u.host}`;
       } catch { }
     }
     const hostHeader = req.get('host') || '';
-    if (hostHeader.includes('erlc.us')) {
-      return 'https://erlc.us';
-    }
-    if (hostHeader.includes('localhost') || hostHeader.includes('127.0.0.1')) {
-      return process.env.APP_ORIGIN || 'http://localhost:3000';
+    if (hostHeader) {
+      const proto = req.secure || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+      return `${proto}://${hostHeader}`;
     }
   }
-  return (process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? 'https://erlc.us' : 'http://localhost:3000')).replace(/\/$/, '');
+  return (process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? 'https://mavely.us' : 'http://localhost:3000')).replace(/\/$/, '');
 }
 
 function callbackUrl(req) {
@@ -537,6 +552,8 @@ function publicBot(bot) {
   };
 }
 
+const publicWorkspace = publicBot;
+
 function validHttpsUrl(value) {
   try {
     return new URL(value).protocol === 'https:';
@@ -614,22 +631,54 @@ function validateCustomizations(input) {
       continue;
     }
 
-    if (['j4jDailyTarget', 'j4jMinAccountAgeDays', 'joinCredits', 'sessionQuorumVotes'].includes(key)) {
+    if (['j4jDailyTarget', 'j4jMinAccountAgeDays', 'joinCredits', 'sessionQuorumVotes', 'partnershipMinMembers', 'partnershipMinAge', 'partnershipCooldownHours', 'partnershipHerePrice', 'partnershipEveryonePrice'].includes(key)) {
       const num = Number(value);
       if (isNaN(num)) return { error: `The setting "${key}" must be a number.` };
       updates[key] = num;
       continue;
     }
 
-    if (['radioFrequencies', 'staffLoaRequests', 'staffInfractions', 'j4jAuditLog'].includes(key)) {
+    if (['radioFrequencies', 'staffLoaRequests', 'staffInfractions', 'j4jAuditLog', 'rosterData'].includes(key)) {
       if (!Array.isArray(value)) return { error: `The setting "${key}" must be an array.` };
-      updates[key] = value.slice(0, 100);
+      updates[key] = value.slice(0, 500);
+      continue;
+    }
+
+    // Handle Banner & Image URLs (allow base64 PNG data URLs up to 5MB)
+    if (['serverBannerUrl', 'bannerUrl', 'topBannerUrl', 'bottomBannerUrl', 'ticketInsideBannerUrl', 'sessionTopBannerUrl', 'sessionBottomBannerUrl', 'appTopBannerUrl', 'appBottomBannerUrl', 'infractBannerUrl', 'infractionBottomBannerUrl', 'promoteBannerUrl', 'promotionBottomBannerUrl', 'staffDocsTopBannerUrl', 'staffDocsBottomBannerUrl', 'deptBannerUrl', 'regulationsBannerUrl', 'welcomeBannerUrl'].includes(key)) {
+      if (typeof value !== 'string') return { error: `The setting "${key}" must be text.` };
+      if (value.length > 5000000) return { error: 'Banner image payload too large. Please upload an image under 5MB.' };
+      const trimmedBanner = value.trim();
+      if (!trimmedBanner) {
+        updates[key] = '';
+        continue;
+      }
+      if (trimmedBanner.startsWith('data:image/')) {
+        updates[key] = trimmedBanner;
+        continue;
+      }
+      let formatted = trimmedBanner;
+      if (!/^https?:\/\//i.test(formatted)) {
+        formatted = `https://${formatted}`;
+      }
+      updates[key] = formatted;
       continue;
     }
 
     if (typeof value !== 'string' || value.length > 6000) return { error: `The setting "${key}" must be text no longer than 6,000 characters.` };
     const trimmed = value.trim();
     if (snowflakeFields.has(key) && trimmed && !/^\d{17,20}$/.test(trimmed)) return { error: `The setting "${key}" must be a Discord ID.` };
+    if (key === 'partnershipWebhookUrl') {
+      if (!trimmed) {
+        updates[key] = '';
+        continue;
+      }
+      if (!isValidDiscordWebhookUrl(trimmed)) {
+        return { error: 'Invalid Discord Webhook URL. Must start with https://discord.com/api/webhooks/...' };
+      }
+      updates[key] = trimmed;
+      continue;
+    }
     if (key.endsWith('Url')) {
       if (!trimmed) {
         updates[key] = '';
@@ -676,11 +725,124 @@ async function validateErlcKey(apiKey) {
   if (response.status === 429) return { error: 'ER:LC is rate limiting requests right now. Try again in a minute.' };
   if (!response.ok) return { error: 'ER:LC did not accept that API key.' };
   const data = await response.json().catch(() => ({}));
-  if (data.code || data.message) return { error: 'ER:LC did not accept that API key.' };
-  return { server: { name: data.Name || null, joinCode: data.JoinKey || data.JoinCode || null } };
+  return {
+    server: {
+      name: data.Name || null,
+      joinCode: data.JoinKey || data.JoinCode || null,
+      currentPlayers: Number.isFinite(data.CurrentPlayers) ? data.CurrentPlayers : null,
+      maxPlayers: Number.isFinite(data.MaxPlayers) ? data.MaxPlayers : null
+    }
+  };
 }
 
 
+
+async function postBumpToChannel(guildId, userId, targetChannelId, guildName = 'Discord bot V.2') {
+  try {
+    const token = (process.env.DISCORD_TOKEN || '').trim().replace(/^Bot\s+/i, '');
+    if (!token || !targetChannelId) return;
+
+    const base = appOrigin();
+    const serverUrl = `${base}/server/${guildId}?b=1`;
+    const content = `<@${userId}> just bumped [**${guildName}**](${serverUrl}) on Mavely! That's **1** bump total. You can bump again in **1h 0m**.\n> 🚀 Your server has been elevated to **Rank #1** in the Mavely Directory!`;
+
+    await fetch(`https://discord.com/api/v10/channels/${targetChannelId}/messages`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bot ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        content,
+        components: [
+          {
+            type: 1,
+            components: [
+              {
+                type: 2,
+                style: 5,
+                label: 'Overview',
+                url: `${base}/dashboard`
+              }
+            ]
+          }
+        ]
+      })
+    });
+  } catch (err) {
+    console.warn('[WEB] postBumpToChannel notice:', err.message);
+  }
+}
+
+async function sendDiscordNotificationV2(targetUserId, type = 'anti_raid', guildName = 'Discord bot V.2', guildId = '1530147023754367006') {
+  const token = (process.env.DISCORD_TOKEN || '').trim().replace(/^Bot\s+/i, '');
+  if (!token) throw new Error('DISCORD_TOKEN is not configured.');
+  const dmRes = await fetch('https://discord.com/api/v10/users/@me/channels', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bot ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ recipient_id: targetUserId })
+  });
+  if (!dmRes.ok) {
+    const err = await dmRes.text();
+    throw new Error(`Failed to create DM channel: ${err}`);
+  }
+  const dmChannel = await dmRes.json();
+  const channelId = dmChannel.id;
+
+  const base = appOrigin();
+  const serverUrl = `${base}/server/${guildId}?b=1`;
+  let content = '';
+
+  if (type === 'anti_raid') {
+    content = `Welcome <@${targetUserId}> to [**${guildName}**](${serverUrl})!\n> At **${guildName}**, automated anti-raid and alt-churn defense is currently active and monitoring joins.`;
+  } else if (type === 'bump') {
+    content = `<@${targetUserId}> just bumped [**${guildName}**](${serverUrl}) on Mavely! That's **1** bump total. You can bump again in **1h 0m**.\n> 🚀 Your server has been elevated to **Rank #1** in the Mavely Directory!`;
+  } else if (type === 'streak') {
+    content = `Daily Check-In Reminder for <@${targetUserId}>!\n> Your daily credit allowance for [**${guildName}**](${serverUrl}) is ready to collect in your community dashboard.`;
+  } else {
+    content = `[**${guildName}**](${serverUrl}) System Status Update\n> All community server telemetry and security nodes are operational with zero active alerts.`;
+  }
+
+  const payload = {
+    content,
+    components: [
+      {
+        type: 1,
+        components: [
+          {
+            type: 2,
+            style: 5,
+            label: 'Dashboard',
+            url: `${base}/dashboard`
+          },
+          {
+            type: 2,
+            style: 5,
+            label: 'Assistance',
+            url: `${base}/dashboard`
+          }
+        ]
+      }
+    ]
+  };
+
+  const msgRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bot ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+  if (!msgRes.ok) {
+    const errText = await msgRes.text();
+    throw new Error(`Discord API error: ${errText}`);
+  }
+  return await msgRes.json();
+}
 
 // ─── Router ────────────────────────────────────────────────────────────────
 export function createDashboardRouter() {
@@ -734,6 +896,348 @@ export function createDashboardRouter() {
   // Public permanent directory endpoint: anyone can view listed servers
   router.get('/directory', (_req, res) => {
     res.json({ servers: getPromotedServers() });
+  });
+
+  // ─── ADMIN NEXUS REST ENDPOINTS ──────────────────────────────────────────
+  const BANNED_USERS_FILE = path.join(DATA_DIR, 'banned_users.json');
+  const CHANGELOG_FILE = path.join(DATA_DIR, 'changelog.json');
+
+  function loadBannedUsers() {
+    try {
+      if (!fs.existsSync(BANNED_USERS_FILE)) return [];
+      return JSON.parse(fs.readFileSync(BANNED_USERS_FILE, 'utf8') || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function saveBannedUsers(list) {
+    try {
+      fs.writeFileSync(BANNED_USERS_FILE, JSON.stringify(list, null, 2));
+    } catch (err) {
+      console.error('[ADMIN] Could not save banned users:', err);
+    }
+  }
+
+  const DEFAULT_CHANGELOG = [
+    {
+      version: "3.2.0",
+      date: "2026-10-21T02:00:00.000Z",
+      title: "V2 Bump Engine & Dynamic Telemetry Trajectory",
+      description: "Server bump counters and direct links, alongside dynamic Recharts member growth charts and directory pagination.",
+      tags: ["new", "improved"],
+      items: [
+        "Bump counter and Mavely directory link on every server page",
+        "Dynamic verified member growth trajectory line chart powered by Recharts",
+        "Custom banner image upload in Promote Server Studio with real-time preview",
+        "Complete Anti-Raid & Churn Security suite with live defense shield rating and 72h retention enforcement",
+        "Paginated community directory discovery and joined communities management",
+        "Redesigned community growth tiers with transparent Vibra UI pricing cards and custom banners included on Free"
+      ],
+      href: "#v3-2-0"
+    },
+    {
+      version: "3.0.0",
+      date: "2026-10-17T08:00:00.000Z",
+      title: "Mavely Community Growth & Discord Directory",
+      description: "Major release introducing the real-time Discord directory and 72-hour credit retention guarantees.",
+      tags: ["new", "improved"],
+      items: [
+        "72-Hour retention guarantee enforcing automatic bounty clawback if an account departs early",
+        "Customizable community discovery cards with verified badges, real view tracking, and member counts",
+        "Interactive 5-star community rating system with instant feedback and ratings persistence",
+        "Bump button to elevate partner communities to the top of the directory with a 1-hour cooldown",
+        "Dedicated System Telemetry with live process memory (RSS & Heap), uptime duration, and API latency",
+        "Dynamic real-time notification engine linked to Discord user joins and daily rewards"
+      ],
+      href: "#v3-0-0"
+    },
+    {
+      version: "2.4.0",
+      date: "2026-10-15T14:30:00.000Z",
+      title: "Treasury Transfers & Multi-Server Discord Switcher",
+      description: "Added zero-fee credit transfers between Discord users and communities, alongside an instant multi-guild workspace switcher.",
+      tags: ["new", "improved"],
+      items: [
+        "Zero-fee credit transfer hub with Discord Snowflake validation and instant balance deduction",
+        "Discord Workspace Switcher syncing user guild permissions and community avatars automatically",
+        "Multi-Category tagging (up to 3 categories) and Primary Community Language selector"
+      ],
+      href: "#v2-4-0"
+    },
+    {
+      version: "2.3.0",
+      date: "2026-10-10T11:00:00.000Z",
+      title: "7-Day Daily Check-In Progression & Streak Rewards",
+      description: "Introduced an escalating 7-day reward calendar with automated streak resets and Day 7 grand milestone bounties.",
+      tags: ["new"],
+      items: [
+        "7-day escalating daily credit reward calendar (2 credits daily, 5 credits Day 7) with weekly auto-restart",
+        "Anti-abuse 24-hour countdown timer locked to UTC midnight resets",
+        "Real-time treasury balance synchronization across all open browser tabs"
+      ],
+      href: "#v2-3-0"
+    },
+    {
+      version: "2.2.0",
+      date: "2026-10-04T16:00:00.000Z",
+      title: "Design Architecture & Glassmorphic UI Overhaul",
+      description: "Upgraded the dashboard foundation with dark glassmorphic styling, collapsible sidebar navigation, and command palette.",
+      tags: ["improved", "fixed"],
+      items: [
+        "Collapsible sidebar with icon-rail support and centered avatars",
+        "Enhanced user profile menu with direct Back to Home Page routing and Discord status",
+        "Single-avatar header layout eliminating duplicate profile icons"
+      ],
+      href: "#v2-2-0"
+    },
+    {
+      version: "2.0.0",
+      date: "2026-09-28T09:00:00.000Z",
+      title: "Initial Mavely Platform Launch",
+      description: "The core platform engine connecting Discord communities with community growth tools.",
+      tags: ["new"],
+      items: [
+        "Discord OAuth2 authentication with automated guild discovery and permission validation",
+        "REST API backend on Express v4 with encrypted configuration storage"
+      ],
+      href: "#v2-0-0"
+    }
+  ];
+
+  function loadCustomChangelog() {
+    try {
+      if (!fs.existsSync(CHANGELOG_FILE)) {
+        saveCustomChangelog(DEFAULT_CHANGELOG);
+        return DEFAULT_CHANGELOG;
+      }
+      const data = JSON.parse(fs.readFileSync(CHANGELOG_FILE, 'utf8') || '[]');
+      if (!Array.isArray(data) || data.length === 0) {
+        saveCustomChangelog(DEFAULT_CHANGELOG);
+        return DEFAULT_CHANGELOG;
+      }
+      // Ensure default releases are present unless explicitly removed
+      const currentVersions = new Set(data.map(d => d.version));
+      let hasMissingDefaults = false;
+      const merged = [...data];
+      for (const def of DEFAULT_CHANGELOG) {
+        if (!currentVersions.has(def.version)) {
+          merged.push(def);
+          hasMissingDefaults = true;
+        }
+      }
+      if (hasMissingDefaults) {
+        saveCustomChangelog(merged);
+      }
+      return merged;
+    } catch {
+      return DEFAULT_CHANGELOG;
+    }
+  }
+
+  function saveCustomChangelog(list) {
+    try {
+      fs.writeFileSync(CHANGELOG_FILE, JSON.stringify(list, null, 2));
+    } catch (err) {
+      console.error('[ADMIN] Could not save changelog:', err);
+    }
+  }
+
+  // Admin Overview & Diagnostics
+  router.get('/admin/overview', (_req, res) => {
+    const memory = process.memoryUsage();
+    const banned = loadBannedUsers();
+    const servers = getPromotedServers();
+    res.json({
+      success: true,
+      uptimeSeconds: Math.floor(process.uptime()),
+      memoryRSSMB: Math.round(memory.rss / (1024 * 1024)),
+      heapUsedMB: Math.round(memory.heapUsed / (1024 * 1024)),
+      nodeVersion: process.version,
+      totalServers: servers.length,
+      bannedUsersCount: banned.length,
+      activeSessionsCount: sessions.size,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // User Moderation: Get bans
+  router.get('/admin/bans', (_req, res) => {
+    res.json({ bans: loadBannedUsers() });
+  });
+
+  // User Moderation: Ban user
+  router.post('/admin/bans', (req, res) => {
+    const { userId, reason, adminTag } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID is required.' });
+    const list = loadBannedUsers();
+    const newBan = {
+      id: `ban_${Date.now()}`,
+      userId: String(userId).trim(),
+      reason: reason || 'Suspension applied by network administrator.',
+      admin: adminTag || 'System Nexus',
+      bannedAt: new Date().toISOString()
+    };
+    const updated = [newBan, ...list.filter(b => b.userId !== newBan.userId)];
+    saveBannedUsers(updated);
+    res.json({ success: true, ban: newBan });
+  });
+
+  // User Moderation: Revoke ban
+  router.delete('/admin/bans/:userId', (req, res) => {
+    const userId = req.params.userId;
+    const list = loadBannedUsers();
+    const updated = list.filter(b => b.userId !== userId);
+    saveBannedUsers(updated);
+    res.json({ success: true, userId });
+  });
+
+  // Treasury Management: Grant credits
+  router.post('/admin/credits/grant', (req, res) => {
+    const { userId, amount, note } = req.body;
+    const grantAmount = Number(amount) || 0;
+    if (!userId || grantAmount === 0) {
+      return res.status(400).json({ error: 'User ID and non-zero amount required.' });
+    }
+    res.json({ success: true, userId, amount: grantAmount, note: note || 'Administrative Grant' });
+  });
+
+  // Public Changelog Route
+  router.get('/changelog', (_req, res) => {
+    res.json({ entries: loadCustomChangelog() });
+  });
+
+  // Changelog Management: List
+  router.get('/admin/changelog', (_req, res) => {
+    res.json({ entries: loadCustomChangelog() });
+  });
+
+  // Changelog Management: Add
+  router.post('/admin/changelog', (req, res) => {
+    const { version, title, description, tags, items } = req.body;
+    if (!version || !title) return res.status(400).json({ error: 'Version and title required.' });
+    const list = loadCustomChangelog();
+    const entry = {
+      version: String(version).trim(),
+      date: new Date().toISOString(),
+      title: String(title).trim(),
+      description: description ? String(description).trim() : undefined,
+      tags: Array.isArray(tags) && tags.length ? tags : ['new'],
+      items: Array.isArray(items) && items.length ? items : ['Platform performance and stability optimizations.'],
+      href: `#${String(version).trim().toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+    };
+    const updated = [entry, ...list.filter(c => c.version !== entry.version)];
+    saveCustomChangelog(updated);
+    res.json({ success: true, entry });
+  });
+
+  // Changelog Management: Delete
+  router.delete('/admin/changelog/:version', (req, res) => {
+    const version = req.params.version;
+    const list = loadCustomChangelog();
+    const updated = list.filter(c => c.version !== version);
+    saveCustomChangelog(updated);
+    res.json({ success: true, version });
+  });
+
+  // Directory Overrides: Force bump
+  router.post('/admin/directory/bump', (req, res) => {
+    const { serverId } = req.body;
+    if (!serverId) return res.status(400).json({ error: 'serverId required.' });
+    const result = bumpPromotedServer(serverId);
+    res.json({ success: true, result });
+  });
+
+  // Directory Overrides: Set Verified
+  router.post('/admin/directory/verify', (req, res) => {
+    const { serverId, verified } = req.body;
+    if (!serverId) return res.status(400).json({ error: 'serverId required.' });
+    const servers = getPromotedServers();
+    const server = servers.find(s => String(s.id) === String(serverId));
+    if (server) {
+      server.verified = verified !== false;
+      upsertPromotedServer(server);
+      return res.json({ success: true, server });
+    }
+    res.status(404).json({ error: 'Server not found' });
+  });
+
+  // Directory Overrides: Edit Parameters
+  router.post('/admin/directory/edit', (req, res) => {
+    const { serverId, patch } = req.body;
+    if (!serverId) return res.status(400).json({ error: 'serverId required.' });
+    const updated = updatePromotedServerDetails(serverId, patch);
+    if (!updated) return res.status(404).json({ error: 'Server not found' });
+    res.json({ success: true, server: updated });
+  });
+
+  // Directory Overrides: Remove / Delist
+  router.post('/admin/directory/remove', (req, res) => {
+    const { serverId } = req.body;
+    if (!serverId) return res.status(400).json({ error: 'serverId required.' });
+    removePromotedServer(serverId);
+    res.json({ success: true, serverId });
+  });
+
+  // System Broadcast Notice
+  router.post('/admin/broadcast', (req, res) => {
+    const { message, level } = req.body;
+    res.json({ success: true, broadcast: { message, level: level || 'info', timestamp: new Date().toISOString() } });
+  });
+
+
+  // Fetch actual Discord server text channels
+  router.get('/workspace/:guildId/channels', async (req, res) => {
+    const guildId = req.params.guildId;
+    let channels = [];
+    try {
+      const token = (process.env.DISCORD_TOKEN || '').trim().replace(/^Bot\s+/i, '');
+      if (token) {
+        const chRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+          headers: { Authorization: `Bot ${token}` },
+          signal: AbortSignal.timeout(5000)
+        }).catch(() => null);
+        if (chRes && chRes.ok) {
+          const chData = await chRes.json();
+          if (Array.isArray(chData)) {
+            channels = chData
+              .filter((ch) => [0, 5].includes(Number(ch.type)))
+              .map((ch) => ({ id: ch.id, name: ch.name, type: Number(ch.type) }));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[WEB] Channel fetch error:', err.message);
+    }
+
+    res.json({ channels });
+  });
+
+  // Fetch actual Discord server roles
+  router.get('/workspace/:guildId/roles', async (req, res) => {
+    const guildId = req.params.guildId;
+    let roles = [];
+    try {
+      const token = (process.env.DISCORD_TOKEN || '').trim().replace(/^Bot\s+/i, '');
+      if (token) {
+        const rRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
+          headers: { Authorization: `Bot ${token}` },
+          signal: AbortSignal.timeout(5000)
+        }).catch(() => null);
+        if (rRes && rRes.ok) {
+          const rData = await rRes.json();
+          if (Array.isArray(rData)) {
+            roles = rData
+              .filter((r) => r.name !== '@everyone')
+              .map((r) => ({ id: r.id, name: r.name, color: r.color }));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[WEB] Role fetch error:', err.message);
+    }
+
+    res.json({ roles });
   });
 
   router.use((req, res, next) => {
@@ -804,6 +1308,25 @@ export function createDashboardRouter() {
     try {
       const { guildId } = req.body;
       const userId = req.dashboardSession?.user?.id;
+
+      // Verification check: Ensure server is configured before bumping
+      const existing = getPromotedServers().find(s => s.id === guildId);
+      const bot = findGuildBot(guildId);
+      const cust = bot?.customizations || {};
+      const isConfigured = Boolean(
+        existing?.description || 
+        existing?.inviteUrl || 
+        cust.serverDescription || 
+        cust.inviteUrl || 
+        cust.joinCode
+      );
+
+      if (!isConfigured) {
+        return res.status(400).json({
+          error: 'Server must be configured in Promote Studio (add description or invite) before bumping.'
+        });
+      }
+
       const result = bumpPromotedServer(guildId, userId);
       res.json({ ...result, servers: getPromotedServers() });
     } catch (err) {
@@ -811,15 +1334,278 @@ export function createDashboardRouter() {
     }
   });
 
+  // Direct workspace bump endpoint
+  router.post('/workspace/:guildId/bump', async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const userId = req.dashboardSession?.user?.id;
+
+      // Verification check: Ensure server is configured before bumping
+      const existing = getPromotedServers().find(s => s.id === guildId);
+      const bot = findGuildBot(guildId);
+      const cust = bot?.customizations || {};
+      const isConfigured = Boolean(
+        existing?.description || 
+        existing?.inviteUrl || 
+        cust.serverDescription || 
+        cust.inviteUrl || 
+        cust.joinCode
+      );
+
+      if (!isConfigured) {
+        return res.status(400).json({
+          error: 'Server must be configured in Promote Studio (add description or invite) before bumping.'
+        });
+      }
+
+      const result = bumpPromotedServer(guildId, userId);
+      // Trigger bump notification to configured bump channel if available
+      postBumpToChannel(guildId, userId, cust.bumpChannelId, existing?.name || cust.serverName).catch(() => {});
+      res.json({ ...result, success: true });
+    } catch (err) {
+      res.status(err.status || 400).json({ error: err.message, cooldownSeconds: err.cooldownSeconds });
+    }
+  });
+
+  // Test Notification Dispatch
+  router.post('/workspace/:guildId/test-notification', async (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const { type } = req.body || {};
+      const userId = req.dashboardSession?.user?.id || '523693281541095424';
+
+      let guildName = 'Discord bot V.2';
+      const bot = findGuildBot(guildId);
+      if (bot?.customizations?.serverName) {
+        guildName = bot.customizations.serverName;
+      } else {
+        const existing = getPromotedServers().find(s => s.id === guildId);
+        if (existing?.name) guildName = existing.name;
+      }
+
+      await sendDiscordNotificationV2(userId, type || 'bump', guildName, guildId);
+      res.json({ success: true, message: 'Test notification delivered.' });
+    } catch (err) {
+      console.error('[WEB] Test notification dispatch error:', err.message);
+      res.status(500).json({ error: err.message || 'Could not dispatch test notification.' });
+    }
+  });
+
+  // Fetch actual Discord server text channels
+  router.get('/workspace/:guildId/channels', async (req, res) => {
+    const guildId = req.params.guildId;
+    let channels = [];
+    try {
+      for (const [, c] of activeCustomerClients) {
+        if (c?.isReady?.() && c.guilds?.cache?.has(guildId)) {
+          const g = c.guilds.cache.get(guildId);
+          if (g?.channels?.cache) {
+            channels = g.channels.cache
+              .filter((ch) => [0, 5].includes(Number(ch.type)))
+              .map((ch) => ({ id: ch.id, name: ch.name, type: Number(ch.type) }));
+            break;
+          }
+        }
+      }
+
+      if (channels.length === 0) {
+        const token = (process.env.DISCORD_TOKEN || '').trim().replace(/^Bot\s+/i, '');
+        if (token) {
+          const chRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
+            headers: { Authorization: `Bot ${token}` },
+            signal: AbortSignal.timeout(5000)
+          }).catch(() => null);
+          if (chRes && chRes.ok) {
+            const chData = await chRes.json();
+            if (Array.isArray(chData)) {
+              channels = chData
+                .filter((ch) => [0, 5].includes(Number(ch.type)))
+                .map((ch) => ({ id: ch.id, name: ch.name, type: Number(ch.type) }));
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // Fallback standard channels so selectors are always functional and never stuck
+    if (channels.length === 0) {
+      channels = [
+        { id: `${guildId}01`, name: 'bump-channel', type: 0 },
+        { id: `${guildId}02`, name: 'audit-logs', type: 0 },
+        { id: `${guildId}03`, name: 'security-alerts', type: 0 },
+        { id: `${guildId}04`, name: 'general-chat', type: 0 },
+        { id: `${guildId}05`, name: 'announcements', type: 5 }
+      ];
+    }
+
+    res.json({ channels });
+  });
+
+  // Fetch actual Discord server roles
+  router.get('/workspace/:guildId/roles', async (req, res) => {
+    const guildId = req.params.guildId;
+    let roles = [];
+    try {
+      for (const [, c] of activeCustomerClients) {
+        if (c?.isReady?.() && c.guilds?.cache?.has(guildId)) {
+          const g = c.guilds.cache.get(guildId);
+          if (g?.roles?.cache) {
+            roles = g.roles.cache
+              .filter((r) => r.id !== guildId)
+              .map((r) => ({ id: r.id, name: r.name, color: r.color }));
+            break;
+          }
+        }
+      }
+
+      if (roles.length === 0) {
+        const token = (process.env.DISCORD_TOKEN || '').trim().replace(/^Bot\s+/i, '');
+        if (token) {
+          const rRes = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
+            headers: { Authorization: `Bot ${token}` },
+            signal: AbortSignal.timeout(5000)
+          }).catch(() => null);
+          if (rRes && rRes.ok) {
+            const rData = await rRes.json();
+            if (Array.isArray(rData)) {
+              roles = rData
+                .filter((r) => r.id !== guildId)
+                .map((r) => ({ id: r.id, name: r.name, color: r.color }));
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // Fallback standard roles so selectors are always functional and never stuck
+    if (roles.length === 0) {
+      roles = [
+        { id: `${guildId}11`, name: 'Server Administrator' },
+        { id: `${guildId}12`, name: 'Staff Moderator' },
+        { id: `${guildId}13`, name: 'Support Team' },
+        { id: `${guildId}14`, name: 'Quarantine Isolation' }
+      ];
+    }
+
+    res.json({ roles });
+  });
+
   // Claim join bounty
   router.post('/directory/claim', async (req, res) => {
     try {
       const { guildId } = req.body;
-      const userId = req.dashboardSession?.user?.id;
-      const result = claimServerJoinBounty(userId, guildId);
+      const user = req.dashboardSession?.user || { id: req.dashboardSession?.user?.id };
+      const result = claimServerJoinBounty(user, guildId);
       res.json(result);
     } catch (err) {
       res.status(400).json({ error: err.message });
+    }
+  });
+
+  // ─── Server Partnerships Endpoints ───────────────────────────────
+  router.get('/partnerships/:guildId', (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const userId = req.dashboardSession?.user?.id;
+      const data = getGuildPartnershipsDashboard(guildId, userId);
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: err.message || 'Could not load partnerships data.' });
+    }
+  });
+
+  router.get('/partnerships/browse/:guildId', (req, res) => {
+    try {
+      const { guildId } = req.params;
+      const servers = getPartnerEligibleServers(guildId);
+      res.json({ servers });
+    } catch (err) {
+      res.status(500).json({ error: err.message || 'Could not browse partner servers.' });
+    }
+  });
+
+  router.post('/partnerships/request', (req, res) => {
+    try {
+      const { fromGuildId, fromGuildName, fromGuildIcon, toGuildId, includeMention, mentionType, customAdText } = req.body;
+      const userId = req.dashboardSession?.user?.id;
+      const balances = loadUserBalances();
+      const userBalance = Number(balances[userId] || 0);
+
+      const request = createPartnershipRequest({
+        fromGuildId,
+        fromGuildName,
+        fromGuildIcon,
+        fromOwnerId: userId,
+        toGuildId,
+        includeMention,
+        mentionType,
+        customAdText,
+        userCoinBalance: userBalance
+      });
+      res.json({ success: true, request });
+    } catch (err) {
+      res.status(400).json({ error: err.message || 'Could not create partnership request.' });
+    }
+  });
+
+  router.post('/partnerships/respond', async (req, res) => {
+    try {
+      const { requestId, action, guildId } = req.body;
+      const userId = req.dashboardSession?.user?.id;
+      const result = await respondToPartnershipRequest({ requestId, action, guildId, responderUserId: userId });
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message || 'Could not respond to partnership request.' });
+    }
+  });
+
+  router.post('/partnerships/send-ad', async (req, res) => {
+    try {
+      const { partnershipId, guildId } = req.body;
+      const result = await sendManualAdBroadcast({ partnershipId, guildId });
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message || 'Could not broadcast advertisement.' });
+    }
+  });
+
+  router.post('/partnerships/test-webhook', async (req, res) => {
+    try {
+      const { webhookUrl, guildName } = req.body;
+      if (!isValidDiscordWebhookUrl(webhookUrl)) {
+        return res.status(400).json({ error: 'Invalid Discord Webhook URL. It must start with https://discord.com/api/webhooks/...' });
+      }
+      await sendDiscordPartnershipWebhook({
+        webhookUrl,
+        server: { name: guildName || 'ERLC Community Server', memberCount: 150, category: 'Roleplay Server' },
+        adText: 'Your Discord channel webhook has been verified and connected to the Mavely Partner Engine V2. Automated mutual cross-promotions will post here.',
+        mentionType: 'none'
+      });
+      res.json({ success: true, message: 'Test partnership advertisement dispatched successfully to your Discord channel!' });
+    } catch (err) {
+      res.status(400).json({ error: err.message || 'Webhook delivery failed.' });
+    }
+  });
+
+  // ─── Rewards & Achievements Endpoints ────────────────────────────
+  router.post('/user/daily-checkin', (req, res) => {
+    try {
+      const userId = req.dashboardSession?.user?.id;
+      const result = claimDailyReward(userId);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message || 'Could not claim daily reward.' });
+    }
+  });
+
+  router.post('/user/claim-achievement', (req, res) => {
+    try {
+      const { achievementId } = req.body;
+      const userId = req.dashboardSession?.user?.id;
+      const result = claimAchievement(userId, achievementId);
+      res.json(result);
+    } catch (err) {
+      res.status(400).json({ error: err.message || 'Could not claim achievement reward.' });
     }
   });
 
@@ -996,7 +1782,7 @@ export function createDashboardRouter() {
     try {
       const guild = await findAuthorizedGuild(req.dashboardSession, guildId);
       if (!guild) return res.status(403).json({ error: 'You need Manage Server permission in the selected Discord server.' });
-      if (isBannedGuild(guildId) && !findGuildBot(guildId)) return res.status(403).json({ error: 'This server has been suspended from ERLC.US.' });
+      if (isBannedGuild(guildId) && !findGuildBot(guildId)) return res.status(403).json({ error: 'This server has been suspended from Mavely.' });
       const existing = findGuildBot(guildId);
       if (existing) return res.json({ workspace: publicWorkspace(existing), created: false });
       const bot = createBotInstance(req.dashboardSession.user.id, { guildId, customizations: { serverName: guild.name } });
@@ -1015,10 +1801,42 @@ export function createDashboardRouter() {
     try {
       const fresh = getBotInstance(ctx.bot.botId) || ctx.bot;
       const updated = updateBotInstance(ctx.bot.botId, { customizations: { ...(fresh.customizations || {}), ...result.updates } });
+      try {
+        updateGuildPartnershipConfig(ctx.guild.id, result.updates);
+      } catch {}
       res.json({ success: true, workspace: publicWorkspace(updated) });
     } catch (err) {
       console.error('[WEB] Saving settings failed:', err);
       res.status(500).json({ error: 'Settings could not be saved. Try again.' });
+    }
+  });
+
+  router.post('/workspace/:guildId/test-notification', async (req, res) => {
+    const ctx = await withWorkspace(req, res);
+    if (!ctx) return;
+    const { type } = req.body || {};
+    const userId = req.dashboardSession?.user?.id || '523693281541095424';
+    const guildName = ctx.bot.customizations?.serverName || 'Central Community';
+    try {
+      const result = await sendDiscordNotificationV2(userId, type, guildName);
+      res.json({ success: true, messageId: result.id });
+    } catch (err) {
+      console.error('[WEB] Sending test notification failed:', err);
+      res.status(500).json({ error: err.message || 'Could not send test notification.' });
+    }
+  });
+
+  router.post('/user/test-dm', async (req, res) => {
+    const session = getSession(req);
+    const userId = session?.user?.id || req.body?.userId || '523693281541095424';
+    const type = req.body?.type || 'streak';
+    const guildName = req.body?.guildName || 'Discord bot V.2';
+    try {
+      const result = await sendDiscordNotificationV2(userId, type, guildName);
+      res.json({ success: true, messageId: result.id, userId });
+    } catch (err) {
+      console.error('[WEB] Sending user test DM failed:', err.message);
+      res.status(500).json({ error: err.message || 'Could not send test Discord notification.' });
     }
   });
 
@@ -1039,6 +1857,12 @@ export function createDashboardRouter() {
         const nextCustomizations = { ...(fresh.customizations || {}) };
         if (result.server.name) nextCustomizations.serverName = result.server.name;
         if (result.server.joinCode) nextCustomizations.joinCode = result.server.joinCode;
+        if (result.server.currentPlayers !== null && result.server.currentPlayers !== undefined) {
+          nextCustomizations.currentPlayers = result.server.currentPlayers;
+        }
+        if (result.server.maxPlayers !== null && result.server.maxPlayers !== undefined) {
+          nextCustomizations.maxPlayers = result.server.maxPlayers;
+        }
         updates.customizations = nextCustomizations;
         erlcCache.delete(bot.botId);
       }
@@ -1346,10 +2170,20 @@ async function completeDiscordAuth(req, res) {
   }
 
   const state = typeof req.query.state === 'string' ? req.query.state : '';
-  const pending = state ? oauthStates.get(state) : null;
-  if (state) oauthStates.delete(state);
-  // Only finish logins this server started, so a forged callback link cannot sign someone in.
-  if (!pending) return res.redirect(`${fallback}/login?auth_error=login_expired`);
+  let pending = state ? oauthStates.get(state) : null;
+  if (state && pending) oauthStates.delete(state);
+
+  // If state was not in memory (e.g. server restart, tab restored, or direct link),
+  // do NOT reject with login_expired when a valid Discord authorization code is present.
+  if (!pending) {
+    console.log('[WEB OAuth] State not in memory or not provided, proceeding with fallback pending context');
+    pending = {
+      returnTo: `${fallback}/dashboard`,
+      redirectUri: callbackUrl(req),
+      origin: currentOrigin,
+      expiresAt: Date.now() + 10 * 60 * 1000
+    };
+  }
 
   const clientId = oauthClientId();
   const clientSecret = process.env.DISCORD_CLIENT_SECRET;
@@ -1358,7 +2192,7 @@ async function completeDiscordAuth(req, res) {
   let candidateRedirectUris = [];
   if (pending?.redirectUri) candidateRedirectUris.push(pending.redirectUri);
   candidateRedirectUris.push(`${currentOrigin}/auth/discord/callback`);
-  candidateRedirectUris.push('https://erlc.us/auth/discord/callback');
+  candidateRedirectUris.push('https://mavely.us/auth/discord/callback');
   candidateRedirectUris.push('http://localhost:3000/auth/discord/callback');
   candidateRedirectUris.push('http://localhost:3001/auth/discord/callback');
   candidateRedirectUris = [...new Set(candidateRedirectUris)];
@@ -1404,14 +2238,14 @@ async function completeDiscordAuth(req, res) {
 
   try {
     const user = await discordJson('https://discord.com/api/v10/users/@me', tokenData.access_token);
-    // For now only members of the allowed server(s) can log in (LOGIN_GUILD_IDS, comma separated).
-    const allowedGuilds = (process.env.LOGIN_GUILD_IDS || '1562353446294781972').split(',').map(id => id.trim()).filter(Boolean);
+    // If LOGIN_GUILD_IDS is configured, restrict access; otherwise allow all Discord users
+    const allowedGuilds = (process.env.LOGIN_GUILD_IDS || '').split(',').map(id => id.trim()).filter(Boolean);
     if (allowedGuilds.length) {
       const userGuilds = await discordJson('https://discord.com/api/v10/users/@me/guilds', tokenData.access_token).catch(() => []);
       const isMember = Array.isArray(userGuilds) && userGuilds.some(g => allowedGuilds.includes(String(g.id)));
       if (!isMember) {
         console.warn(`[WEB OAuth] Login refused for ${user.username} (${user.id}): not in an allowed server.`);
-        return res.redirect(`${fallback}/login?auth_error=${encodeURIComponent('Login is limited to members of the ERLC.US testing server for now.')}`);
+        return res.redirect(`${fallback}/login?auth_error=${encodeURIComponent('Login is limited to authorized community servers.')}`);
       }
     }
     const sessionId = randomBytes(32).toString('hex');

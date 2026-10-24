@@ -65,6 +65,25 @@ export async function fetchGuilds(refresh = false): Promise<DiscordGuild[]> {
   return [];
 }
 
+export async function fetchChannels(guildId: string): Promise<{ id: string; name: string; type?: number }[]> {
+  try {
+    const data = await api<{ channels: { id: string; name: string; type?: number }[] }>(`/workspace/${guildId}/channels`);
+    if (data?.channels && Array.isArray(data.channels) && data.channels.length > 0) {
+      try {
+        localStorage.setItem(`erlcus_channels_${guildId}`, JSON.stringify(data.channels));
+      } catch {}
+      return data.channels;
+    }
+  } catch {}
+
+  try {
+    const cached = localStorage.getItem(`erlcus_channels_${guildId}`);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+
+  return [];
+}
+
 export async function fetchWorkspace(guildId: string): Promise<{ workspace: WorkspaceBot; guild: DiscordGuild }> {
   try {
     return await api<{ workspace: WorkspaceBot; guild: DiscordGuild }>(`/workspace/${guildId}`);
@@ -206,4 +225,18 @@ export async function claimDirectoryBounty(guildId: string): Promise<any> {
     method: 'POST',
     body: JSON.stringify({ guildId })
   });
+}
+
+export async function sendTestNotification(guildId: string, type: 'anti_raid' | 'bump' | 'streak' | 'digest'): Promise<any> {
+  return api(`/workspace/${guildId}/test-notification`, {
+    method: 'POST',
+    body: JSON.stringify({ type })
+  });
+}
+
+export function getBotInviteUrl(guildId?: string): string {
+  const clientId = '1552165138017165372';
+  const permissions = '534723950656';
+  const base = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot%20applications.commands`;
+  return guildId ? `${base}&guild_id=${guildId}&disable_guild_select=true` : base;
 }

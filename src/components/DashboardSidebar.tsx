@@ -21,7 +21,11 @@ import {
   Search,
   X,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Bot,
+  Key,
+  Settings,
+  Handshake
 } from 'lucide-react';
 import { useRef, useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -221,8 +225,10 @@ export function DashboardSidebar({
     if (path.includes('/rewards')) return { activeSection: 'growth', activeSubsection: 'rewards' };
     if (path.includes('/leaderboard')) return { activeSection: 'growth', activeSubsection: 'leaderboard' };
     if (path.includes('/joins')) return { activeSection: 'growth', activeSubsection: 'joins' };
+    if (path.includes('/partnerships')) return { activeSection: 'growth', activeSubsection: 'partnerships' };
     if (path.includes('/uptime')) return { activeSection: 'system', activeSubsection: 'uptime' };
-    if (path.includes('/import')) return { activeSection: 'system', activeSubsection: 'import' };
+    if (path.includes('/bot')) return { activeSection: 'system', activeSubsection: 'bot' };
+    if (path.includes('/settings') || path.includes('/credentials')) return { activeSection: 'system', activeSubsection: 'settings' };
     if (path.includes('/changelog')) return { activeSection: 'system', activeSubsection: 'changelog' };
     return { activeSection: 'overview', activeSubsection: undefined };
   }, [path]);
@@ -244,9 +250,10 @@ export function DashboardSidebar({
         { label: 'Server Details', href: `/dashboard/${currentGuildId}/details`, icon: Eye },
         { label: 'Promote Server', href: `/dashboard/${currentGuildId}/promote`, icon: Megaphone },
         { label: 'Earn Credits', href: `/dashboard/${currentGuildId}/earn`, icon: Coins },
-        { label: 'Streak Rewards', href: `/dashboard/${currentGuildId}/rewards`, icon: Flame },
+        { label: 'Daily Check-In', href: `/dashboard/${currentGuildId}/rewards`, icon: Flame },
         { label: 'Leaderboard', href: `/dashboard/${currentGuildId}/leaderboard`, icon: Trophy },
         { label: 'My Joins', href: `/dashboard/${currentGuildId}/joins`, icon: Users },
+        { label: 'Partnerships', href: `/dashboard/${currentGuildId}/partnerships`, icon: Handshake },
       ],
     },
     {
@@ -256,8 +263,8 @@ export function DashboardSidebar({
       icon: Activity,
       subItems: [
         { label: 'System Telemetry', href: `/dashboard/${currentGuildId}/uptime`, icon: Activity },
-        { label: 'Roster & Data Import', href: `/dashboard/${currentGuildId}/import`, icon: FileSpreadsheet },
         { label: 'Changelog', href: `/dashboard/${currentGuildId}/changelog`, icon: GitBranch },
+        { label: 'Settings', href: `/dashboard/${currentGuildId}/settings`, icon: Settings },
       ],
     },
   ], [currentGuildId]);
@@ -269,12 +276,13 @@ export function DashboardSidebar({
     { label: 'Server Details', href: `/dashboard/${currentGuildId}/details`, icon: Eye },
     { label: 'Promote Server', href: `/dashboard/${currentGuildId}/promote`, icon: Megaphone },
     { label: 'Earn Credits', href: `/dashboard/${currentGuildId}/earn`, icon: Coins },
-    { label: 'Streak Rewards', href: `/dashboard/${currentGuildId}/rewards`, icon: Flame },
+    { label: 'Daily Check-In', href: `/dashboard/${currentGuildId}/rewards`, icon: Flame },
     { label: 'Leaderboard', href: `/dashboard/${currentGuildId}/leaderboard`, icon: Trophy },
     { label: 'My Joins', href: `/dashboard/${currentGuildId}/joins`, icon: Users },
+    { label: 'Partnerships', href: `/dashboard/${currentGuildId}/partnerships`, icon: Handshake },
     { label: 'System Telemetry', href: `/dashboard/${currentGuildId}/uptime`, icon: Activity },
-    { label: 'Roster & Data Import', href: `/dashboard/${currentGuildId}/import`, icon: FileSpreadsheet },
     { label: 'Changelog', href: `/dashboard/${currentGuildId}/changelog`, icon: GitBranch },
+    { label: 'Settings', href: `/dashboard/${currentGuildId}/settings`, icon: Settings },
   ], [currentGuildId]);
 
   // Filtered workspaces for search
@@ -287,9 +295,9 @@ export function DashboardSidebar({
 
   return (
     <>
-      <Sidebar collapsible="offcanvas" className="w-64 shrink-0 bg-sidebar border-r border-border/40" side={side}>
+      <Sidebar collapsible="offcanvas" className="w-64 shrink-0 bg-[#161616] border-r border-white/[0.08]" side={side}>
         {/* Top Header: Claude-Level Discord Server Switcher */}
-        <SidebarHeader className="p-3 border-b border-border/40 bg-sidebar">
+        <SidebarHeader className="p-3 border-b border-white/[0.08] bg-[#161616]">
           <DropdownMenu>
             <DropdownMenuTrigger
               className="h-auto w-full justify-start p-2 rounded-xl bg-transparent hover:bg-white/[0.04] border border-transparent transition-all cursor-pointer min-w-0 text-left group overflow-hidden max-w-full select-none outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 ring-0 focus-visible:outline-none"
@@ -314,7 +322,7 @@ export function DashboardSidebar({
             <DropdownMenuContent
               align="start"
               sideOffset={6}
-              className="z-50 w-64 rounded-2xl p-1.5 shadow-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
+              className="z-50 w-64 rounded-2xl p-1.5 shadow-2xl border border-white/10 bg-[#161616] backdrop-blur-xl"
             >
               <DropdownMenuGroup className="max-h-64 overflow-y-auto overflow-x-hidden scrollbar-none space-y-0.5">
                 <DropdownMenuLabel className="px-2.5 py-1 text-[10px] font-mono font-semibold text-zinc-400 tracking-wider uppercase">
@@ -381,10 +389,10 @@ export function DashboardSidebar({
 
         {/* User Profile Card docked at bottom */}
         {user && (
-          <SidebarFooter className="p-3 border-t border-border/40 bg-sidebar">
+          <SidebarFooter className="p-3 border-t border-white/[0.08] bg-[#161616]">
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="w-full flex items-center justify-between p-2.5 rounded-2xl border border-white/[0.08] bg-[#12151f] hover:bg-white/[0.06] transition-all cursor-pointer text-left"
+                className="w-full flex items-center justify-between p-2.5 rounded-2xl border border-white/[0.08] bg-[#1f1f1f] hover:bg-[#262626] transition-all cursor-pointer text-left"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   {user.avatarUrl ? (
@@ -411,7 +419,7 @@ export function DashboardSidebar({
                 side="top"
                 align="start"
                 sideOffset={8}
-                className="w-64 p-2 shadow-2xl z-50 rounded-2xl border border-white/10 bg-[#0d0f17]/95 backdrop-blur-xl"
+                className="w-64 p-2 shadow-2xl z-50 rounded-2xl border border-white/10 bg-[#161616] backdrop-blur-xl"
               >
                 <DropdownMenuLabel className="px-2.5 py-2 font-normal">
                   <div className="flex items-center gap-3">

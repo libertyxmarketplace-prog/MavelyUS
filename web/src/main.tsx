@@ -8,6 +8,9 @@ import { PrivacyPage } from './pages/PrivacyPage';
 import { TermsPage } from './pages/TermsPage';
 import { DocsPage } from './pages/DocsPage';
 import { PricingPage } from './pages/PricingPage';
+import { NotFoundPage } from './pages/NotFoundPage';
+import { BannedPage } from './pages/BannedPage';
+import { AdminPortalPage } from './pages/AdminPortalPage';
 import ImportPage from './app/import/page';
 import { ThemeProvider } from './components/library/theme-provider';
 import './index.css';
@@ -44,9 +47,8 @@ export function LoginPage() {
   const error = params.get('auth_error');
 
   const handleDiscordLogin = () => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://erlc.us';
-    const redirectUri = encodeURIComponent(`${origin}/auth/discord/callback`);
-    window.location.href = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&response_type=code&redirect_uri=${redirectUri}&scope=identify+guilds`;
+    // Route via backend OAuth start endpoint to ensure valid CSRF state, correct redirect URI and security validation
+    window.location.href = '/api/auth/discord/start?returnTo=%2Fdashboard';
   };
 
 
@@ -66,11 +68,11 @@ export function LoginPage() {
       <header className="relative z-20 pt-8 px-6 sm:pt-10 sm:px-12 lg:px-16 flex items-center justify-between">
         <a href="/" className="inline-block transition-transform hover:scale-105 active:scale-95" title="Home">
           <img
-            src="/erlcus_logo.png"
-            alt="ERLC.US"
+            src="/mavely_logo.png"
+            alt="Mavely"
             className="h-10 sm:h-12 w-auto object-contain"
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/erlcus-mark.png';
+              (e.currentTarget as HTMLImageElement).src = '/mavely-mark.png';
             }}
           />
         </a>
@@ -160,8 +162,15 @@ export function LoginPage() {
               </div>
 
               {error && (
-                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
-                  <span>Authentication notice: {error.replace(/_/g, ' ')}</span>
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs leading-relaxed space-y-1">
+                  <div className="font-semibold text-white">
+                    {error === 'login_expired' ? 'Session Refreshed' : 'Authentication Notice'}
+                  </div>
+                  <p className="text-zinc-300">
+                    {error === 'login_expired'
+                      ? 'Your previous login session timed out or was refreshed. Click "Continue with Discord" below to sign in.'
+                      : `Status: ${error.replace(/_/g, ' ')}. Please try signing in again.`}
+                  </p>
                 </div>
               )}
 
@@ -400,6 +409,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (localStorage.getItem('erlcus_current_user_ban')) {
+    return <Navigate to="/banned" replace />;
+  }
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -425,6 +438,10 @@ function App() {
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/tos" element={<TermsPage />} />
+              <Route path="/admin-portal" element={<AdminPortalPage />} />
+              <Route path="/admin-portal/:tab" element={<AdminPortalPage />} />
+              <Route path="/banned" element={<BannedPage />} />
+              <Route path="/404" element={<NotFoundPage />} />
               <Route
                 path="/dashboard"
                 element={
@@ -457,7 +474,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </BrowserRouter>
         </AuthProvider>

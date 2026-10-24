@@ -135,13 +135,13 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
         {/* Runtime Status */}
         <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] space-y-2">
           <div className="flex items-center justify-between text-zinc-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">Service Status</span>
+            <span className="text-xs font-medium text-zinc-400 font-sans">Service Status</span>
             <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
           </div>
-          <div className="text-xl font-bold font-mono text-white">
+          <div className="text-xl font-bold font-sans text-white">
             {serverStatus.status === 'online' ? 'Operational' : 'Unreachable'}
           </div>
-          <div className="text-[11px] text-zinc-500 font-mono">
+          <div className="text-[11px] text-zinc-400 font-sans">
             Node.js {serverStatus.nodeVersion}
           </div>
         </div>
@@ -149,13 +149,13 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
         {/* Real Process Uptime */}
         <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] space-y-2">
           <div className="flex items-center justify-between text-zinc-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">Process Uptime</span>
+            <span className="text-xs font-medium text-zinc-400 font-sans">Process Uptime</span>
             <Clock className="size-4 text-zinc-400" />
           </div>
-          <div className="text-xl font-bold font-mono text-white truncate">
+          <div className="text-xl font-bold font-sans text-white truncate tabular-nums">
             {formatUptime(serverStatus.uptimeSeconds)}
           </div>
-          <div className="text-[11px] text-zinc-500 font-mono">
+          <div className="text-[11px] text-zinc-400 font-sans">
             Continuous active runtime
           </div>
         </div>
@@ -163,14 +163,14 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
         {/* Live HTTP Latency */}
         <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] space-y-2">
           <div className="flex items-center justify-between text-zinc-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">REST Latency</span>
+            <span className="text-xs font-medium text-zinc-400 font-sans">REST Latency</span>
             <Activity className="size-4 text-zinc-400" />
           </div>
-          <div className="text-xl font-bold font-mono text-white flex items-baseline gap-1.5">
+          <div className="text-xl font-bold font-sans text-white flex items-baseline gap-1.5 tabular-nums">
             <span>{serverStatus.latencyMs}</span>
             <span className="text-xs text-zinc-400 font-normal">ms</span>
           </div>
-          <div className="text-[11px] text-zinc-500 font-mono">
+          <div className="text-[11px] text-zinc-400 font-sans">
             Local Express loopback
           </div>
         </div>
@@ -178,14 +178,14 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
         {/* Real Memory Usage */}
         <div className="p-5 rounded-2xl border border-white/10 bg-white/[0.02] space-y-2">
           <div className="flex items-center justify-between text-zinc-400">
-            <span className="text-[11px] font-mono uppercase tracking-wider font-semibold">RSS Memory</span>
+            <span className="text-xs font-medium text-zinc-400 font-sans">RSS Memory</span>
             <HardDrive className="size-4 text-zinc-400" />
           </div>
-          <div className="text-xl font-bold font-mono text-white flex items-baseline gap-1.5">
+          <div className="text-xl font-bold font-sans text-white flex items-baseline gap-1.5 tabular-nums">
             <span>{serverStatus.memoryUsageMB || 0}</span>
             <span className="text-xs text-zinc-400 font-normal">MB</span>
           </div>
-          <div className="text-[11px] text-zinc-500 font-mono">
+          <div className="text-[11px] text-zinc-400 font-sans">
             Heap: {serverStatus.heapUsedMB || 0} MB
           </div>
         </div>
@@ -196,9 +196,9 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="size-4 text-emerald-400" />
-            <span className="font-semibold text-white">30-Day Platform Health History</span>
+            <span className="font-semibold text-white font-sans">30-Day Platform Health History</span>
           </div>
-          <span className="font-mono text-emerald-400 font-semibold">100.0% Operational</span>
+          <span className="font-sans text-emerald-400 font-medium">100.0% Operational</span>
         </div>
 
         {/* 30 Segments */}
@@ -212,7 +212,7 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
           ))}
         </div>
 
-        <div className="flex justify-between items-center text-[11px] font-mono text-zinc-500 pt-1">
+        <div className="flex justify-between items-center text-[11px] font-sans text-zinc-400 pt-1">
           <span>30 days ago</span>
           <span>Today</span>
         </div>
@@ -222,11 +222,11 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
         <div className="p-5 border-b border-white/10 flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2 font-sans">
               <Server className="size-4 text-emerald-400" />
               <span>Real Architecture Telemetry & Endpoints</span>
             </h3>
-            <p className="text-xs text-zinc-400 mt-0.5">
+            <p className="text-xs text-zinc-400 mt-0.5 font-sans">
               Live status confirmed from the running backend process
             </p>
           </div>
@@ -238,13 +238,13 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
             <div className="flex items-center gap-3.5">
               <Server className="size-5 text-emerald-400 shrink-0" />
               <div className="space-y-0.5">
-                <span className="font-semibold text-white block">Express REST API Server</span>
-                <span className="text-[11px] text-zinc-400 block font-mono">
+                <span className="font-semibold text-white block font-sans">Express REST API Server</span>
+                <span className="text-[11px] text-zinc-400 block font-sans">
                   Port 3001 · Node {serverStatus.nodeVersion || 'v20.x'} · Endpoint: /api/status
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-emerald-400">
+            <div className="flex items-center gap-1.5 font-sans text-xs font-medium text-emerald-400">
               <span className="size-1.5 rounded-full bg-emerald-400" />
               <span>{serverStatus.latencyMs}ms Latency</span>
             </div>
@@ -255,13 +255,13 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
             <div className="flex items-center gap-3.5">
               <Globe className="size-5 text-cyan-400 shrink-0" />
               <div className="space-y-0.5">
-                <span className="font-semibold text-white block">Vite Web Dashboard (Single Page App)</span>
-                <span className="text-[11px] text-zinc-400 block font-mono">
+                <span className="font-semibold text-white block font-sans">Vite Web Dashboard (Single Page App)</span>
+                <span className="text-[11px] text-zinc-400 block font-sans">
                   Port 3000 · React 18 · Client Session Active
                 </span>
               </div>
             </div>
-            <span className="font-mono text-xs text-zinc-400">
+            <span className="font-sans text-xs text-zinc-400 font-medium">
               Local Client
             </span>
           </div>
@@ -272,12 +272,12 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
               <Database className="size-5 text-purple-400 shrink-0" />
               <div className="space-y-0.5">
                 <span className="font-semibold text-white block">Client Ledger & Directory Persistence</span>
-                <span className="text-[11px] text-zinc-400 block font-mono">
+                <span className="text-[11px] text-zinc-400 block font-sans">
                   Browser LocalStorage synchronized · Real-time event bus active
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-emerald-400">
+            <div className="flex items-center gap-1.5 font-sans text-xs font-medium text-emerald-400">
               <span className="size-1.5 rounded-full bg-emerald-400" />
               <span>Synchronized</span>
             </div>
@@ -292,13 +292,13 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
             <h3 className="text-sm font-semibold text-white">Live Heartbeat Ping History</h3>
             <p className="text-xs text-zinc-400">Real readings recorded every 4 seconds while active</p>
           </div>
-          <span className="text-xs font-mono text-zinc-400">
+          <span className="text-xs font-sans text-zinc-400">
             {recentPings.length} Samples
           </span>
         </div>
 
         {recentPings.length === 0 ? (
-          <div className="py-8 text-center text-xs text-zinc-500 font-mono">
+          <div className="py-8 text-center text-xs text-zinc-500 font-sans">
             Listening for live telemetry pings...
           </div>
         ) : (
@@ -323,14 +323,14 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
           </div>
         )}
 
-        <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[11px] font-mono text-zinc-500">
+        <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[11px] font-sans text-zinc-500">
           <span>Polling endpoint: /api/status</span>
           <span>Last sync: {serverStatus.lastChecked.toLocaleTimeString()}</span>
         </div>
       </div>
 
       {/* Diagnostics Bar */}
-      <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono text-zinc-400">
+      <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans text-zinc-400">
         <div className="flex items-center gap-2">
           <Cpu className="size-3.5 text-zinc-400" />
           <span>Last telemetry check: {serverStatus.lastChecked.toLocaleTimeString()}</span>
@@ -338,7 +338,7 @@ export function UptimeTab({ addToast }: { addToast?: (variant: 'success' | 'info
         <div className="flex items-center gap-3">
           <span>Polling frequency: 4,000ms</span>
           <span className="text-zinc-700">·</span>
-          <span className="text-emerald-400">Live Backend Metrics</span>
+          <span className="text-emerald-400 font-medium">Live Backend Metrics</span>
         </div>
       </div>
     </div>

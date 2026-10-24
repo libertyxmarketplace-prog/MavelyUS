@@ -51,12 +51,12 @@ export function Sidebar() {
 
   return (
     <>
-      <aside className="fixed left-0 top-0 bottom-0 z-50 w-14 sm:w-16 flex flex-col items-center justify-between py-5 border-r border-white/[0.08] bg-[#0b0c10]/95 backdrop-blur-md select-none">
+      <aside className="fixed left-0 top-0 bottom-0 z-50 w-14 sm:w-16 flex flex-col items-center justify-between py-5 border-r border-white/[0.08] bg-[#161616] select-none">
       {/* Top Branding / Logo */}
       <div className="flex flex-col items-center gap-7">
-        <Link to="/" className="flex items-center justify-center p-0 hover:opacity-80 transition-opacity outline-none focus:outline-none" title="ERLC.US">
-          <img src="/erlcus-mark.png" alt="ERLC.US" className="size-7 object-contain" />
-          <span className="sr-only">ERLC.US Home</span>
+        <Link to="/" className="flex items-center justify-center p-0 hover:opacity-80 transition-opacity outline-none focus:outline-none" title="Mavely">
+          <img src="/mavely-mark.png" alt="Mavely" className="size-7 object-contain" />
+          <span className="sr-only">Mavely Home</span>
         </Link>
 
         {/* Main Nav Icons */}
@@ -73,7 +73,7 @@ export function Sidebar() {
                 }`}
               >
                 <Icon className="size-[18px]" />
-                <span className="pointer-events-none absolute left-full ml-3 hidden rounded-md bg-[#141416] border border-white/10 px-2 py-1 text-[11px] font-medium text-white whitespace-nowrap shadow-xl group-hover:block z-50">
+                <span className="pointer-events-none absolute left-full ml-3 hidden rounded-md bg-[#1f1f1f] border border-white/10 px-2 py-1 text-[11px] font-medium text-white whitespace-nowrap shadow-xl group-hover:block z-50">
                   {item.label}
                 </span>
               </Link>
@@ -126,7 +126,7 @@ export function Sidebar() {
 
             {/* User Popover Menu showing profile & Log Out */}
             {userMenuOpen && (
-              <div className="absolute left-12 bottom-0 w-64 rounded-xl bg-[#12141c] border border-white/10 shadow-2xl p-3 space-y-3 z-50 animate-in fade-in-50 zoom-in-95 duration-150">
+              <div className="absolute left-12 bottom-0 w-64 rounded-xl bg-[#161616] border border-white/10 shadow-2xl p-3 space-y-3 z-50 animate-in fade-in-50 zoom-in-95 duration-150">
                 {/* Header User Profile Info */}
                 <div className="flex items-center gap-2.5 pb-2.5 border-b border-white/[0.06]">
                   {user.avatar ? (

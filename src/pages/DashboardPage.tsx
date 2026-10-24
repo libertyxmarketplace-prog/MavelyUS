@@ -40,6 +40,31 @@ import { TransferTab } from './dashboard/TransferTab';
 import { UptimeTab } from './dashboard/UptimeTab';
 import { ChangelogTab } from './dashboard/ChangelogTab';
 import { ServerDetailsTab } from './dashboard/ServerDetailsTab';
+import { BotManagementTab } from './dashboard/BotManagementTab';
+import { SettingsTab } from './dashboard/SettingsTab';
+import { PartnershipsTab } from './dashboard/PartnershipsTab';
+import { NotFoundPage } from './NotFoundPage';
+import { AdminPortalPage } from './AdminPortalPage';
+
+const VALID_DASHBOARD_TABS = new Set([
+  'overview',
+  'details',
+  'promote',
+  'earn',
+  'rewards',
+  'leaderboard',
+  'joins',
+  'partnerships',
+  'history',
+  'transfer',
+  'uptime',
+  'bot',
+  'settings',
+  'credentials',
+  'changelog',
+  'admin-portal',
+  'admin-potal'
+]);
 
 export function DashboardPage() {
   const { guildId, tab } = useParams();
@@ -88,7 +113,7 @@ export function DashboardPage() {
   // Synchronize document title
   useEffect(() => {
     const serverName = selectedGuild?.name || 'Community Server';
-    document.title = `ERLC.US - ${serverName} Dashboard`;
+    document.title = `Mavely - ${serverName} Dashboard`;
   }, [selectedGuild]);
 
   // Load user guilds with persistent multi-server cache and icon preservation
@@ -201,15 +226,34 @@ export function DashboardPage() {
           const mCount = data.guild.memberCount || (data.guild as any).approximateMemberCount;
           localStorage.setItem(`server_members_${targetId}`, mCount.toString());
         }
+        if (data.guild.channels && Array.isArray(data.guild.channels)) {
+          localStorage.setItem(`erlcus_channels_${targetId}`, JSON.stringify(data.guild.channels));
+        }
+        setSelectedGuild((prev) => {
+          return {
+            ...(prev || {}),
+            ...data.guild,
+            id: targetId,
+            channels: data.guild.channels || (prev as any)?.channels || []
+          } as DiscordGuild;
+        });
         setGuilds((prev) => {
           const updated = prev.map((g) => g.id === targetId ? {
             ...g,
             name: data.guild.name || g.name,
             iconUrl: data.guild.iconUrl || g.iconUrl,
-            memberCount: data.guild.memberCount || g.memberCount
+            memberCount: data.guild.memberCount || g.memberCount,
+            channels: data.guild.channels || (g as any).channels
           } : g);
           try { localStorage.setItem('erlcus_known_guilds', JSON.stringify(updated)); } catch {}
           return updated;
+        });
+
+        // Also fetch live channels directly
+        fetchChannels(targetId).then((chs) => {
+          if (chs && chs.length > 0) {
+            setSelectedGuild((prev) => prev ? { ...prev, channels: chs } as any : null);
+          }
         });
 
         try {
@@ -327,13 +371,15 @@ export function DashboardPage() {
           { title: 'Streak Rewards', href: `/dashboard/${currentGuildId}/rewards`, icon: 'sparkles' },
           { title: 'Leaderboard', href: `/dashboard/${currentGuildId}/leaderboard`, icon: 'chart-line' },
           { title: 'My Joins', href: `/dashboard/${currentGuildId}/joins`, icon: 'users' },
+          { title: 'Partnerships', href: `/dashboard/${currentGuildId}/partnerships`, icon: 'handshake' },
         ],
       },
       {
         label: 'System & Status',
         items: [
           { title: 'System Telemetry', href: `/dashboard/${currentGuildId}/uptime`, icon: 'activity' },
-          { title: 'Roster & Data Import', href: `/dashboard/${currentGuildId}/import`, icon: 'folder' },
+          { title: 'Bot Integration & Gateway', href: `/dashboard/${currentGuildId}/bot`, icon: 'bot' },
+          { title: 'Settings', href: `/dashboard/${currentGuildId}/settings`, icon: 'settings' },
           { title: 'Changelog', href: `/dashboard/${currentGuildId}/changelog`, icon: 'list' },
         ],
       },
@@ -362,6 +408,16 @@ export function DashboardPage() {
     }
     window.location.assign('/');
   };
+
+  // If user typed an invalid tab (e.g. /pot, typo), show 404
+  if (tab && !VALID_DASHBOARD_TABS.has(tab)) {
+    return <NotFoundPage />;
+  }
+
+  // If accessed via /dashboard/:guildId/admin-portal, render AdminPortalPage seamlessly
+  if (tab === 'admin-portal' || tab === 'admin-potal') {
+    return <AdminPortalPage />;
+  }
 
   return (
     <AppShell
@@ -412,16 +468,16 @@ export function DashboardPage() {
       {activeTabKey === 'promote' && (
         <PageHeader
           title="Promote Server"
-          description="Publish your Discord community in the global directory with custom reward bounties, tags, and automated retention protection."
+          description="Publish your Discord community in the global directory with custom member incentives, tags, and automated retention protection."
           meta="Anti-Alt Shield Active"
         />
       )}
 
       {activeTabKey === 'rewards' && (
         <PageHeader
-          title="Daily Check-In & Streak Rewards"
-          description="Check in once every 24 hours without breaking your streak to claim escalating credit bounties and mystery jackpot drops."
-          meta="Daily Reset at 00:00 UTC"
+          title="Daily Check-In"
+          description="Collect your daily credit allowance every 24 hours to support your community bumps and directory placement."
+          meta="Reset: 24h Window"
         />
       )}
 
@@ -465,6 +521,14 @@ export function DashboardPage() {
         />
       )}
 
+      {activeTabKey === 'partnerships' && (
+        <PageHeader
+          title="Server Partnerships & Cross-Promotion"
+          description="Manage automated mutual Discord cross-posts, inbound proposals, and alliance milestones."
+          meta="Partner Engine"
+        />
+      )}
+
       {activeTabKey === 'transfer' && (
         <PageHeader
           title="Growth Store & Boosts"
@@ -476,8 +540,24 @@ export function DashboardPage() {
       {activeTabKey === 'uptime' && (
         <PageHeader
           title="System Uptime & Cluster Reliability"
-          description="30-day continuous health check for ERLC.US API gateway, verification workers, and audit database"
+          description="30-day continuous health check for Mavely API gateway, verification workers, and audit database"
           meta="99.98% overall uptime"
+        />
+      )}
+
+      {activeTabKey === 'bot' && (
+        <PageHeader
+          title="Bot Integration & Gateway"
+          description="Manage your Discord Bot connectivity, ER:LC private server integration, and live server sync."
+          meta="Gateway Operational"
+        />
+      )}
+
+      {(activeTabKey === 'settings' || activeTabKey === 'credentials') && (
+        <PageHeader
+          title="Settings"
+          description="Manage your community profile, automated operational notifications, and API credentials."
+          meta="System Settings"
         />
       )}
 
@@ -559,9 +639,14 @@ export function DashboardPage() {
           )}
 
           {activeTabKey === 'import' && (
-            <DataImportTab
-              workspace={workspace}
-              onImportSuccess={() => addToast('success', 'Roster Synchronized', 'Imported data saved.')}
+            <PromoteTab
+              guild={selectedGuild}
+              config={config}
+              onChangeConfig={(patch) => setConfig((prev) => ({ ...prev, ...patch }))}
+              onSaveConfig={handleSaveConfig}
+              onNavigateTab={(t) => navigate(`/dashboard/${currentGuildId}/${t}`)}
+              addToast={addToast}
+              initialSubTab="roster"
             />
           )}
 
@@ -571,7 +656,9 @@ export function DashboardPage() {
               config={config}
               onChangeConfig={(patch) => setConfig((prev) => ({ ...prev, ...patch }))}
               onSaveConfig={handleSaveConfig}
+              onNavigateTab={(t) => navigate(`/dashboard/${currentGuildId}/${t}`)}
               addToast={addToast}
+              initialSubTab="listing"
             />
           )}
 
@@ -599,6 +686,15 @@ export function DashboardPage() {
             <MyJoinsTab onNavigateTab={(t) => navigate(`/dashboard/${currentGuildId}/${t}`)} addToast={addToast} />
           )}
 
+          {activeTabKey === 'partnerships' && (
+            <PartnershipsTab
+              currentGuildId={currentGuildId}
+              serverName={selectedGuild?.name || 'Community Server'}
+              addToast={addToast}
+              onNavigateTab={(t) => navigate(`/dashboard/${currentGuildId}/${t}`)}
+            />
+          )}
+
           {activeTabKey === 'history' && (
             <HistoryTab />
           )}
@@ -609,6 +705,28 @@ export function DashboardPage() {
 
           {activeTabKey === 'uptime' && (
             <UptimeTab addToast={addToast} />
+          )}
+
+          {activeTabKey === 'bot' && (
+            <BotManagementTab
+              guild={selectedGuild}
+              workspace={workspace}
+              config={config}
+              onChangeConfig={(updates) => setConfig((prev) => ({ ...prev, ...updates }))}
+              onSaveConfig={handleSaveConfig}
+              addToast={addToast}
+            />
+          )}
+
+          {(activeTabKey === 'settings' || activeTabKey === 'credentials') && (
+            <SettingsTab
+              guild={selectedGuild}
+              workspace={workspace}
+              config={config}
+              onChangeConfig={(updates) => setConfig((prev) => ({ ...prev, ...updates }))}
+              onSaveConfig={handleSaveConfig}
+              addToast={addToast}
+            />
           )}
 
           {activeTabKey === 'changelog' && (

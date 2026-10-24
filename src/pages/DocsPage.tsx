@@ -121,7 +121,7 @@ export function DocsPage() {
                     Overview
                   </h1>
                   <p className="text-zinc-400 text-sm leading-relaxed max-w-2xl">
-                    ERLC.US is a web dashboard for Emergency Response: Liberty County communities. Sign in with Discord, pick a server you manage, and keep its details, directory listing and ER:LC server link in one place.
+                    Mavely is a web dashboard for Emergency Response: Liberty County communities. Sign in with Discord, pick a server you manage, and keep its details, directory listing and ER:LC server link in one place.
                   </p>
                 </div>
 
@@ -215,7 +215,7 @@ export function DocsPage() {
                     <li>Enter your Private Server and open the <strong className="text-white">Server Settings</strong> menu (Server Owner or Co-Owner).</li>
                     <li>Navigate to the <strong className="text-white">API / Developer</strong> tab.</li>
                     <li>Generate your Server Key and copy it to your clipboard.</li>
-                    <li>Paste it into your ERLC.US Dashboard under <strong className="text-white">Server Telemetry</strong> and click Save.</li>
+                    <li>Paste it into your Mavely Dashboard under <strong className="text-white">Server Telemetry</strong> and click Save.</li>
                   </ol>
                 </div>
 
