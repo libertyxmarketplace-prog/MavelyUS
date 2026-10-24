@@ -183,7 +183,13 @@ export function LeaderboardTab() {
         const res = await fetch("/api/directory", { signal: AbortSignal.timeout(6000) });
         if (res.ok) {
           const data = await res.json();
-          const servers = Array.isArray(data.servers) ? data.servers : [];
+          const rawServers = Array.isArray(data.servers) ? data.servers : [];
+          const servers = rawServers.filter(
+            (s: any) =>
+              s &&
+              s.id !== '1562353446294781972' &&
+              String(s.name || '').toLowerCase() !== 'erlc.us'
+          );
 
           if (servers.length > 0) {
             // Sort servers strictly by most bumps first, then verified joins

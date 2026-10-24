@@ -830,13 +830,11 @@ export function EarnCoinsTab({ currentGuildId, workspace, onNavigateTab, onAddCo
 
                     {/* Live In-Game Session Telemetry (if server API configured) */}
                     {server.currentPlayers !== null && server.currentPlayers !== undefined ? (
-                      <div className="flex items-center gap-1.5 text-[11px] font-sans font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-lg w-fit">
-                        <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                      <div className="flex items-center gap-1.5 text-[11px] font-sans font-medium text-zinc-400 bg-white/[0.04] border border-white/[0.08] px-2.5 py-0.5 rounded-lg w-fit">
                         <span>Live Session: {server.currentPlayers} Players In-Game</span>
                       </div>
                     ) : server.joinCode ? (
                       <div className="flex items-center gap-1.5 text-[11px] font-sans font-medium text-zinc-400 bg-white/[0.03] border border-white/10 px-2.5 py-0.5 rounded-lg w-fit">
-                        <span className="size-1.5 rounded-full bg-emerald-400" />
                         <span>Join Code: {server.joinCode}</span>
                       </div>
                     ) : null}

@@ -299,16 +299,12 @@ export function ServerDetailsTab({
             </div>
 
             {/* Live In-Game Player Count Telemetry */}
-            {((erlcData?.currentPlayers !== null && erlcData?.currentPlayers !== undefined) ||
-              (config.currentPlayers !== null && config.currentPlayers !== undefined)) ? (
-              <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl text-emerald-400 font-sans text-xs font-semibold">
-                <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>
-                  Live In-Game: {erlcData?.currentPlayers ?? config.currentPlayers}
-                  {(erlcData?.maxPlayers ?? config.maxPlayers) ? ` / ${erlcData?.maxPlayers ?? config.maxPlayers}` : ''} Players
-                </span>
-              </div>
-            ) : null}
+            <div className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.08] px-3 py-1.5 rounded-xl text-zinc-400 font-sans text-xs font-medium">
+              <span>
+                Live In-Game: {erlcData?.currentPlayers ?? config.currentPlayers ?? 0}
+                {(erlcData?.maxPlayers ?? config.maxPlayers) ? ` / ${erlcData?.maxPlayers ?? config.maxPlayers}` : ' / 50'} Players
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-4">
@@ -465,35 +461,42 @@ export function ServerDetailsTab({
             </div>
           </div>
 
-          {/* Accepting Partnership */}
-          <div className="p-5 rounded-2xl border border-white/[0.08] bg-[#0f0f0f] space-y-4">
+          {/* Partnership & Alliance Program */}
+          <div className="relative overflow-hidden p-5 rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] space-y-4 hover:border-white/[0.12] transition-colors">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
               <div className="flex items-center gap-2">
-                <Handshake className="size-4 text-emerald-400" />
-                <span className="text-xs font-bold text-white font-sans tracking-tight">
-                  Accepting Partnership
-                </span>
+                <Handshake className="size-4 text-zinc-300" />
+                <div>
+                  <span className="text-xs font-bold text-white font-sans tracking-tight block">
+                    Partnership Program
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-sans">Cross-network syndication</span>
+                </div>
               </div>
-              <span className="text-[10px] font-sans font-medium px-2 py-0.5 rounded-md bg-white/[0.08] text-zinc-400 border border-white/10 flex items-center gap-1">
-                <span className="size-1.5 rounded-full bg-zinc-500" />
-                <span>{config.acceptPartnerships !== false ? 'Accepting Partnership' : 'Paused'}</span>
+              <span className={`text-[10px] font-sans font-medium px-2.5 py-1 rounded-full border flex items-center gap-1.5 ${
+                config.acceptPartnerships !== false
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  : 'bg-white/[0.04] text-zinc-400 border-white/[0.08]'
+              }`}>
+                <span className={`size-1.5 rounded-full ${config.acceptPartnerships !== false ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
+                <span>{config.acceptPartnerships !== false ? 'Open for Alliances' : 'Applications Paused'}</span>
               </span>
             </div>
 
-            <div className="space-y-3 text-xs font-sans">
-              <div className="flex justify-between items-center text-zinc-300">
+            <div className="space-y-2.5 text-xs font-sans">
+              <div className="flex justify-between items-center text-zinc-300 py-1 border-b border-white/[0.03]">
                 <span className="text-zinc-400">Cross-Promotions:</span>
-                <span className="text-emerald-400 font-semibold">
+                <span className="text-white font-medium">
                   {config.acceptPartnerships !== false ? 'Active' : 'Disabled'}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center text-zinc-300">
+              <div className="flex justify-between items-center text-zinc-300 py-1 border-b border-white/[0.03]">
                 <span className="text-zinc-400">Min. Member Gate:</span>
                 <span className="font-semibold text-white tabular-nums">{config.partnershipMinMembers || 50} Members</span>
               </div>
 
-              <div className="flex justify-between items-center text-zinc-300">
+              <div className="flex justify-between items-center text-zinc-300 py-1 border-b border-white/[0.03]">
                 <span className="text-zinc-400">Role Mentions:</span>
                 <span className="text-zinc-200 font-medium">
                   {config.allowPartnerMentions ? 'Permitted' : 'Disabled'}
@@ -501,7 +504,7 @@ export function ServerDetailsTab({
               </div>
 
               {config.allowPartnerMentions && (
-                <div className="flex justify-between items-center text-zinc-300">
+                <div className="flex justify-between items-center text-zinc-300 py-1">
                   <span className="text-zinc-400">Mention Pricing:</span>
                   <span className="text-amber-400 font-semibold tabular-nums">
                     {config.partnershipHerePrice || 15} Coins (@here)
@@ -513,9 +516,10 @@ export function ServerDetailsTab({
             <Button
               size="sm"
               onClick={() => onNavigateTab ? onNavigateTab('partnerships') : undefined}
-              className="w-full h-9 text-xs font-sans font-semibold rounded-xl bg-white hover:bg-zinc-200 text-black cursor-pointer shadow-sm transition-all"
+              className="w-full h-9 text-xs font-sans font-semibold rounded-xl bg-white hover:bg-zinc-200 text-black cursor-pointer shadow-sm transition-all flex items-center justify-center gap-2"
             >
-              Propose Server Partnership
+              <Handshake className="size-3.5" />
+              <span>Propose Server Partnership</span>
             </Button>
           </div>
         </div>

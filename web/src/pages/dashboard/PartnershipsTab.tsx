@@ -338,119 +338,151 @@ export function PartnershipsTab({
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs font-sans">
-              <Coins className="size-4 text-emerald-400" />
-              <span className="text-zinc-400">Balance:</span>
-              <span className="font-bold text-white tabular-nums">{dashboardData.userCoins || 0} Credits</span>
-            </div>
-
-            {onNavigateTab && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onNavigateTab('promote')}
-                className="h-8 px-3 rounded-xl border-white/10 bg-white/[0.02] hover:bg-white/[0.06] text-xs font-sans text-zinc-200"
-              >
-                Configure Webhook
-              </Button>
-            )}
-          </div>
+          {onNavigateTab && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onNavigateTab('promote')}
+              className="h-8 px-3 rounded-xl border-white/10 bg-white/[0.02] hover:bg-white/[0.06] text-xs font-sans text-zinc-200"
+            >
+              Configure Webhook
+            </Button>
+          )}
         </div>
 
-        {/* 4 Telemetry Metrics - GlowCard Style */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 pt-2">
+        {/* 4 Telemetry Metrics - Earn Growth Style */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 pt-2">
           {/* Connected Communities */}
-          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-5 transition-all hover:border-white/[0.12] shadow-lg hover:shadow-emerald-500/20">
+          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-emerald-500/20">
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <Handshake className="size-8 text-emerald-400/20" />
             </div>
-            <div className="flex items-center gap-3">
-              <Handshake className="size-5 text-emerald-400 shrink-0" />
-              <div className="space-y-0.5">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center size-12">
+                <Handshake className="size-6 text-emerald-400" />
+              </div>
+              <div className="space-y-1">
                 <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Connected Communities</span>
                 <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight">
                   <span>{dashboardData.activePartnerships?.length || 0}</span>
+                  <span className="text-xs sm:text-sm text-emerald-400 font-medium ml-1">Active</span>
                 </div>
               </div>
             </div>
-            <div className="mt-6 pt-4 border-t border-white/10">
+            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
               <span className="text-[10px] text-zinc-500 uppercase font-semibold">Partnered Servers</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveSubTab('active')}
+                className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+              >
+                View Hub
+              </Button>
             </div>
           </div>
 
           {/* Pending Inbound */}
-          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-5 transition-all hover:border-white/[0.12] shadow-lg hover:shadow-cyan-500/20">
+          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-cyan-500/20">
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <Users className="size-8 text-cyan-400/20" />
             </div>
-            <div className="flex items-center gap-3">
-              <Users className="size-5 text-cyan-400 shrink-0" />
-              <div className="space-y-0.5">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center size-12">
+                <Users className="size-6 text-cyan-400" />
+              </div>
+              <div className="space-y-1">
                 <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Pending Inbound</span>
                 <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight">
                   <span>{dashboardData.incomingRequests?.length || 0}</span>
+                  <span className="text-xs sm:text-sm text-cyan-400 font-medium ml-1">Requests</span>
                 </div>
               </div>
             </div>
-            <div className="mt-6 pt-4 border-t border-white/10">
-              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Requests Awaiting Review</span>
+            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
+              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Awaiting Review</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveSubTab('requests')}
+                className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+              >
+                Review
+              </Button>
             </div>
           </div>
 
           {/* Ads Sent */}
-          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-5 transition-all hover:border-white/[0.12] shadow-lg hover:shadow-indigo-500/20">
+          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-indigo-500/20">
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <Server className="size-8 text-indigo-400/20" />
             </div>
-            <div className="flex items-center gap-3">
-              <Server className="size-5 text-indigo-400 shrink-0" />
-              <div className="space-y-0.5">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center size-12">
+                <Server className="size-6 text-indigo-400" />
+              </div>
+              <div className="space-y-1">
                 <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Ads Sent</span>
                 <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight">
                   <span>{dashboardData.analytics?.adsDelivered || 0}</span>
+                  <span className="text-xs sm:text-sm text-indigo-400 font-medium ml-1">Delivered</span>
                 </div>
               </div>
             </div>
-            <div className="mt-6 pt-4 border-t border-white/10">
+            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
               <span className="text-[10px] text-zinc-500 uppercase font-semibold">Delivery Success</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onNavigateTab ? onNavigateTab('promote') : setActiveSubTab('browse')}
+                className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+              >
+                Campaigns
+              </Button>
             </div>
           </div>
 
           {/* Players Joined */}
-          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-5 transition-all hover:border-white/[0.12] shadow-lg hover:shadow-amber-500/20">
+          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-amber-500/20">
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <ShieldCheck className="size-8 text-amber-400/20" />
             </div>
-            <div className="flex items-center gap-3">
-              <ShieldCheck className="size-5 text-amber-400 shrink-0" />
-              <div className="space-y-0.5">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center size-12">
+                <ShieldCheck className="size-6 text-amber-400" />
+              </div>
+              <div className="space-y-1">
                 <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Players Joined</span>
                 <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight">
                   <span>{dashboardData.analytics?.verifiedJoinsGenerated || 0}</span>
+                  <span className="text-xs sm:text-sm text-amber-400 font-medium ml-1">Joined</span>
                 </div>
               </div>
             </div>
-            <div className="mt-6 pt-4 border-t border-white/10">
+            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
               <span className="text-[10px] text-zinc-500 uppercase font-semibold">Campaign Joins</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveSubTab('browse')}
+                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+              >
+                Browse
+              </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── NOTIFICATION + BALANCE DISPLAY ── */}
-      <div className="flex items-center justify-between px-1 mb-2">
-        {dashboardData.partnershipStatus && (
+      {/* ── NOTIFICATION DISPLAY (if any) ── */}
+      {dashboardData.partnershipStatus && (
+        <div className="flex items-center px-1 mb-2">
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs font-sans">
             <Check className="size-3.5 text-emerald-400" />
             <span className="text-zinc-200 font-sans">Partnership {dashboardData.partnershipStatus}</span>
           </div>
-        )}
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs font-sans">
-          <Coins className="size-3.5 text-amber-400" />
-          <span className="text-zinc-200 font-sans">Balance: {dashboardData.userCoins || 0} Credits</span>
         </div>
-      </div>
+      )}
 
       {/* ── TABS NAVIGATION (BROWSE COMMUNITIES FIRST) ── */}
       <div className="flex items-center gap-2 border-b border-white/[0.08] pb-3 overflow-x-auto">

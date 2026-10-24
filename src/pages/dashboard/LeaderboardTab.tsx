@@ -119,6 +119,20 @@ const columns: DataTableColumn<LeaderboardItem>[] = [
     ),
   },
   {
+    id: "partnerships",
+    header: "Partnerships",
+    sortable: true,
+    numeric: true,
+    hideBelow: "sm",
+    value: (row) => row.partnerships || 0,
+    cell: (row) => (
+      <span className="inline-flex items-center gap-1.5 font-semibold text-indigo-400 font-mono text-xs">
+        <Handshake className="size-3.5 text-indigo-400" />
+        {row.partnerships?.toLocaleString("en-US") || '—'}
+      </span>
+    ),
+  },
+  {
     id: "joinCode",
     header: "ER:LC Code",
     hideBelow: "md",
@@ -152,6 +166,11 @@ const columns: DataTableColumn<LeaderboardItem>[] = [
   },
 ];
 
+// Extend LeaderboardItem interface with optional partnerships field
+interface LeaderboardItemExtended extends LeaderboardItem {
+  partnerships?: number;
+}
+
 export function LeaderboardTab() {
   const [items, setItems] = React.useState<LeaderboardItem[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -164,7 +183,13 @@ export function LeaderboardTab() {
         const res = await fetch("/api/directory", { signal: AbortSignal.timeout(6000) });
         if (res.ok) {
           const data = await res.json();
-          const servers = Array.isArray(data.servers) ? data.servers : [];
+          const rawServers = Array.isArray(data.servers) ? data.servers : [];
+          const servers = rawServers.filter(
+            (s: any) =>
+              s &&
+              s.id !== '1562353446294781972' &&
+              String(s.name || '').toLowerCase() !== 'erlc.us'
+          );
 
           if (servers.length > 0) {
             // Sort servers strictly by most bumps first, then verified joins
@@ -177,7 +202,7 @@ export function LeaderboardTab() {
               return joinsB - joinsA;
             });
 
-            const mapped: LeaderboardItem[] = sorted.map((s: any, idx: number) => {
+            const mapped: LeaderboardItemExtended[] = sorted.map((s: any, idx: number) => {
               const bumps = Number(s.bumps || 0);
               const joins = Number(s.bountiesClaimed || s.memberCount || 0);
 
@@ -192,6 +217,7 @@ export function LeaderboardTab() {
                 category: s.category || "Roleplay Server",
                 bumps,
                 verifiedJoins: joins,
+                partnerships: Number(s.partnerships || s.activePartnerships || 0) || undefined,
                 joinCode: s.joinCode || undefined,
                 inviteUrl: s.inviteUrl || undefined,
               };
