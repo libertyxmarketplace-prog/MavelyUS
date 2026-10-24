@@ -555,6 +555,14 @@
   },
   "transactions": [
     {
+      "id": "tx_1792814444743_checkin",
+      "userId": "523693281541095424",
+      "amount": 7,
+      "type": "daily_checkin",
+      "description": "Day 2 Daily Check-In reward claimed",
+      "timestamp": 1792814444743
+    },
+    {
       "id": "tx_1792724152113_b",
       "userId": "523693281541095424",
       "amount": 10,
@@ -638,8 +646,8 @@
   "analytics": {},
   "achievements": {
     "523693281541095424": {
-      "lastCheckin": 1792719848768,
-      "streak": 1
+      "lastCheckin": 1792814444743,
+      "streak": 2
     }
   }
 }

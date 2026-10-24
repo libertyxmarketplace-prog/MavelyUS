@@ -55,7 +55,7 @@ export function ChartLineDefault({ data }: { data?: { period: string; joins: num
   ];
 
   return (
-    <ChartContainer className="h-56 w-full" config={chartConfig}>
+    <ChartContainer className="h-80 sm:h-96 lg:h-[420px] w-full" config={chartConfig}>
       <LineChart
         accessibilityLayer
         data={chartData}
@@ -385,25 +385,27 @@ export function OverviewTab({
       </div>
 
       {/* ── VERIFIED MEMBER GROWTH TELEMETRY (Recharts Line Chart) ── */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-4">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] p-6 sm:p-8 space-y-6 min-h-[500px] flex flex-col justify-between shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
           <div>
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <h3 className="text-base font-bold text-white flex items-center gap-2 font-sans tracking-tight">
               <Users className="size-4 text-emerald-400" />
               <span>Verified Member Growth Trajectory</span>
             </h3>
-            <p className="text-xs text-zinc-400 mt-0.5">
+            <p className="text-xs text-zinc-400 mt-1 font-sans">
               Verified community directory joins and active member telemetry
             </p>
           </div>
           {Math.max(dailyJoins, Number(config.bountiesClaimed || 0), parseInt(localStorage.getItem(`erlcus_joins_${guildId}`) || '0', 10)) > 0 && (
-            <span className="text-xs font-sans text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg self-start sm:self-auto">
+            <span className="text-xs font-sans text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-xl self-start sm:self-auto">
               {Math.max(dailyJoins, Number(config.bountiesClaimed || 0), parseInt(localStorage.getItem(`erlcus_joins_${guildId}`) || '0', 10))} Directory Joins
             </span>
           )}
         </div>
 
-        <ChartLineDefault data={dynamicChartData} />
+        <div className="w-full flex-1 flex items-center">
+          <ChartLineDefault data={dynamicChartData} />
+        </div>
       </div>
     </div>
   );

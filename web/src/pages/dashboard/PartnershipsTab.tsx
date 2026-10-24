@@ -46,24 +46,34 @@ export function PartnershipsTab({
   const [activeSubTab, setActiveSubTab] = useState<'browse' | 'active' | 'requests' | 'rewards'>('browse');
 
   const [loading, setLoading] = useState(true);
-  const [dashboardData, setDashboardData] = useState<any>({
-    settings: {},
-    activePartnerships: [],
-    incomingRequests: [],
-    outgoingRequests: [],
-    analytics: {
-      totalPartnerships: 0,
-      adsDelivered: 0,
-      deliverySuccessRate: 100,
-      pageVisits: 0,
-      verifiedJoinsGenerated: 0
-    },
-    userCoins: 0,
-    transactions: [],
-    lastCheckin: 0,
-    dailyStreak: 0,
-    dailyClaimed: false
-  });
+
+  // Cache dashboard data to eliminate flickering numbers on page reload
+  const getInitialDashboardData = (guildId: string) => {
+    try {
+      const cached = localStorage.getItem(`erlcus_partnerships_cache_${guildId}`);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return {
+      settings: {},
+      activePartnerships: [],
+      incomingRequests: [],
+      outgoingRequests: [],
+      analytics: {
+        totalPartnerships: 0,
+        adsDelivered: 0,
+        deliverySuccessRate: 100,
+        pageVisits: 0,
+        verifiedJoinsGenerated: 0
+      },
+      userCoins: 0,
+      transactions: [],
+      lastCheckin: 0,
+      dailyStreak: 0,
+      dailyClaimed: false
+    };
+  };
+
+  const [dashboardData, setDashboardData] = useState<any>(() => getInitialDashboardData(currentGuildId));
 
   const [browseServers, setBrowseServers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -109,6 +119,9 @@ export function PartnershipsTab({
       if (res.ok) {
         const data = await res.json();
         setDashboardData(data);
+        try {
+          localStorage.setItem(`erlcus_partnerships_cache_${currentGuildId}`, JSON.stringify(data));
+        } catch {}
         if (Array.isArray(data.incomingRequests) && data.incomingRequests.length > 0) {
           data.incomingRequests.forEach((req: any) => {
             addLiveNotification({
@@ -139,32 +152,21 @@ export function PartnershipsTab({
     }
   };
 
-  // When active community switches, immediately clear previous state & re-fetch
+  // When active community switches, immediately load cached state & re-fetch
   useEffect(() => {
-    setLoading(true);
-    setDashboardData({
-      settings: {},
-      activePartnerships: [],
-      incomingRequests: [],
-      outgoingRequests: [],
-      analytics: {
-        totalPartnerships: 0,
-        adsDelivered: 0,
-        deliverySuccessRate: 100,
-        pageVisits: 0,
-        verifiedJoinsGenerated: 0
-      },
-      userCoins: 0,
-      transactions: [],
-       lastCheckin: 0,
-       dailyStreak: 0,
-       dailyClaimed: false,
-
-    });
-    setBrowseServers([]);
+    setDashboardData(getInitialDashboardData(currentGuildId));
     loadData();
     loadBrowseServers();
   }, [currentGuildId]);
+
+  // Smooth jump to subtabs when card buttons are clicked
+  const handleJump = (tab: 'browse' | 'active' | 'requests' | 'rewards') => {
+    setActiveSubTab(tab);
+    setTimeout(() => {
+      const el = document.getElementById('partnerships-subtabs');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
 
   // Handle Accept or Decline Request
   const handleRespond = async (requestId: string, action: 'accept' | 'decline') => {
@@ -350,10 +352,13 @@ export function PartnershipsTab({
           )}
         </div>
 
-        {/* 4 Telemetry Metrics - Earn Growth Style */}
+        {/* 4 Telemetry Metrics - Refined Premium Earn Growth Style */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 pt-2">
           {/* Connected Communities */}
-          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-emerald-500/20">
+          <div
+            onClick={() => handleJump('active')}
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-emerald-500/30 hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg cursor-pointer"
+          >
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <Handshake className="size-8 text-emerald-400/20" />
             </div>
@@ -361,21 +366,28 @@ export function PartnershipsTab({
               <div className="flex items-center justify-center size-12">
                 <Handshake className="size-6 text-emerald-400" />
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Connected Communities</span>
-                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight">
-                  <span>{dashboardData.activePartnerships?.length || 0}</span>
-                  <span className="text-xs sm:text-sm text-emerald-400 font-medium ml-1">Active</span>
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Connected Communities</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight font-sans">
+                    {dashboardData.activePartnerships?.length || 0}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    Active
+                  </span>
                 </div>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Partnered Servers</span>
+              <span className="text-[11px] text-zinc-400 font-medium font-sans">Partnered Servers</span>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setActiveSubTab('active')}
-                className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleJump('active');
+                }}
+                className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all"
               >
                 View Hub
               </Button>
@@ -383,7 +395,10 @@ export function PartnershipsTab({
           </div>
 
           {/* Pending Inbound */}
-          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-cyan-500/20">
+          <div
+            onClick={() => handleJump('requests')}
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-cyan-500/30 hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg cursor-pointer"
+          >
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <Users className="size-8 text-cyan-400/20" />
             </div>
@@ -391,21 +406,28 @@ export function PartnershipsTab({
               <div className="flex items-center justify-center size-12">
                 <Users className="size-6 text-cyan-400" />
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Pending Inbound</span>
-                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight">
-                  <span>{dashboardData.incomingRequests?.length || 0}</span>
-                  <span className="text-xs sm:text-sm text-cyan-400 font-medium ml-1">Requests</span>
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Pending Inbound</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight font-sans">
+                    {dashboardData.incomingRequests?.length || 0}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                    Requests
+                  </span>
                 </div>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Awaiting Review</span>
+              <span className="text-[11px] text-zinc-400 font-medium font-sans">Awaiting Review</span>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setActiveSubTab('requests')}
-                className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleJump('requests');
+                }}
+                className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all"
               >
                 Review
               </Button>
@@ -413,7 +435,10 @@ export function PartnershipsTab({
           </div>
 
           {/* Ads Sent */}
-          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-indigo-500/20">
+          <div
+            onClick={() => handleJump('active')}
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-indigo-500/30 hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg cursor-pointer"
+          >
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <Server className="size-8 text-indigo-400/20" />
             </div>
@@ -421,21 +446,28 @@ export function PartnershipsTab({
               <div className="flex items-center justify-center size-12">
                 <Server className="size-6 text-indigo-400" />
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Ads Sent</span>
-                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight">
-                  <span>{dashboardData.analytics?.adsDelivered || 0}</span>
-                  <span className="text-xs sm:text-sm text-indigo-400 font-medium ml-1">Delivered</span>
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Ads Sent</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight font-sans">
+                    {dashboardData.analytics?.adsDelivered || 0}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    Delivered
+                  </span>
                 </div>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Delivery Success</span>
+              <span className="text-[11px] text-zinc-400 font-medium font-sans">Delivery Success</span>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onNavigateTab ? onNavigateTab('promote') : setActiveSubTab('browse')}
-                className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleJump('active');
+                }}
+                className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all"
               >
                 Campaigns
               </Button>
@@ -443,7 +475,10 @@ export function PartnershipsTab({
           </div>
 
           {/* Players Joined */}
-          <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-amber-500/20">
+          <div
+            onClick={() => handleJump('browse')}
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-amber-500/30 hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg cursor-pointer"
+          >
             <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <ShieldCheck className="size-8 text-amber-400/20" />
             </div>
@@ -451,21 +486,28 @@ export function PartnershipsTab({
               <div className="flex items-center justify-center size-12">
                 <ShieldCheck className="size-6 text-amber-400" />
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Players Joined</span>
-                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight">
-                  <span>{dashboardData.analytics?.verifiedJoinsGenerated || 0}</span>
-                  <span className="text-xs sm:text-sm text-amber-400 font-medium ml-1">Joined</span>
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Players Joined</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight font-sans">
+                    {dashboardData.analytics?.verifiedJoinsGenerated || 0}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    Joined
+                  </span>
                 </div>
               </div>
             </div>
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Campaign Joins</span>
+              <span className="text-[11px] text-zinc-400 font-medium font-sans">Campaign Joins</span>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setActiveSubTab('browse')}
-                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleJump('browse');
+                }}
+                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all"
               >
                 Browse
               </Button>
@@ -485,7 +527,7 @@ export function PartnershipsTab({
       )}
 
       {/* ── TABS NAVIGATION (BROWSE COMMUNITIES FIRST) ── */}
-      <div className="flex items-center gap-2 border-b border-white/[0.08] pb-3 overflow-x-auto">
+      <div id="partnerships-subtabs" className="flex items-center gap-2 border-b border-white/[0.08] pb-3 overflow-x-auto scroll-mt-6">
         {[
           { key: 'browse', label: 'Browse Communities', icon: Search },
           { key: 'active', label: `Active Partnerships (${dashboardData.activePartnerships?.length || 0})`, icon: Handshake },
@@ -813,73 +855,86 @@ export function PartnershipsTab({
               {filteredServers.map((s) => (
                 <div
                   key={s.id}
-                  className="rounded-2xl border border-white/[0.08] bg-[#111113] overflow-hidden flex flex-col justify-between hover:border-white/20 transition-all shadow-md group"
+                  className="rounded-2xl border border-white/[0.08] bg-[#0c0c0e] overflow-hidden flex flex-col justify-between hover:border-emerald-500/30 hover:bg-[#111114] transition-all duration-300 shadow-lg hover:shadow-2xl group"
                 >
                   <div>
                     {/* Banner preview */}
                     {s.bannerUrl ? (
-                      <div className="relative w-full h-28 overflow-hidden bg-[#141416]">
+                      <div className="relative w-full h-32 overflow-hidden bg-zinc-950">
                         <img
                           src={s.bannerUrl}
                           alt={s.name}
                           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                         />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0c0c0e] via-transparent to-black/30" />
                       </div>
                     ) : (
-                      <div className="w-full h-14 bg-gradient-to-b from-white/[0.04] to-transparent" />
+                      <div className="relative w-full h-20 bg-gradient-to-br from-white/[0.04] to-transparent border-b border-white/[0.04]" />
                     )}
 
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-start gap-3">
+                    {/* Overlapping Avatar & Identity Block */}
+                    <div className="px-4.5 pt-1 space-y-3">
+                      <div className="flex items-end justify-between -mt-7 relative z-10">
                         {s.iconUrl || s.icon ? (
                           <img
                             src={s.iconUrl || s.icon}
                             alt={s.name}
-                            className="size-12 rounded-xl object-cover ring-2 ring-[#111113] border border-white/10 shadow-md bg-zinc-900 shrink-0"
+                            className="size-14 rounded-2xl object-cover ring-4 ring-[#0c0c0e] border border-white/10 shadow-xl bg-zinc-900 shrink-0 group-hover:border-emerald-500/40 transition-colors"
                           />
                         ) : (
-                          <div className="size-12 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center font-bold text-white text-sm shrink-0">
+                          <div className="size-14 rounded-2xl bg-zinc-900 ring-4 ring-[#0c0c0e] border border-white/10 flex items-center justify-center font-bold text-white text-base shadow-xl shrink-0">
                             {s.name.slice(0, 2).toUpperCase()}
                           </div>
                         )}
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-sm font-bold text-white truncate font-sans">{s.name}</h4>
-                          <span className="text-[11px] text-zinc-400 font-sans block">{s.category}</span>
-                        </div>
+
+                        <span className="text-[10px] font-semibold text-zinc-300 font-sans uppercase tracking-wider bg-white/[0.04] border border-white/[0.08] px-2.5 py-1 rounded-full">
+                          {s.category || 'Roleplay Server'}
+                        </span>
                       </div>
 
-                      <p className="text-xs text-zinc-300 line-clamp-2 leading-relaxed font-sans">
-                        {s.description || 'Verified ER:LC roleplay community with active sessions.'}
-                      </p>
+                      <div className="space-y-1">
+                        <h4 className="text-sm sm:text-base font-bold text-white truncate font-sans tracking-tight group-hover:text-emerald-400 transition-colors">
+                          {s.name}
+                        </h4>
+                        <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed font-sans min-h-[32px]">
+                          {s.description || 'Verified ER:LC roleplay community with active sessions.'}
+                        </p>
+                      </div>
 
-                      <div className="flex items-center justify-between text-[11px] text-zinc-400 font-sans pt-1 border-t border-white/[0.06]">
-                        <span className="tabular-nums font-medium text-white">{getResolvedMemberCount(s)} Members</span>
+                      <div className="flex items-center justify-between text-xs font-sans pt-2 border-t border-white/[0.06]">
+                        <div className="flex items-center gap-1.5 text-white font-bold tabular-nums">
+                          <Users className="size-3.5 text-zinc-400" />
+                          <span>{getResolvedMemberCount(s).toLocaleString()} Members</span>
+                        </div>
                         {s.allowPartnerMentions ? (
-                          <span className="text-emerald-400 font-medium">@mentions allowed</span>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                            <span className="size-1.5 rounded-full bg-emerald-400" />
+                            @mentions allowed
+                          </span>
                         ) : (
-                          <span className="text-zinc-500">Mentions disabled</span>
+                          <span className="text-[11px] text-zinc-400 font-medium">Mentions disabled</span>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-4 pt-0">
+                  <div className="p-4.5 pt-3">
                     {s.partnershipStatus === 'partnered' ? (
                       <Button
                         size="sm"
                         disabled
-                        className="w-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs h-9 rounded-xl font-sans"
+                        className="w-full bg-emerald-950/40 text-emerald-400 border border-emerald-500/25 text-xs h-9.5 rounded-xl font-sans font-semibold flex items-center justify-center gap-2 cursor-default"
                       >
-                        <Check className="size-3.5 mr-1.5" />
+                        <Check className="size-4 text-emerald-400" />
                         <span>Already Partnered</span>
                       </Button>
                     ) : s.partnershipStatus === 'outgoing_pending' ? (
                       <Button
                         size="sm"
                         disabled
-                        className="w-full bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs h-9 rounded-xl font-sans"
+                        className="w-full bg-amber-950/40 text-amber-300 border border-amber-500/25 text-xs h-9.5 rounded-xl font-sans font-semibold flex items-center justify-center gap-2 cursor-default"
                       >
-                        <Clock className="size-3.5 mr-1.5" />
+                        <Clock className="size-4 text-amber-400" />
                         <span>Request Pending</span>
                       </Button>
                     ) : (
@@ -889,9 +944,9 @@ export function PartnershipsTab({
                           setRequestModalServer(s);
                           setMentionType('none');
                         }}
-                        className="w-full bg-white hover:bg-zinc-200 text-black font-semibold text-xs h-9 rounded-xl cursor-pointer font-sans shadow-sm"
+                        className="w-full bg-white hover:bg-zinc-200 text-black font-bold text-xs h-9.5 rounded-xl cursor-pointer font-sans shadow-md hover:shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2"
                       >
-                        <Handshake className="size-3.5 mr-1.5" />
+                        <Handshake className="size-4" />
                         <span>Request Partnership</span>
                       </Button>
                     )}

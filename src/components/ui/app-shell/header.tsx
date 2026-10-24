@@ -103,9 +103,9 @@ function AppShellHeader({
   const [balance, setBalance] = React.useState<number>(() => {
     try {
       const saved = localStorage.getItem('erlcus_credits_balance')
-      return saved !== null ? parseInt(saved, 10) : 76
+      return saved !== null ? parseInt(saved, 10) : 0
     } catch {
-      return 76
+      return 0
     }
   })
 

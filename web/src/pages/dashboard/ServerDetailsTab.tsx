@@ -192,10 +192,14 @@ export function ServerDetailsTab({
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto animate-in fade-in-50 duration-200 pb-12">
-      {/* ── SERVER HERO HEADER (Flush & Clean) ── */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#0f0f0f] overflow-hidden">
-        {/* Optional Custom Banner (ONLY rendered if explicitly provided) */}
-        {hasBanner && (
+      {/* ── SERVER HERO HEADER (With Circulating Emerald Border Beam) ── */}
+      <div className="relative rounded-2xl p-[1px] overflow-hidden group shadow-xl">
+        {/* Animated circulating emerald luminous beam ("turn ish") */}
+        <div className="absolute inset-[-150%] animate-[spin_8s_linear_infinite] bg-[conic-gradient(from_0deg_at_50%_50%,transparent_0deg,transparent_280deg,#10b981_320deg,rgba(52,211,153,0.4)_345deg,transparent_360deg)] pointer-events-none" />
+
+        <div className="relative rounded-2xl bg-[#0f0f0f] border border-white/[0.08] overflow-hidden z-10">
+          {/* Optional Custom Banner (ONLY rendered if explicitly provided) */}
+          {hasBanner && (
           <div className="relative w-full h-44 sm:h-60 overflow-hidden bg-zinc-950 border-b border-white/10">
             <img
               src={bannerUrl}
@@ -319,6 +323,7 @@ export function ServerDetailsTab({
           </div>
         </div>
       </div>
+    </div>
 
       {/* ── DETAILS CONTENT GRID ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -479,7 +484,7 @@ export function ServerDetailsTab({
                   : 'bg-white/[0.04] text-zinc-400 border-white/[0.08]'
               }`}>
                 <span className={`size-1.5 rounded-full ${config.acceptPartnerships !== false ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
-                <span>{config.acceptPartnerships !== false ? 'Open for Alliances' : 'Applications Paused'}</span>
+                <span>{config.acceptPartnerships !== false ? 'Open for Partnership' : 'Applications Paused'}</span>
               </span>
             </div>
 
