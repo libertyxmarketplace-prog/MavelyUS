@@ -2151,56 +2151,113 @@ function buildVoteContainer(vote) {
   return box;
 }
 
-// Dark gray "Session Closed" card posted by /session shutdown - NO banner at the bottom per user request.
+// Remodeled Session Closed card posted by /session shutdown - matching the new Clearwater-style layout.
 function buildShutdownNotice(stats) {
   const curPlayers = Number(stats?.players) || 0;
   const card = new ContainerBuilder();
+
+  const url = bannerUrl();
+  if (url) {
+    card.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(url))
+    );
+  }
+
+  card.addSeparatorComponents(thinLine());
+
   card.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('## Session Closed')
+    new TextDisplayBuilder().setContent(`## ${SESSION_EMOJI.logo} Alabama State Roleplay • Session Concluded`)
   );
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(`> ${SERVER.shutdownText}`)
   );
+
   card.addSeparatorComponents(thinLine());
+
+  card.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `### ${SESSION_EMOJI.info} In-game Information\n` +
+      `Server Name: ${inlineCode(stats.serverName)}\n` +
+      `Server Join Code: ${inlineCode(sessionCode())}\n` +
+      `Server Owner: ${inlineCode(stats.ownerName)}`
+    )
+  );
+
+  card.addSeparatorComponents(thinLine());
+
+  const playersPill = curPlayers > 0 ? `${curPlayers} Player${curPlayers === 1 ? '' : 's'} Remaining` : '0 Players (Empty)';
   card.addSectionComponents(
-    sectionRow(
-      'Players',
-      curPlayers > 0 ? 'Players remaining in-game.' : 'All players have exited the server.',
-      playersText(stats),
+    statRow(
+      SESSION_EMOJI.roblox,
+      'Player Count',
+      playersPill,
       'info_players',
       curPlayers > 0 ? ButtonStyle.Danger : ButtonStyle.Secondary
     )
   );
   card.addSectionComponents(
-    sectionRow('Session Code', 'Use this code to join the next session.', sessionCode(), 'info_code')
+    statRow(
+      SESSION_EMOJI.wrong,
+      'Server Status',
+      'Offline • Concluded',
+      'info_status',
+      ButtonStyle.Danger
+    )
   );
+
+  card.addActionRowComponents(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('server_status_ended')
+        .setLabel('Server Offline • Do Not Join')
+        .setEmoji(SESSION_EMOJI.wrong)
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(true),
+      new ButtonBuilder()
+        .setCustomId('server_session_ended')
+        .setLabel('Session Concluded')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true)
+    )
+  );
+
   card.addSeparatorComponents(thinLine());
+
   const closedTs =
     typeof stats.updatedAt === 'number' ? stats.updatedAt : Math.floor(Date.now() / 1000);
   card.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`-# Session Ended • Live Status: <t:${closedTs}:R>`)
+    new TextDisplayBuilder().setContent(`-# Session Concluded · updated <t:${closedTs}:R>`)
   );
   return card;
 }
 
-// Dark gray DM card sent to voters when the session shuts down - dark gray side bar,
-// red Session Ended pill, NO Join Server (the session is over).
+// Remodeled DM card sent to voters when the session shuts down.
 function buildSessionClosedDM(stats) {
   const card = new ContainerBuilder();
   card.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent('## Session Closed')
+    new TextDisplayBuilder().setContent(`## ${SESSION_EMOJI.logo} Alabama State Roleplay • Session Concluded`)
   );
   card.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(
-      '> The session you voted for has ended. Thanks for voting, see you at the next one!'
+      '> The session you voted for has ended. Thanks for voting, see you at the next patrol in <#1232495212333498455>!'
     )
   );
   card.addSeparatorComponents(thinLine());
   card.addActionRowComponents(
     new ActionRowBuilder().addComponents(
-      buildPill(`Players in-game: ${playersText(stats)}`, 'info_players'),
-      buildPill('Session Ended', 'info_ended', ButtonStyle.Danger)
+      buildPill(`Players: ${playersText(stats)}`, 'info_players'),
+      new ButtonBuilder()
+        .setCustomId('info_ended')
+        .setLabel('Session Concluded')
+        .setEmoji(SESSION_EMOJI.wrong)
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(true)
     )
+  );
+  const closedTs =
+    typeof stats.updatedAt === 'number' ? stats.updatedAt : Math.floor(Date.now() / 1000);
+  card.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(`-# Session Concluded · <t:${closedTs}:R>`)
   );
   return card;
 }
@@ -11064,7 +11121,6 @@ function getSlashPayload() {
     exploitCommand.toJSON(),
     loaCommand.toJSON(),
     mediaCommand.toJSON(),
-    kbCommand.toJSON(),
     transcriptCommand.toJSON()
   ];
 }
@@ -11303,7 +11359,7 @@ client.once(Events.ClientReady, async (readyClient) => {
         for (const msg of msgs.values()) {
           if (msg.author.id !== readyClient.user.id) continue;
           const text = collectText([...(msg.components?.values?.() ?? msg.components ?? [])]);
-          if (!text.includes('Session Information')) continue;
+          if (!text.includes('Session Information') && !text.includes('Alabama State Roleplay Sessions') && !text.includes('Session Concluded')) continue;
           if (healedPanelId === null) {
             // Newest live panel - heal THIS one.
             startLiveRefresh(liveKey(config.guildId, config.sessionChannelId, msg.id), msg, config.sessionChannelId);
@@ -11345,36 +11401,6 @@ setInterval(() => cleanupDuplicateRedTickets(readyClient), 15000);
 // Keep the "Watching ..." status fresh without spamming the ER:LC API.
 void updateBotPresence(readyClient);
 setInterval(() => void updateBotPresence(readyClient), 5 * 60_000);
-
-// Auto-close inactive AI-managed tickets after 15 minutes of inactivity
-setInterval(async () => {
-  if (!isLeader) return;
-  const now = Date.now();
-  const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
-  for (const [chId, ticket] of activeTickets.entries()) {
-    if (!ticket.aiActive || ticket.aiStopped || ticket.claimedBy) continue;
-    if (ticket.categoryKey === 'partnership' || ticket.categoryKey === 'staff_partnership') continue;
-    const lastActivity = ticket.lastActivityAt || (ticket.createdAt ? ticket.createdAt * 1000 : 0);
-    if (!lastActivity) continue;
-    if (now - lastActivity > INACTIVITY_LIMIT_MS) {
-      const channel = readyClient.channels?.cache?.get(chId);
-      if (!channel) {
-        activeTickets.delete(chId);
-        saveTickets();
-        continue;
-      }
-      try {
-        await channel.send({
-          content: '⏰ **Ticket Inactivity Notice**\n\nThis ticket has been inactive for over 15 minutes. Closing this ticket automatically...',
-          allowedMentions: { parse: [] }
-        });
-        await closeTicketChannel(readyClient, channel, ticket, 'System (Inactivity)', readyClient.user.id, 5000);
-      } catch (err) {
-        console.warn(`[ticket-inactivity] Failed to auto-close inactive ticket ${chId}: ${err.message}`);
-      }
-    }
-  }
-}, 60 * 1000);
 });
 
 // ═══════════════════════ Welcome Message ═══════════════════════
@@ -12841,10 +12867,8 @@ async function processRetirementDenial(channel, ticket, denier) {
  * @param {object} ticketData the ticket record (needs categoryKey, reason, channelId)
  */
 async function sendTicketAiOpening(channel, ticketData) {
-  if (!channel || !ticketData) return;
-  const category = ticketData.categoryKey;
-  if (!isCategoryEnabled(category)) return; // partnership etc. → human only
-  if (category === 'partnership' || category === 'staff_partnership') return;
+  // Ticket AI disabled per owner request - human staff handles all tickets.
+  return;
   const reason = ticketData.reason;
 
   if (reason && /\b(retire|retirement|resign|resigning|resignation|step down|stepping down)\b/i.test(reason)) {
@@ -12987,9 +13011,8 @@ async function sendTicketAiOpening(channel, ticketData) {
  * @param {object} ticket the active ticket record
  */
 async function handleTicketAiMessage(message, ticket) {
-  const category = ticket.categoryKey;
-  if (!category || !isCategoryEnabled(category)) return; // partnership etc.
-  if (category === 'partnership' || category === 'staff_partnership') return;
+  // Ticket AI disabled per owner request - human staff handles all tickets.
+  return;
 
   const content = (message.content || '').trim();
   const botId = client.user?.id;
@@ -14318,14 +14341,8 @@ async function createTicketForUser(client, interaction, catKey, reason) {
       ticketData.staffBatchMessageId = staffMsg.id;
     }
 
-    // Auto-respond to the ticket inquiry reason with the AI (for AI categories: general, ia, highrank, deptreport)
-    if (aiManaged && !isPartnership) {
-      try {
-        sendTicketAiOpening(ticketChannel, ticketData);
-      } catch (aiErr) {
-        console.warn('[ticket-ai] Opening hook threw:', aiErr.message);
-      }
-    }
+    ticketData.aiActive = false;
+    ticketData.aiStopped = true;
 
     await safeReply({
       content: `✅ Your ticket has been opened: <#${ticketChannel.id}>`
@@ -22081,14 +22098,6 @@ client.on(Events.MessageCreate, async (message) => {
     }
 
     if (!message.content?.startsWith('-')) {
-      // ── 0. Pending `-ai` chat: a plain message answers the bot's question ──
-      // Placed on the no-prefix path (before the `-` gate below) so answers
-      // need no `-ai` prefix. consume=true ends handling for this message.
-      try {
-        if (await continueAiConvo(message)) return;
-      } catch (err) {
-        console.error('[ai] conversation continuation failed:', err);
-      }
       return;
     }
 
@@ -22133,14 +22142,9 @@ client.on(Events.MessageCreate, async (message) => {
       return;
     }
 
-    // ── 2. -ai <plain english request> - AI Command Engine ──
-    // Runs BEFORE the ticket-desk staff gate so the engine's own access rules
-    // (owner + Directive Team) are the only thing that decides who may use it.
-    // NOTE: `lower`/`trimmed` live inside the partnership/loa block above and are
-    // OUT OF SCOPE here - use `raw` (already lowercased) plus the original text.
-    if (raw === 'ai' || raw.startsWith('ai ')) {
-      const aiRequest = message.content.slice(1).trim().slice(2).trim();
-      await handleAiPrefixCommand(message, aiRequest);
+    // ── 2. -ai command disabled per owner request ──
+    if (raw === 'ai' || raw.startsWith('ai ') || raw === '-ai' || raw.startsWith('-ai ')) {
+      await autoDeleteReply(message, 'ℹ️ The AI assistant system has been disabled. All tickets and server management are handled directly by our human staff team.', 15000);
       return;
     }
 

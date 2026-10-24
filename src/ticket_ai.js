@@ -205,16 +205,13 @@ export function saveKB() {
   }
 }
 
-/** True when AI auto-response is enabled for a ticket category. */
-export function isCategoryEnabled(category) {
-  const settings = loadKB().settings || {};
-  if (settings.aiGloballyDisabled) return false;
-  const cats = settings.enabledCategories || {};
-  return cats[category] !== false;
+/** AI auto-response is permanently disabled per owner request - human staff handles tickets. */
+export function isCategoryEnabled() {
+  return false;
 }
 
 export function isAiGloballyDisabled() {
-  return loadKB().settings?.aiGloballyDisabled === true;
+  return true;
 }
 
 /** Returns the KB settings block. */
