@@ -381,7 +381,11 @@ export function SettingsTab({
                     type="button"
                     size="sm"
                     onClick={() => {
-                      const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=1562365417815543808&permissions=8&scope=bot%20applications.commands`;
+                      const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+                      const redirectUri = isLocal
+                        ? `${window.location.origin}/auth/discord/callback`
+                        : 'https://organizational-parliamentary-minimize-lookup.trycloudflare.com/auth/discord/callback';
+                      const inviteUrl = `https://discord.com/oauth2/authorize?client_id=1552165138017165372&permissions=8&redirect_uri=${encodeURIComponent(redirectUri)}&integration_type=0&scope=bot`;
                       window.open(inviteUrl, '_blank', 'noopener,noreferrer');
                     }}
                     className="bg-white hover:bg-zinc-200 text-black font-semibold text-xs h-9 px-4 rounded-xl shadow-sm cursor-pointer transition-all flex items-center gap-1.5 shrink-0"

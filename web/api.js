@@ -187,7 +187,7 @@ function rateLimit({ windowMs, max }) {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function oauthClientId() {
-  return process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID || '1562365417815543808';
+  return process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID || '1552165138017165372';
 }
 
 function appOrigin(req) {
@@ -206,11 +206,12 @@ function appOrigin(req) {
     }
     const hostHeader = req.get('host') || '';
     if (hostHeader) {
-      const proto = req.secure || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+      const isLocal = hostHeader.includes('localhost') || hostHeader.includes('127.0.0.1');
+      const proto = req.secure || req.get('x-forwarded-proto') === 'https' ? 'https' : (isLocal ? 'http' : 'https');
       return `${proto}://${hostHeader}`;
     }
   }
-  return (process.env.APP_ORIGIN || (process.env.NODE_ENV === 'production' ? 'https://mavely.us' : 'http://localhost:3000')).replace(/\/$/, '');
+  return (process.env.APP_ORIGIN || 'https://organizational-parliamentary-minimize-lookup.trycloudflare.com').replace(/\/$/, '');
 }
 
 function callbackUrl(req) {
@@ -2152,11 +2153,24 @@ export function createDiscordCallbackRouter() {
 async function completeDiscordAuth(req, res) {
   const currentOrigin = appOrigin(req);
   const fallback = currentOrigin || 'http://localhost:3000';
+  const wantsJson = req.headers.accept?.includes('application/json') || req.xhr;
 
   // 1. Handle Discord errors
   if (req.query.error) {
     console.warn('[WEB OAuth] Discord returned error:', req.query.error, req.query.error_description);
+    if (wantsJson) {
+      return res.status(400).json({ error: String(req.query.error_description || req.query.error) });
+    }
     return res.redirect(`${fallback}/login?auth_error=${encodeURIComponent(String(req.query.error_description || req.query.error))}`);
+  }
+
+  // Handle bot install callback (guild_id passed after adding bot)
+  if (req.query.guild_id && !req.query.code) {
+    const returnDest = `${fallback}/dashboard/${encodeURIComponent(String(req.query.guild_id))}?bot_installed=true`;
+    if (wantsJson) {
+      return res.json({ ok: true, botInstalled: true, redirectUrl: returnDest });
+    }
+    return res.redirect(returnDest);
   }
 
   // 2. Handle code
@@ -2164,7 +2178,13 @@ async function completeDiscordAuth(req, res) {
   if (!code) {
     const sessionId = cookieValue(req, SESSION_COOKIE);
     if (sessionId && sessions.has(sessionId)) {
+      if (wantsJson) {
+        return res.json({ ok: true, user: sessions.get(sessionId).user, redirectUrl: `${fallback}/dashboard` });
+      }
       return res.redirect(`${fallback}/dashboard`);
+    }
+    if (wantsJson) {
+      return res.status(401).json({ error: 'No authorization code provided' });
     }
     return res.redirect(`${fallback}/login`);
   }
@@ -2191,10 +2211,11 @@ async function completeDiscordAuth(req, res) {
   // Determine candidate redirect URIs to handle both localhost and production gracefully
   let candidateRedirectUris = [];
   if (pending?.redirectUri) candidateRedirectUris.push(pending.redirectUri);
+  candidateRedirectUris.push('https://organizational-parliamentary-minimize-lookup.trycloudflare.com/auth/discord/callback');
   candidateRedirectUris.push(`${currentOrigin}/auth/discord/callback`);
-  candidateRedirectUris.push('https://mavely.us/auth/discord/callback');
   candidateRedirectUris.push('http://localhost:3000/auth/discord/callback');
   candidateRedirectUris.push('http://localhost:3001/auth/discord/callback');
+  if (process.env.DISCORD_REDIRECT_URI) candidateRedirectUris.push(process.env.DISCORD_REDIRECT_URI);
   candidateRedirectUris = [...new Set(candidateRedirectUris)];
 
   // Real Discord token exchange
@@ -2233,6 +2254,9 @@ async function completeDiscordAuth(req, res) {
 
   if (!tokenData) {
     console.error('[WEB OAuth] Token exchange failed with Discord:', lastError);
+    if (wantsJson) {
+      return res.status(400).json({ error: 'Token exchange failed', details: lastError });
+    }
     return res.redirect(`${fallback}/login?auth_error=token_exchange_failed`);
   }
 
@@ -2245,6 +2269,9 @@ async function completeDiscordAuth(req, res) {
       const isMember = Array.isArray(userGuilds) && userGuilds.some(g => allowedGuilds.includes(String(g.id)));
       if (!isMember) {
         console.warn(`[WEB OAuth] Login refused for ${user.username} (${user.id}): not in an allowed server.`);
+        if (wantsJson) {
+          return res.status(403).json({ error: 'Login is limited to authorized community servers.' });
+        }
         return res.redirect(`${fallback}/login?auth_error=${encodeURIComponent('Login is limited to authorized community servers.')}`);
       }
     }
@@ -2265,9 +2292,15 @@ async function completeDiscordAuth(req, res) {
     persistSessions();
     res.cookie(SESSION_COOKIE, sessionId, cookieOptions(req));
     console.log(`[WEB OAuth] Successfully signed in Discord user: ${user.username} (${user.id})`);
+    if (wantsJson) {
+      return res.json({ ok: true, user: sessions.get(sessionId).user, redirectUrl: pending?.returnTo || `${fallback}/dashboard` });
+    }
     return res.redirect(pending?.returnTo || `${fallback}/dashboard`);
   } catch (err) {
     console.error('[WEB OAuth] Discord user profile fetch error:', err);
+    if (wantsJson) {
+      return res.status(500).json({ error: 'Discord sign-in failed', details: err.message });
+    }
     return res.redirect(`${fallback}/login?auth_error=sign_in_exception`);
   }
 }

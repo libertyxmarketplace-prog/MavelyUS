@@ -236,7 +236,11 @@ export async function sendTestNotification(guildId: string, type: 'anti_raid' | 
 
 export function getBotInviteUrl(guildId?: string): string {
   const clientId = '1552165138017165372';
-  const permissions = '534723950656';
-  const base = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot%20applications.commands`;
+  const permissions = '8';
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  const redirectUri = isLocal
+    ? `${window.location.origin}/auth/discord/callback`
+    : 'https://organizational-parliamentary-minimize-lookup.trycloudflare.com/auth/discord/callback';
+  const base = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&redirect_uri=${encodeURIComponent(redirectUri)}&integration_type=0&scope=bot`;
   return guildId ? `${base}&guild_id=${guildId}&disable_guild_select=true` : base;
 }
