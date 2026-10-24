@@ -352,149 +352,113 @@ export function PartnershipsTab({
           )}
         </div>
 
-        {/* 4 Telemetry Metrics - Exact Earn Growth Style (Treasury/Joins/Streak Style) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 pt-2">
+        {/* 4 Telemetry Metrics - Sleek Compact Cockpit Cards (Buttons Removed, Sublabels Mini) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
           {/* Card 1: Connected Communities */}
           <div
             onClick={() => handleJump('active')}
-            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-emerald-500/20 cursor-pointer"
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0c0c0e] to-[#141417] p-5 transition-all duration-200 hover:border-emerald-500/30 hover:bg-[#151518] shadow-md hover:shadow-xl cursor-pointer"
           >
-            <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Handshake className="size-8 text-emerald-400/20" />
+            <div className="absolute top-0 right-0 p-3.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Handshake className="size-6 text-emerald-400/20" />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center size-12">
-                <Handshake className="size-6 text-emerald-400" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2.5">
+                <Handshake className="size-4 text-emerald-400 shrink-0" />
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider truncate">
+                  Connected Communities
+                </span>
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Connected Communities</span>
-                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight flex items-baseline">
+              <div>
+                <div className="text-3xl font-extrabold text-white tabular-nums tracking-tight flex items-baseline gap-2">
                   <span>{dashboardData.activePartnerships?.length || 0}</span>
-                  <span className="text-xs sm:text-sm text-emerald-400 font-medium ml-1.5">Active</span>
+                  <span className="text-xs font-bold text-emerald-400">Active</span>
+                </div>
+                <div className="text-[11px] text-zinc-500 font-medium pt-1">
+                  Partnered Servers
                 </div>
               </div>
-            </div>
-            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Partnered Servers</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleJump('active');
-                }}
-                className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all cursor-pointer"
-              >
-                View Hub
-              </Button>
             </div>
           </div>
 
           {/* Card 2: Pending Inbound */}
           <div
             onClick={() => handleJump('requests')}
-            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-cyan-500/20 cursor-pointer"
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0c0c0e] to-[#141417] p-5 transition-all duration-200 hover:border-cyan-500/30 hover:bg-[#151518] shadow-md hover:shadow-xl cursor-pointer"
           >
-            <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Users className="size-8 text-cyan-400/20" />
+            <div className="absolute top-0 right-0 p-3.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Users className="size-6 text-cyan-400/20" />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center size-12">
-                <Users className="size-6 text-cyan-400" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2.5">
+                <Users className="size-4 text-cyan-400 shrink-0" />
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider truncate">
+                  Pending Inbound
+                </span>
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Pending Inbound</span>
-                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight flex items-baseline">
+              <div>
+                <div className="text-3xl font-extrabold text-white tabular-nums tracking-tight flex items-baseline gap-2">
                   <span>{dashboardData.incomingRequests?.length || 0}</span>
-                  <span className="text-xs sm:text-sm text-cyan-400 font-medium ml-1.5">Requests</span>
+                  <span className="text-xs font-bold text-cyan-400">Requests</span>
+                </div>
+                <div className="text-[11px] text-zinc-500 font-medium pt-1">
+                  Awaiting Review
                 </div>
               </div>
-            </div>
-            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Awaiting Review</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleJump('requests');
-                }}
-                className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all cursor-pointer"
-              >
-                Review
-              </Button>
             </div>
           </div>
 
           {/* Card 3: Ads Sent */}
           <div
             onClick={() => handleJump('active')}
-            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-indigo-500/20 cursor-pointer"
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0c0c0e] to-[#141417] p-5 transition-all duration-200 hover:border-indigo-500/30 hover:bg-[#151518] shadow-md hover:shadow-xl cursor-pointer"
           >
-            <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Server className="size-8 text-indigo-400/20" />
+            <div className="absolute top-0 right-0 p-3.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Server className="size-6 text-indigo-400/20" />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center size-12">
-                <Server className="size-6 text-indigo-400" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2.5">
+                <Server className="size-4 text-indigo-400 shrink-0" />
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider truncate">
+                  Ads Sent
+                </span>
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Ads Sent</span>
-                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight flex items-baseline">
+              <div>
+                <div className="text-3xl font-extrabold text-white tabular-nums tracking-tight flex items-baseline gap-2">
                   <span>{dashboardData.analytics?.adsDelivered || dashboardData.settings?.totalAdsSent || 0}</span>
-                  <span className="text-xs sm:text-sm text-indigo-400 font-medium ml-1.5">Delivered</span>
+                  <span className="text-xs font-bold text-indigo-400">Delivered</span>
+                </div>
+                <div className="text-[11px] text-zinc-500 font-medium pt-1">
+                  Delivery Success
                 </div>
               </div>
-            </div>
-            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Delivery Success</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleJump('active');
-                }}
-                className="border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all cursor-pointer"
-              >
-                Campaigns
-              </Button>
             </div>
           </div>
 
           {/* Card 4: Players Joined */}
           <div
             onClick={() => handleJump('browse')}
-            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0f0f0f] to-[#141416] p-6 transition-all hover:border-white/[0.12] hover:bg-gradient-to-br hover:from-[#141416] hover:to-[#18181b] shadow-lg hover:shadow-amber-500/20 cursor-pointer"
+            className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0c0c0e] to-[#141417] p-5 transition-all duration-200 hover:border-amber-500/30 hover:bg-[#151518] shadow-md hover:shadow-xl cursor-pointer"
           >
-            <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Coins className="size-8 text-amber-400/20" />
+            <div className="absolute top-0 right-0 p-3.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Coins className="size-6 text-amber-400/20" />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center size-12">
-                <Coins className="size-6 text-amber-400" />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2.5">
+                <Coins className="size-4 text-amber-400 shrink-0" />
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider truncate">
+                  Players Joined
+                </span>
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider block">Players Joined</span>
-                <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums tracking-tight flex items-baseline">
+              <div>
+                <div className="text-3xl font-extrabold text-white tabular-nums tracking-tight flex items-baseline gap-2">
                   <span>{dashboardData.analytics?.verifiedJoinsGenerated || dashboardData.campaignJoins || 0}</span>
-                  <span className="text-xs sm:text-sm text-amber-400 font-medium ml-1.5">Joined</span>
+                  <span className="text-xs font-bold text-amber-400">Joined</span>
+                </div>
+                <div className="text-[11px] text-zinc-500 font-medium pt-1">
+                  Campaign Joins
                 </div>
               </div>
-            </div>
-            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[10px] text-zinc-500 uppercase font-semibold">Campaign Joins</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleJump('browse');
-                }}
-                className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-white text-xs font-semibold px-3 py-1.5 h-8 rounded-lg transition-all cursor-pointer"
-              >
-                Browse
-              </Button>
             </div>
           </div>
         </div>

@@ -7,7 +7,8 @@ import {
   ArrowUpRight,
   ShieldCheck,
   Check,
-  Hash
+  Hash,
+  Handshake
 } from "lucide-react";
 import {
   DataTable,

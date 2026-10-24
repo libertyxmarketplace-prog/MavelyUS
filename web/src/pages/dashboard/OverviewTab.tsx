@@ -244,60 +244,80 @@ export function OverviewTab({
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
-      {/* ── COMMAND CENTER HERO (With Rotating Circulating Green Border Beam) ── */}
-      <div className="relative rounded-3xl p-[1px] overflow-hidden group shadow-2xl">
-        {/* Animated circulating emerald luminous beam that turns around the card */}
-        <div className="absolute inset-[-150%] animate-border-beam bg-[conic-gradient(from_0deg_at_50%_50%,transparent_0deg,transparent_220deg,#10b981_280deg,#34d399_320deg,#10b981_360deg)] pointer-events-none" />
+      {/* ── COMMAND CENTER HERO (Ultra-Cool Ambient Cyber Cockpit) ── */}
+      <div className="relative rounded-3xl border border-white/[0.12] bg-[#09090b] shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.14)] overflow-hidden group">
+        {/* Deep emerald ambient aura and subtle mesh lighting */}
+        <div className="absolute -top-24 -left-24 size-96 rounded-full bg-emerald-500/15 blur-[90px] pointer-events-none" />
+        <div className="absolute -bottom-24 -right-24 size-96 rounded-full bg-teal-500/10 blur-[90px] pointer-events-none" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:28px_28px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_40%,#000_60%,transparent_100%)] pointer-events-none" />
 
-        <div className="relative rounded-3xl bg-[#18181b] border border-white/10 p-6 sm:p-7 z-10 overflow-hidden">
+        <div className="relative p-6 sm:p-8 z-10">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            {/* Left: Server Identity */}
-            <div className="flex items-center gap-4 sm:gap-5 min-w-0">
-              {serverIconUrl ? (
-                <img
-                  src={serverIconUrl}
-                  alt={serverName}
-                  className="size-16 sm:size-20 rounded-2xl object-cover border border-white/15 shadow-xl shrink-0"
-                />
-              ) : (
-                <div className="size-16 sm:size-20 rounded-2xl bg-[#27272a] border border-white/15 flex items-center justify-center font-bold text-white text-xl sm:text-2xl shadow-xl shrink-0 tracking-tight">
-                  {serverInitial}
-                </div>
-              )}
+            {/* Left: Server Identity with Live Signal */}
+            <div className="flex items-center gap-4 sm:gap-6 min-w-0">
+              <div className="relative shrink-0">
+                {serverIconUrl ? (
+                  <img
+                    src={serverIconUrl}
+                    alt={serverName}
+                    className="size-16 sm:size-20 rounded-2xl object-cover ring-2 ring-emerald-500/30 border border-white/20 shadow-2xl"
+                  />
+                ) : (
+                  <div className="size-16 sm:size-20 rounded-2xl bg-[#18181b] ring-2 ring-emerald-500/30 border border-white/20 flex items-center justify-center font-extrabold text-white text-xl sm:text-2xl shadow-2xl tracking-tight">
+                    {serverInitial}
+                  </div>
+                )}
+                {/* Live Node Signal Pip */}
+                <span className="absolute -top-1 -right-1 flex size-4">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full size-4 bg-emerald-500 border-2 border-[#09090b]" />
+                </span>
+              </div>
 
-              <div className="space-y-1.5 min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight truncate">
+              <div className="space-y-2 min-w-0">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight truncate font-sans">
                     {serverName}
                   </h1>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 shadow-sm">
+                    <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Live Telemetry
+                  </span>
                 </div>
 
-                {/* Server Meta Chips */}
-                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400 font-mono">
+                {/* Server Meta Chips & Telemetry Pills */}
+                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
                   {/* Snowflake ID */}
                   <button
                     type="button"
                     onClick={handleCopyGuildId}
-                    className="inline-flex items-center gap-1 hover:text-white transition-colors text-zinc-400 bg-white/[0.03] hover:bg-white/[0.06] px-2 py-0.5 rounded-lg border border-white/[0.06] cursor-pointer"
+                    className="inline-flex items-center gap-1.5 hover:text-white transition-colors text-zinc-400 bg-white/[0.04] hover:bg-white/[0.08] px-2.5 py-1 rounded-lg border border-white/[0.08] font-mono cursor-pointer"
                     title="Copy Snowflake ID"
                   >
-                    <span className="text-zinc-500">ID:</span>
+                    <span className="text-zinc-500 font-sans font-medium">ID:</span>
                     <span>{guildId}</span>
                     {copiedId ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3 text-zinc-500" />}
                   </button>
+
+                  <span className="text-zinc-600">·</span>
+
+                  <span className="text-[11px] text-zinc-400 font-medium">
+                    Reward: <span className="text-emerald-400 font-semibold font-mono">+{config.coinsPerJoin || 2} Credits</span> / join
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Right: Quick Action Controls */}
+            {/* Right: High-Tech Quick Action Controls */}
             <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto shrink-0">
               <Button
                 size="sm"
                 onClick={() => onNavigateTab('details')}
-                className="h-9 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                className="h-10 px-5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs rounded-xl shadow-[0_0_24px_rgba(16,185,129,0.35)] transition-all hover:scale-[1.03] active:scale-[0.97] flex items-center gap-2 cursor-pointer"
               >
-                <Eye className="size-3.5" />
+                <Eye className="size-4" />
                 <span>Server Details Page</span>
+                <ArrowRight className="size-3.5" />
               </Button>
             </div>
           </div>

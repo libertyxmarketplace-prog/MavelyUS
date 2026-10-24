@@ -839,7 +839,7 @@ export function EarnCoinsTab({ currentGuildId, workspace, onNavigateTab, onAddCo
                           <span>{members.toLocaleString()} Members</span>
                         </span>
                         <span className="text-zinc-600">·</span>
-                        <span className="text-emerald-400 font-medium">+{coinsPerJoin} Credits Bounty</span>
+                        <span className="text-emerald-400 font-medium">+{server.rewardCoins || 2} Credits Bounty</span>
                       </div>
                     </div>
 

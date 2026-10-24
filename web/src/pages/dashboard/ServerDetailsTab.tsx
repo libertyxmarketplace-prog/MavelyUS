@@ -192,12 +192,8 @@ export function ServerDetailsTab({
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto animate-in fade-in-50 duration-200 pb-12">
-      {/* ── SERVER HERO HEADER (With Circulating Emerald Border Beam) ── */}
-      <div className="relative rounded-2xl p-[1px] overflow-hidden group shadow-xl">
-        {/* Animated circulating emerald luminous beam ("turn ish") */}
-        <div className="absolute inset-[-150%] animate-border-beam bg-[conic-gradient(from_0deg_at_50%_50%,transparent_0deg,transparent_220deg,#10b981_280deg,#34d399_320deg,#10b981_360deg)] pointer-events-none" />
-
-        <div className="relative rounded-2xl bg-[#0f0f0f] border border-white/[0.08] overflow-hidden z-10">
+      {/* ── SERVER HERO HEADER ── */}
+      <div className="relative rounded-2xl bg-[#0f0f0f] border border-white/[0.08] overflow-hidden shadow-xl">
           {/* Optional Custom Banner (ONLY rendered if explicitly provided) */}
           {hasBanner && (
           <div className="relative w-full h-44 sm:h-60 overflow-hidden bg-zinc-950 border-b border-white/10">
@@ -323,7 +319,7 @@ export function ServerDetailsTab({
           </div>
         </div>
       </div>
-    </div>
+
 
       {/* ── DETAILS CONTENT GRID ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
