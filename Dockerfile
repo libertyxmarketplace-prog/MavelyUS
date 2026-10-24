@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1 # check=skip=SecretsUsedInArgOrEnv,UndefinedVar
-
 FROM node:20-bookworm-slim
 
 # Install system dependencies needed for runtime (ffmpeg, python3, ca-certificates)
@@ -15,7 +13,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install production dependencies
-RUN npm ci --omit=dev || npm install --omit=dev
+RUN npm install --omit=dev
 
 # Copy application source code
 COPY . .
