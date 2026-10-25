@@ -1746,9 +1746,7 @@ const client = new Client({
     GatewayIntentBits.GuildVoiceStates
   ],
   partials: [Partials.Channel, Partials.Message],
-  // Idle = visible in the member list, but never a green "Online" dot.
-  // (invisible would hide it from the list entirely, 'online' shows Online)
-  presence: { status: 'idle' }
+  presence: { status: 'online' }
 });
 
 // ── Gateway & Shard resilience listeners ──
@@ -1758,8 +1756,20 @@ client.on(Events.Error, (err) => {
 client.on(Events.ShardError, (err, shardId) => {
   console.error(`[Discord Shard ${shardId} Error]`, err?.message || err);
 });
+client.on(Events.ShardReconnecting, (shardId) => {
+  console.log(`[Discord Shard ${shardId}] Reconnecting to gateway...`);
+});
+client.on(Events.ShardResume, (shardId, replayedEvents) => {
+  console.log(`[Discord Shard ${shardId}] Resumed connection. Replayed ${replayedEvents} events.`);
+});
 client.on(Events.ShardDisconnect, (event, shardId) => {
   console.warn(`[Discord Shard ${shardId} Disconnected]`, event);
+  setTimeout(() => {
+    if (!client.ws || client.ws.status !== 0) {
+      console.log('[Discord Gateway] Auto-reconnecting client...');
+      client.login(config.token).catch((err) => console.error('[Discord Reconnect Error]', err.message));
+    }
+  }, 3000);
 });
 client.rest.on('rateLimited', (info) => {
   console.warn('[Discord REST RateLimited]', info?.route, `retryAfter=${info?.timeToReset}ms`);
@@ -11234,7 +11244,7 @@ async function updateBotPresence(botClient) {
 
     botClient.user?.setPresence({
       activities: [{ name: text, type: ActivityType.Watching }],
-      status: 'idle'
+      status: 'online'
     });
   } catch (err) {
     console.warn(`Could not update bot presence: ${err.message}`);

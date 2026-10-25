@@ -24,5 +24,8 @@ COPY . .
 # Set environment
 ENV NODE_ENV=production
 
+# Expose healthcheck port for Railway
+EXPOSE 8080
+
 # Start the bot
 CMD ["node", "run.js"]
