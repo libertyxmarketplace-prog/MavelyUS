@@ -1746,7 +1746,7 @@ const client = new Client({
     GatewayIntentBits.GuildVoiceStates
   ],
   partials: [Partials.Channel, Partials.Message],
-  presence: { status: 'online' }
+  presence: { status: 'idle' }
 });
 
 // ── Gateway & Shard resilience listeners ──
@@ -11244,7 +11244,7 @@ async function updateBotPresence(botClient) {
 
     botClient.user?.setPresence({
       activities: [{ name: text, type: ActivityType.Watching }],
-      status: 'online'
+      status: 'idle'
     });
   } catch (err) {
     console.warn(`Could not update bot presence: ${err.message}`);
