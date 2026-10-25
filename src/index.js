@@ -23139,6 +23139,14 @@ if (PORT) {
       }
     });
 
+    healthServer.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.warn(`[Railway Web Server] Port ${PORT} is already in use by another instance. Continuing bot execution.`);
+      } else {
+        console.warn(`[Railway Web Server] Server error: ${err.message}`);
+      }
+    });
+
     healthServer.listen(Number(PORT), '0.0.0.0', () => {
       console.log(`[Railway Web Server] Healthcheck listening on port ${PORT}`);
     });

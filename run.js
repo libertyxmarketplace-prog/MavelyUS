@@ -1,44 +1,11 @@
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import http from 'http';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 console.log('[supervisor] Alabama Bot Supervisor active. 24/7 auto-restart is armed.');
-
-// ─── RAILWAY 24/7 HEALTHCHECK SERVER ─────────────────────────────────────────
-// Railway requires containers to listen on $PORT. If $PORT is not bound, Railway
-// may assume the service failed or is unhealthy and restart/terminate it.
-const PORT = process.env.PORT || 8080;
-const healthServer = http.createServer((req, res) => {
-  if (req.url === '/health' || req.url === '/' || req.url === '/ping') {
-    res.writeHead(200, {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
-    });
-    return res.end(JSON.stringify({
-      status: 'online',
-      service: 'Alabama State Roleplay Bot',
-      uptime: Math.floor(process.uptime()),
-      timestamp: new Date().toISOString()
-    }));
-  }
-  res.writeHead(404);
-  res.end('Not Found');
-});
-
-healthServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`[supervisor] 24/7 Railway Healthcheck HTTP server active on port ${PORT}`);
-});
-healthServer.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.warn(`[supervisor] Port ${PORT} already bound, continuing bot execution.`);
-  } else {
-    console.warn(`[supervisor] Health server notice: ${err.message}`);
-  }
-});
 
 let isStopping = false;
 let currentChild = null;
@@ -58,15 +25,15 @@ function launch() {
       console.log('[supervisor] Bot stopped gracefully.');
       return;
     }
-    console.warn(`[supervisor] Bot exited (code=${code}, signal=${signal}). Restarting immediately in 1.5s...`);
-    setTimeout(launch, 1500);
+    console.warn(`[supervisor] Bot exited (code=${code}, signal=${signal}). Restarting immediately in 1s...`);
+    setTimeout(launch, 1000);
   });
 
   currentChild.on('error', (err) => {
     currentChild = null;
     if (isStopping) return;
     console.error('[supervisor] Spawn error:', err.message);
-    setTimeout(launch, 3000);
+    setTimeout(launch, 2000);
   });
 }
 
