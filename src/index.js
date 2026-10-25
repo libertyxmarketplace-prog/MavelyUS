@@ -23079,7 +23079,7 @@ if (!process.env.SKIP_LOGIN) {
   // (that 2nd login is what stole your commands + froze updates).
   const entry = process.argv[1] ? path.resolve(process.argv[1]).replace(/\\/g, '/') : '';
   const self = fileURLToPath(import.meta.url).replace(/\\/g, '/');
-  if (entry.endsWith('/src/index.js') && (entry === self || path.resolve(entry) === path.resolve(self))) {
+  if (entry.toLowerCase().endsWith('/src/index.js') && (entry.toLowerCase() === self.toLowerCase() || path.resolve(entry).toLowerCase() === path.resolve(self).toLowerCase())) {
     client.login(config.token);
 
     // Launch Orlando Roleplay bot as a completely separate background process
